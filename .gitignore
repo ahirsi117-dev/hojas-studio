@@ -1,0 +1,8 @@
+demo/
+fonts/*.otf
+fonts/*.ttf
+__pycache__/
+*.pyc
+node_modules/
+.DS_Store
+run-demo.bat
