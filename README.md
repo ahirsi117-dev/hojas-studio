@@ -11,10 +11,10 @@
 </p>
 
 <p align="center">
-  <img alt="Claude Code skill" src="https://img.shields.io/badge/Claude%20Code-skill-D97757?style=flat-square">
-  <img alt="Version" src="https://img.shields.io/badge/version-4.0.1-141413?style=flat-square">
-  <img alt="Platforms" src="https://img.shields.io/badge/Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-supported-141413?style=flat-square">
-  <img alt="License" src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-6B6862?style=flat-square">
+  <img alt="Claude Code skill" src="docs/assets/badge-skill.svg">
+  <img alt="Version 4.0.1" src="docs/assets/badge-version.svg">
+  <img alt="Runs on Windows, macOS, Linux" src="docs/assets/badge-platforms.svg">
+  <img alt="License: PolyForm Noncommercial" src="docs/assets/badge-license.svg">
 </p>
 
 **Hojas Studio** is a [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) skill that edits talking-head videos the way a good editor would, and then hands you the edit on a real timeline in your browser.
