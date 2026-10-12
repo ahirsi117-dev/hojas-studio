@@ -66,7 +66,7 @@
 2. افتح Claude Code والصق له:
 
    ```
-   ثبّت سكل Hojas Studio: git clone https://github.com/rakaga66/hojas-studio ~/.claude/skills/hojas-studio
+   Install this skill: git clone https://github.com/rakaga66/hojas-studio ~/.claude/skills/hojas-studio
    ```
 
    أو شغّله بنفسك من الطرفية:
