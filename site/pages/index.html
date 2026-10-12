@@ -1,0 +1,207 @@
+<section class="hero">
+<div class="wrap">
+<h1>منتج مقطعك مع Claude، وعدّل لمساتك على التايم لاين</h1>
+<p class="lead">هوجاس ستوديو أداة مونتاج لمقاطع الكلام للكاميرا: تيك توك وريلز وشورتس وإكس ولينكدإن. تعطي Claude الفيديو، فيقص السكتات ويفرّغ كلامك ويكتب الكابشن العربي ويصمّم المشاهد، وأنت تتابع شغله لحظة بلحظة في المتصفح. ولما يخلص يرسل لك المقطع على جوالك، وينشره على تيك توك بعد موافقتك.</p>
+
+<div class="hero-actions">
+<a class="btn btn-primary btn-big btn-stack" href="downloads/hojas-studio.zip" download>حمّل الأداة مجاناً<small>ملف ZIP · {SIZE} ميقا · الإصدار {VER}</small></a>
+<a class="btn btn-ghost btn-big btn-stack" href="#download">طرق التثبيت<small>سطر واحد في Claude Code، أو GitHub</small></a>
+</div>
+
+<ul class="meta-list">
+<li>الإصدار {VER}</li>
+<li>ويندوز وماك</li>
+<li>يعمل مع Claude Code</li>
+<li>بدون مفاتيح API</li>
+<li>مجاني للاستخدام الشخصي</li>
+</ul>
+
+<figure class="tl" aria-hidden="true">
+<div class="tl-ruler">
+<span style="left:0%">0:00</span>
+<span style="left:25%">0:05</span>
+<span style="left:50%">0:10</span>
+<span style="left:75%">0:15</span>
+</div>
+<div class="tl-body">
+<div class="tl-row">
+<span class="tl-label">فيديو</span>
+<div class="tl-track">
+<span class="seg" style="left:0%;width:24%"><b>هوك</b></span>
+<span class="seg" style="left:25%;width:31%"><b>شرح</b></span>
+<span class="seg" style="left:57%;width:43%"><b>ختام</b></span>
+<span class="cut" style="left:24.5%"></span>
+<span class="cut" style="left:56.5%"></span>
+</div>
+</div>
+<div class="tl-row">
+<span class="tl-label">كابشن</span>
+<div class="tl-track">
+<span class="chip" style="left:0%;width:36%">شلت السكتات</span>
+<span class="chip on" style="left:39%;width:35%">وصار المقطع أسرع</span>
+<span class="chip" style="left:77%;width:23%">بكثير</span>
+</div>
+</div>
+<div class="tl-row">
+<span class="tl-label">طبقات</span>
+<div class="tl-track">
+<span class="layer" style="left:0%;width:18%">اسم</span>
+<span class="layer" style="left:44%;width:9%">زوم</span>
+<span class="layer accent" style="left:58%;width:42%">كرت شرح</span>
+</div>
+</div>
+<div class="tl-row">
+<span class="tl-label">صوت</span>
+<div class="tl-track">
+<div class="wave" data-bars="56"></div>
+</div>
+</div>
+<span class="playhead"></span>
+</div>
+</figure>
+<p class="tl-caption">مثال من التايم لاين. العلامة البيضاء قصة بين لقطتين، والكلمة البرتقالية هي التي تُنطق الآن.</p>
+</div>
+</section>
+
+<section class="section" id="download" aria-labelledby="dl-title">
+<div class="wrap">
+<div class="section-head">
+<h2 id="dl-title">حمّل الأداة وثبّتها</h2>
+<p>تحتاج قبلها Claude Code مثبّت على جهازك ومسجّل دخول بحسابك. اختر طريقة وحدة من الثلاث.</p>
+</div>
+<ul class="get">
+<li class="get-opt main">
+<h3>سطر واحد في Claude Code <span class="pick">الأسهل</span></h3>
+<p>افتح Claude Code والصق هذا السطر، وهو يثبّت الأداة لحالها. التحديث بعدها تقول له: حدّث Hojas Studio.</p>
+<div class="code"><code id="cmd1">ثبّت سكل Hojas Studio: git clone https://github.com/rakaga66/hojas-studio ~/.claude/skills/hojas-studio</code><button class="copy" type="button" data-copy="cmd1">نسخ</button></div>
+</li>
+<li class="get-opt">
+<h3>تحميل مباشر</h3>
+<p>ملف ZIP بحجم {SIZE} ميقا. فك الضغط في Documents، ودبل كلك على <code>install.bat</code> (ماك: <code>bash install.sh</code>).</p>
+<a class="btn btn-primary" href="downloads/hojas-studio.zip" download>حمّل hojas-studio.zip</a>
+</li>
+<li class="get-opt">
+<h3>من GitHub</h3>
+<p>الكود كامل، وكل إصدار جديد ينزل هناك أول. للي يعرف git أو يبي يتابع التحديثات.</p>
+<a class="btn btn-line" href="https://github.com/rakaga66/hojas-studio" target="_blank" rel="noopener">افتح المستودع</a>
+</li>
+</ul>
+<p class="get-note">بعد التثبيت اقفل Claude Code وافتحه، واكتب له «افحص أدوات Hojas Studio». يقول لك وش الناقص ولا يثبّت شي إلا بموافقتك. الخطوات بالتفصيل في <a href="/guide#install">الدليل</a>.</p>
+</div>
+</section>
+
+<section class="section band" aria-labelledby="how-title">
+<div class="wrap">
+<div class="section-head">
+<h2 id="how-title">من الفيديو الخام إلى المقطع المنشور</h2>
+<p>أربع خطوات، وتشوف كل واحدة وهي تصير.</p>
+</div>
+<ol class="steps">
+<li class="step">
+<span class="step-n">01</span>
+<h3>اطلب المونتاج</h3>
+<p>أعطِ Claude الفيديو وقل له المنصة اللي تنشر عليها. أي صيغة من الجوال تمشي.</p>
+</li>
+<li class="step">
+<span class="step-n">02</span>
+<h3>جاوب صفحة الأسئلة</h3>
+<p>بعد التفريغ تفتح صفحة واحدة: نوع المقطع والمنصات والمقاس وشكل الكابشن. Claude ما يسألك بالمحادثة، ولو كنت بعيد يوصلك إشعار.</p>
+</li>
+<li class="step">
+<span class="step-n">03</span>
+<h3>عدّل وصدّر</h3>
+<p>المقطع يفتح على التايم لاين في المتصفح. غيّر اللي تبيه وصدّر، ويوصلك المقطع على جوالك.</p>
+</li>
+<li class="step">
+<span class="step-n">04</span>
+<h3>انشر</h3>
+<p>قل له «انشره على تيك توك»، فيرفعه من متصفحك ويحط الوصف، ويوقف قبل زر النشر لين توافق.</p>
+</li>
+</ol>
+</div>
+</section>
+
+<section class="section" aria-labelledby="features-title">
+<div class="wrap">
+<div class="section-head">
+<h2 id="features-title">أبرز الميزات</h2>
+<p>كل الميزات مرتبة حسب الغرض في صفحة الميزات.</p>
+</div>
+<ul class="cards">
+<li class="card">
+<h3>يكلّمك على جوالك<span class="new">جديد</span></h3>
+<p>إشعار لما يحتاجك، والمقطع نفسه أول ما يخلص. عن طريق تطبيق ntfy المجاني، بدون حساب ولا مفاتيح.</p>
+</li>
+<li class="card">
+<h3>ينشر على تيك توك<span class="new">جديد</span></h3>
+<p>من متصفحك وبحسابك، ويجدول لو تبي. والضغطة الأخيرة لك دايماً.</p>
+</li>
+<li class="card">
+<h3>يتعلّم أسلوبك<span class="new">جديد</span></h3>
+<p>الخطوط والألوان وكرت الختام والكلمات اللي تصححها، كلها تنحفظ، والمقطع الجاي يبدأ على ذوقك.</p>
+</li>
+<li class="card">
+<h3>كابشن عربي على أنفاس الكلام</h3>
+<p>20 ستايل جاهز، وتمييز الكلمة المنطوقة بلون أو توهج أو خط تحت، وترجمة إنجليزية تحتها.</p>
+</li>
+<li class="card">
+<h3>كروت شرح تتحرك فوق المتحدث</h3>
+<p>تسعة أشكال من النقاط والخطوات إلى المخطط والخط الزمني، ووجهك يبقى ظاهراً كاملاً.</p>
+</li>
+<li class="card">
+<h3>تايم لاين في المتصفح</h3>
+<p>سحب وتقسيم ومغناطيس وتراجع حتى 40 خطوة، واختصارات لوحة المفاتيح.</p>
+</li>
+</ul>
+<div class="section-foot">
+<a class='btn btn-line' href='/features'>كل الميزات</a>
+</div>
+</div>
+</section>
+
+<section class="section band" aria-labelledby="updates-title">
+<div class="wrap">
+<div class="section-head">
+<h2 id="updates-title">آخر التحديثات</h2>
+<p>السجل الكامل لكل إصدار في صفحة التحديثات.</p>
+</div>
+<ul class="rows">
+<li>
+<a href='/updates#v4-1'>
+<span class="ver">4.1</span>
+<span class="row-text">إشعارات ومقاطعك على جوالك، والنشر على تيك توك، ويتعلّم أسلوبك، وخط كرت الختام، والتثبيت بسطر واحد</span>
+</a>
+</li>
+<li>
+<a href='/updates#v4-0-1'>
+<span class="ver">4.0.1</span>
+<span class="row-text">رمز دخول الجوال ينقفل بعد المحاولات الخاطئة، والتثبيت ما يلمس سكلاتك الثانية، والتوليد كله من حسابك</span>
+</a>
+</li>
+<li>
+<a href='/updates#v4-0'>
+<span class="ver">4.0</span>
+<span class="row-text">دمج 30 سكل فيديو: انتقالات، علامات بخط اليد، كولاج ورقي، طوابع، وتلوين للفيديو</span>
+</a>
+</li>
+</ul>
+</div>
+</section>
+
+<section class="section" aria-labelledby="req-title">
+<div class="wrap">
+<div class="section-head">
+<h2 id="req-title">قبل ما تثبّت</h2>
+<p>تحتاج شي واحد تجهزه بنفسك: Claude Code مثبّت على جهازك ومسجّل دخول بحسابك. الباقي أدوات مجانية ومفتوحة المصدر، وClaude يفحص جهازك ويقول لك وش الناقص، ولا يثبّت شي إلا بعد موافقتك.</p>
+</div>
+<ul class="check-list">
+<li>ffmpeg لقص الفيديو وتطلع الملف النهائي</li>
+<li>Python مع whisper لتفريغ الكلام</li>
+<li>Node.js وChrome أو Edge لرسم الكابشن والكروت</li>
+<li>Git (على ويندوز Git for Windows)</li>
+</ul>
+<div class="section-foot">
+<a class='btn btn-line' href='/guide#install'>خطوات التثبيت في الدليل</a>
+</div>
+</div>
+</section>
