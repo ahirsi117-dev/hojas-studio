@@ -139,7 +139,7 @@
         const last=out[out.length-1]; if(last&&last.m===src.m&&last.__src===src) last.e=b; else out.push({...src,s:a,e:b,__src:src}); }
       out.__hs=true; SCENES=out; try{ _RES=false; }catch(e){} }catch(e){ if(!window.__hsSE){ window.__hsSE=1; console.error('hs scenes: '+e.message); } } }
   const _init=window.init;
-  window.init=function(d){ const p=Promise.resolve(_init(d)); return Promise.all([p.then(()=>{ if(d&&d.studio&&Array.isArray(d.studio.scenes)&&d.studio.scenes.length) BASE_SC=null; HSX=(d&&d.studio&&d.studio.hs)||{}; scenesSync(); if(LOWK!==1) window.hsLowRes(LOWK); }),apply((d&&d.studio&&d.studio.hs)||{}),loadAux()]).then(r=>{ scenesSync(); return r; }); };
+  window.init=function(d){ const p=Promise.resolve(_init(d)); return Promise.all([p.then(()=>{ if(d&&d.studio&&Array.isArray(d.studio.scenes)&&d.studio.scenes.length) BASE_SC=null; HSX=(d&&d.studio&&d.studio.hs)||{}; scenesSync(); if(LOWK!==1) window.hsLowRes(LOWK); }),apply((d&&d.studio&&d.studio.hs)||{}),loadFont(d&&d.studio&&d.studio.outro&&d.studio.outro.font),loadAux()]).then(r=>{ scenesSync(); return r; }); };
   /* تحديث حيّ من الاستوديو بلا إعادة تهيئة كاملة (سحب السلايدر) */
   window.hsSet=function(hs){ const p=apply(hs); scenesSync(); return p; };
   window.hsLoadFont=loadFont;

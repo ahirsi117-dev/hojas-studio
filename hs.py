@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Hojas Studio 4.0 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
+"""Hojas Studio 4.1 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
 
   python hs.py open   <work> [--engine <مجلد المحرّك>] [--port 8800] [--no-browser]
         يشغّل الخادم بالخلفية ويفتح المتصفح. شغّله أول ما تبدأ المونتاج، حتى قبل ما يجهز أي ملف.
@@ -34,6 +34,10 @@
   python hs.py face   <work>                         يحدد مكان الوجه (يشتغل لحاله، هذا للإعادة)
   python hs.py mask   <work> <ث-ث> …                 يجهّز قص الشخص لمدى معيّن (يشتغل لحاله مع type=bg|behind)
   python hs.py sfx    <work> list | add <id> <ث> … | import <ملف أو مجلد> [--name "…"] [--note "…"]   مكتبة الأصوات + أصوات المستخدم
+  python hs.py notify setup | test | off | status | send "نص" [--file ملف]    إشعارات وملفات لجوالك (ntfy، بلا حساب)
+  python hs.py style  show | snap <work> | learn <work> | apply <work> | reset   يتعلّم أسلوب المستخدم من تعديلاته
+  python hs.py publish <work> list | <tiktok> [--at "وقت"] | done <المنصة> <الرابط>   يجهّز النشر من متصفح المستخدم
+  python hs.py update                                يحدّث السكل (لو مثبّت بـ git)
   python hs.py tools                                 وش الأدوات اللي يحتاجها السكل وليش (اعرضها على المستخدم قبل أي تثبيت)
   python hs.py doctor [--engine …]
   python hs.py selftest [<work>]      فحص ذاتي: صياغة الملفات · النصوص العربية سليمة · كل مفاتيح الواجهة موجودة · الخادم يرد
@@ -57,7 +61,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.0.1"
+VERSION = "4.1.0"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -112,6 +116,9 @@ def patch(work, quiet=False):
     src = open(comp, encoding="utf-8").read()
     old = "T('والملف كامل يوصلك على الخاص',540,1370"   # 3.9: السطر الصغير بكرت الختام صار يتعدّل من الاستوديو
     if old in src: src = src.replace(old, "T(OUTRO_T.sub==null?'والملف كامل يوصلك على الخاص':OUTRO_T.sub,540,1370"); open(comp, "w", encoding="utf-8").write(src)
+    of_old = "function outro(t){ const s=VEND;"   # 4.1: خط كرت الختام يتغيّر من الاستوديو
+    if of_old in src and "function outroF(" not in src:
+        src = src.replace(of_old, "function outro(t){ return outroF(t,OUTRO_T.font?'\"'+OUTRO_T.font+'\"':FONT); }\nfunction outroF(t,FONT){ const s=VEND;"); open(comp, "w", encoding="utf-8").write(src)
     if TAG in src: return False
     i = src.rfind("</body>")
     src = (src[:i] + TAG + "\n" + src[i:]) if i >= 0 else (src + "\n" + TAG + "\n")
@@ -543,6 +550,8 @@ NET_USE = [
     "بحث الصور والمقاطع: يسأل ويكيميديا كومنز بكلمات البحث فقط وينزّل اللي تختاره.",
     "لقطة موقع: يفتح الرابط اللي تكتبه أنت فقط.",
     "غير هذا ما فيه أي اتصال: الفيديو والصوت والنص والوجه كلها تتعالج على جهازك.",
+    "إشعارات الجوال (لو فعّلتها بنفسك): الإشعار والمقطع المرفق يمرّون على خادم ntfy.sh ساعات قليلة، واسم القناة هو كلمة السر.",
+    "النشر (لو طلبته): من متصفحك وبحسابك بأداة Claude in Chrome، وClaude يوقف قبل زر النشر لين توافق."
 ]
 def tools_text():
     L = ["الأدوات اللي يحتاجها Hojas Studio (كلها مجانية ومفتوحة المصدر، وما يتثبّت شي إلا بموافقتك):", ""]
@@ -682,6 +691,10 @@ def export(work, S, log, kind="final", hooks=False, frame=None):
     if kind == "final":
         ed = J(work, ".hs", "exports"); os.makedirs(ed, exist_ok=True); shutil.copy(J(work, "ad-master.mp4"), os.path.join(ed, time.strftime("%Y%m%d-%H%M%S") + ".mp4"))
         for old in sorted(os.listdir(ed))[:-6]: os.remove(os.path.join(ed, old))
+        try: style_learn(work)
+        except Exception as e: log("ما قدرت أتعلّم من تعديلاتك: %s" % e)
+        main_out = J(work, outs[1] if len(outs) > 1 and not outs[1].startswith("ad-hook") else outs[0])
+        notify_quiet("المقطع جاهز: %s" % os.path.basename(work.rstrip("/\\")), title="Hojas Studio: خلص المونتاج", file=main_out, tags="white_check_mark")
     return outs
 
 def srt_ts(t):
@@ -727,6 +740,7 @@ def brief_ask(work, hooks=(), topics=(), note="", extra=None):
     if os.path.exists(bp): shutil.copy(bp, J(work, ".hs", "brief.prev.json"))
     wj(ap, {"askedAt": int(time.time()), "hooks": list(hooks), "topics": list(topics), "note": note, "extra": extra or []})
     say(work, "جهّزت لك أسئلة قبل ما أبدأ المونتاج. جاوب عليها واضغط حفظ.", "ask")
+    notify_quiet("جهّزت لك صفحة الأسئلة. افتح الاستوديو وجاوب عشان أبدأ المونتاج.", title="Hojas Studio: أنتظرك", tags="question")
 def brief_text(work):
     a = rj(brief_paths(work)[1]) or {}; caps = rj(J(work, "caps.json"), {"cards": []}); L = []
     def row(k, v):
@@ -820,6 +834,8 @@ def brief_apply(work):
     for k, v in (a.get("extra") or {}).items(): todo.append("إجابة «%s»: %s" % (k, v))
     if a.get("ref"): todo.append("مرجع يبي مثله: " + a["ref"])
     if a.get("notes"): todo.append("ملاحظاته الحرّة: " + a["notes"])
+    nw = style_apply(work)
+    if nw: done.append("تصحيحات كلمات تعلّمتها منه: %d" % nw)
     print("انطبق تلقائياً: " + ("، ".join(done) or "لا شي")); print("\nمهامك من إجاباته:")
     for x in todo:
         if x: print("  □ " + x)
@@ -828,6 +844,7 @@ def brief_apply(work):
         if len(plats) > 1: print("  ← الكابشن والنصوص لازم تكون بين %s%% و%s%% من الارتفاع عشان تسلم في كل المنصات المختارة." % (sz["capMin"], sz["capMax"]))
         short = [n for n in plats if n == "x"]; tot = (rj(J(work, "caps.json"), {}) or {}).get("total", 0)
         if short and tot > 140: print("  ← تنبيه: المقطع %d ثانية وإكس يقبل 140 للحساب العادي. اسأله: حسابه مشترك؟ وإلا اقترح نسخة أقصر." % tot)
+    if style_prof().get("n"): print("\nأسلوبه من تعديلاته السابقة (إجاباته الحين تتقدّم عليه لو تعارضت):"); print(style_text())
     say(work, "قرأت إجاباتك وبدأت المونتاج عليها.", "step")
 
 # ───────────────────────── صور حقيقية برخص حرّة (ويكيميديا كومنز) ─────────────────────────
@@ -1254,6 +1271,15 @@ def cmd_selftest(work=None, engine=None):
     noar = sorted(k for k, (a, e) in ent.items() if not re.search(r"[؀-ۿ]", a) and re.search(r"[A-Za-z]{4,}", a) and a == e and k not in ("b_tiktok",))
     if noar: print("ملاحظة: مفاتيح عربيّها نفس الإنجليزي (أسماء علم غالباً): " + "، ".join(noar[:12]))
     for k, v in PLATFORMS.items(): chk("منصة %s كاملة" % k, len(v["safe"]) == 4 and v["tips"] and all(f in FRAMES for f in v["frames"]) and ("b_" + k) in ent)
+    # 4.1: الأسلوب المتعلَّم · النشر · الإشعارات
+    b0 = {"studio": {"hs": {"cap": {"font": "Cairo", "size": 70}, "layers": [{"id": "L1", "type": "text"}, {"id": "L2", "type": "card"}]}, "outro": {"cta": "تابعني"}}, "caps": {"cards": [{"w": [{"t": "الذكاء"}, {"t": "الاصطناعي"}, {"t": "جي بي تي"}]}]}, "theme": {"acc": "#F2B33D"}}
+    c0 = {"studio": {"hs": {"cap": {"font": "Tajawal", "size": 70}, "layers": [{"id": "L1", "type": "text"}, {"id": "L3", "type": "viz"}]}, "outro": {"cta": "تابعني", "font": "Lalezar"}}, "caps": {"cards": [{"w": [{"t": "الذكاء"}, {"t": "الاصطناعي"}, {"t": "GPT"}]}]}, "theme": {"acc": "#E07A5F"}}
+    d0 = style_diff(b0, c0)
+    chk("الأسلوب: يلقط تعديلات المستخدم", d0["cap"] == {"font": "Tajawal"} and d0["outro"] == {"font": "Lalezar"} and d0["removed"] == {"card": 1} and d0["added"] == {"viz": 1} and d0["theme"] == {"acc": "#E07A5F"}, json.dumps(d0, ensure_ascii=False)[:200])
+    chk("الأسلوب: يلقط تصحيح الكلمات", d0["words"].get("جي بي تي") == "GPT", json.dumps(d0["words"], ensure_ascii=False))
+    chk("الأسلوب: الملخص يطلع", "Tajawal" in style_text({"n": 1, "updated": "x", "cap": {"font": "Tajawal"}, "words": {"a": "b"}}))
+    chk("النشر: تيك توك متاح للكل", "tiktok" in publish_platforms())
+    chk("الإشعارات: الرابط سليم", notify_url({"server": "https://ntfy.sh", "topic": "hojas-x"}, title="عنوان", filename="a.mp4").startswith("https://ntfy.sh/hojas-x?title=%D8"))
     sz = safe_of(["tiktok", "instagram"]); chk("حساب المنطقة الآمنة", sz["capMax"] == 67.0 and sz["capMin"] == 18.0, json.dumps(sz))
     chk("حساب القص 4:5", safe_of([], "4:5")["crop"] == [11.77, 82.08], json.dumps(safe_of([], "4:5")))
     if work and os.path.isdir(work):
@@ -1325,6 +1351,7 @@ def cmd_tr(work, args):
 def cmd_set(work, args):
     sp = J(work, "studio.json"); st = load_studio(work); hs = hs_of(st)
     for k, val in parse_kv(args).items():
+        if k.startswith("outro."): st.setdefault("outro", {})[k[6:]] = val; continue
         cur = hs; parts = k.split(".")
         for p in parts[:-1]: cur = cur.setdefault(p, {})
         cur[parts[-1]] = val
@@ -1559,9 +1586,10 @@ def serve(work, port, engine):
 
     # ── تشغيل Claude Code من الاستوديو ──
     def agent_run(task, label, gen=False):
-        exe = shutil.which("claude")
-        if not exe: return False, "ما لقيت Claude Code على الجهاز"
-        if AG["running"]: return False, "Claude شغّال الحين على طلب سابق"
+        exe = shutil.which("claude"); oc = None if exe else shutil.which("opencode")
+        if not exe and not oc: return False, "ما لقيت Claude Code ولا OpenCode على الجهاز"
+        if AG["running"]: return False, "الوكيل شغّال الحين على طلب سابق"
+        if oc: return agent_run_opencode(oc, task, label)
         cmd = [exe, "-p", "Follow the task given on stdin. Work only inside the current project folder.", "--output-format", "stream-json", "--verbose",
                "--permission-mode", "acceptEdits", "--append-system-prompt-file", os.path.join(HERE, "AGENT.md"),
                "--add-dir", HERE, eng, "--allowedTools", "Bash", "Read", "Edit", "Write", "Glob", "Grep"] + (["mcp__claude-in-chrome", "mcp__higgsfield", "WebSearch", "WebFetch"] if gen else [])
@@ -1588,6 +1616,25 @@ def serve(work, port, engine):
                 elif p.returncode not in (0, None) and not final: say(work, "Claude ما اشتغل (رمز %s). تأكد إنك مسجّل دخول في Claude Code." % p.returncode, "err")
                 else: say(work, "خلص Claude من الطلب.", "done")
             except Exception as e: say(work, "تعذّر تشغيل Claude: " + str(e)[:200], "err")
+            finally: AG.update(running=False, proc=None)
+        threading.Thread(target=go, daemon=True).start(); return True, ""
+
+    def agent_run_opencode(exe, task, label):
+        """4.1: نفس زر «نفّذ» لكن مع OpenCode (تجريبي): نمرّر تعليمات AGENT.md داخل الطلب ونعرض مخرجاته سطر سطر."""
+        guide = open(os.path.join(HERE, "AGENT.md"), encoding="utf-8").read()
+        full = "%s\n\nمجلد المشروع: %s\nمجلد الاستوديو (hs.py): %s\nمجلد المحرّك: %s\nمفسّر بايثون: %s\n\nالمطلوب:\n%s\n" % (guide, work, HERE, eng, PY, task)
+        cmd = [exe, "run", full]
+        if exe.lower().endswith((".cmd", ".bat")): cmd = ["cmd", "/c"] + cmd
+        AG.update(running=True, started=time.time()); say(work, label + " (OpenCode)", "ask")
+        def go():
+            try:
+                kw = {"creationflags": 0x08000000} if os.name == "nt" else {}
+                p = subprocess.Popen(cmd, cwd=work, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kw); AG["proc"] = p
+                for raw in p.stdout:
+                    ln = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", raw.decode("utf-8", "replace")).strip()
+                    if ln: say(work, ln[:300], "claude")
+                p.wait(); say(work, "خلص OpenCode من الطلب." if p.returncode == 0 else "OpenCode وقف (رمز %s)." % p.returncode, "done" if p.returncode == 0 else "err")
+            except Exception as e: say(work, "تعذّر تشغيل OpenCode: " + str(e)[:200], "err")
             finally: AG.update(running=False, proc=None)
         threading.Thread(target=go, daemon=True).start(); return True, ""
 
@@ -1660,10 +1707,12 @@ def serve(work, port, engine):
             if p == "/hs/info":
                 return self._json(200, {"version": VERSION, "vsig": vsig(work), "token": TOKEN, "lan": "http://%s:%d/?k=%s" % (LAN, port, TOKEN), "lanM": "http://%s:%d/m?k=%s" % (LAN, port, TOKEN), "review": "http://%s:%d/review?r=%s" % (LAN, port, RTOKEN),
                                         "work": work, "name": os.path.basename(work.rstrip("/\\")), "thumbsDone": BG["thumbsDone"], "versions": versions(), "exports": exports(),
-                                        "brands": sorted(os.path.splitext(f)[0] for f in os.listdir(brand_dir())), "local": self._local(), "claude": bool(shutil.which("claude")), "gen": gen_view(gen_list(work)), "safe": safe_of((load_studio(work).get("hs") or {}).get("platforms"), *frame_of(load_studio(work).get("hs") or {})), "platforms": {k: {"safe": v["safe"], "frames": v["frames"], "best": v["best"], "max": v["max"]} for k, v in PLATFORMS.items()},
+                                        "brands": sorted(os.path.splitext(f)[0] for f in os.listdir(brand_dir())), "local": self._local(), "claude": bool(shutil.which("claude") or shutil.which("opencode")), "agent": "claude" if shutil.which("claude") else ("opencode" if shutil.which("opencode") else ""), "notify": bool(notify_cfg().get("on")), "gen": gen_view(gen_list(work)), "safe": safe_of((load_studio(work).get("hs") or {}).get("platforms"), *frame_of(load_studio(work).get("hs") or {})), "platforms": {k: {"safe": v["safe"], "frames": v["frames"], "best": v["best"], "max": v["max"]} for k, v in PLATFORMS.items()},
                                         "assets": sorted(f for f in os.listdir(P("assets")) if os.path.splitext(f)[1].lower() in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg")) if os.path.isdir(P("assets")) else [], "seams": keep_seams(work), "looks": looks_all(), "beats": rj(P("beats.json")),
                                         "post": open(P("post.txt"), encoding="utf-8").read() if os.path.exists(P("post.txt")) else "", "ready": ready(work),
                                         "finals": [f for f in sorted(os.listdir(work)) if re.match(r"ad-(master|clean|hook-\d+|\d+x\d+)\.mp4$", f)]})
+            if p == "/hs/notify":
+                c = notify_cfg(); return self._json(200, {"on": bool(c.get("on")), "topic": c.get("topic", "") if role == "owner" else "", "sub": notify_sub(c) if c.get("topic") and role == "owner" else ""})
             if p == "/hs/peaks": return self._json(200, peaks())
             if p == "/hs/notes": return self._json(200, rj(P("notes.json"), []) or [])
             if p == "/hs/check": return self._json(200, check(work))
@@ -1844,6 +1893,16 @@ def serve(work, port, engine):
                         try: pr.kill()
                         except Exception: pass
                     return self._json(200, {"ok": True})
+                if p == "/hs/notify":
+                    if role != "owner": return self._deny()
+                    act = data.get("action")
+                    if act == "setup": c = notify_setup(); return self._json(200, {"ok": True, "on": True, "topic": c["topic"], "sub": notify_sub(c)})
+                    if act == "off": c = notify_cfg(); c["on"] = False; wj(notify_cfg_path(), c); return self._json(200, {"ok": True, "on": False})
+                    if act == "test": ok, err = notify_send("وصلك هذا الإشعار؟ معناه Hojas Studio يقدر يكلّمك ويرسل لك مقاطعك.", title="Hojas Studio: تجربة"); return self._json(200 if ok else 502, {"ok": ok, "msg": err})
+                    if act == "send":
+                        f = P(os.path.basename(str(data.get("file", "")))) if data.get("file") else None
+                        ok, err = notify_send(str(data.get("text") or "المقطع"), title="Hojas Studio", file=f if f and os.path.exists(f) else None, work=work); return self._json(200 if ok else 502, {"ok": ok, "msg": err})
+                    return self._json(400, {"ok": False})
                 if p == "/hs/ver_save": return self._json(200, {"ok": True, "id": snapshot(work, data.get("name")), "versions": versions()})
                 if p == "/hs/ver_restore":
                     need = ver_restore(data["id"])
@@ -1868,6 +1927,210 @@ def serve(work, port, engine):
     try: srv.serve_forever()
     except KeyboardInterrupt: pass
 
+# ───────────────────────── 4.1: إشعارات للجوال (ntfy · بلا حساب ولا مفاتيح) ─────────────────────────
+NTFY_MAX = 15 * 1024 * 1024
+def notify_cfg_path(): return os.path.join(HOME_CFG, "notify.json")
+def notify_cfg(): return rj(notify_cfg_path(), {}) or {}
+def notify_setup(server=None):
+    c = notify_cfg()
+    if not c.get("topic"): c["topic"] = "hojas-" + secrets.token_hex(8)
+    c["server"] = (server or c.get("server") or "https://ntfy.sh").rstrip("/"); c["on"] = True
+    os.makedirs(HOME_CFG, exist_ok=True); wj(notify_cfg_path(), c); return c
+def notify_sub(c): return "%s/%s" % (c["server"], c["topic"])
+def notify_url(c, **q):
+    qs = urllib.parse.urlencode({k: v for k, v in q.items() if v})
+    return notify_sub(c) + (("?" + qs) if qs else "")
+def notify_send(text, title="Hojas Studio", file=None, click=None, tags="clapper", work=None):
+    """يرسل إشعار لجوال المستخدم. الملف (لو أصغر من 15MB) يوصله مرفق. يرجّع (نجح؟, رسالة)."""
+    c = notify_cfg()
+    if not c.get("on") or not c.get("topic"): return False, "الإشعارات مطفية. فعّلها: python hs.py notify setup"
+    try:
+        if file and os.path.exists(file) and os.path.getsize(file) <= NTFY_MAX:
+            with open(file, "rb") as f: data = f.read()
+            req = urllib.request.Request(notify_url(c, title=title, message=text, filename=os.path.basename(file), click=click, tags=tags), data=data, method="PUT")
+        else:
+            if file and os.path.exists(file): text += "\n(الملف أكبر من 15MB، تلقاه بمجلد المشروع)"
+            req = urllib.request.Request(notify_url(c, title=title, click=click, tags=tags), data=text.encode("utf-8"), method="POST")
+        with urllib.request.urlopen(req, timeout=180) as r: ok = 200 <= r.status < 300
+        if work and ok: say(work, "انرسل لجوالك: " + text.split("\n")[0][:90], "info")
+        return ok, ""
+    except Exception as e: return False, str(e)[:200]
+def notify_quiet(text, **kw):
+    """للإشعارات التلقائية: ما توقف الشغل لو النت فاصل أو الإشعارات مطفية."""
+    if not notify_cfg().get("on"): return
+    threading.Thread(target=lambda: notify_send(text, **kw), daemon=False).start()   # مو daemon: الأمر من التيرمنال ينتظره قبل ما يطلع
+def cmd_notify(args):
+    sub = args[0] if args else "status"
+    def o(nm):
+        if nm in args: i = args.index(nm); v = args[i + 1]; del args[i:i + 2]; return v
+    if sub == "setup":
+        c = notify_setup(o("--server"))
+        print("انفعلت الإشعارات.\n1) نزّل تطبيق ntfy على جوالك (مجاني: App Store أو Google Play).\n2) اضغط + واكتب اسم القناة: %s\n   (أو افتح الرابط من جوالك: %s)\n3) جرّب: python hs.py notify test" % (c["topic"], notify_sub(c)))
+        print("\nتنبيه خصوصية: الإشعار والمقطع المرفق يمرّون على خادم %s ويبقون فيه ساعات قليلة. اسم القناة هو كلمة السر، لا تنشره." % c["server"])
+    elif sub == "test":
+        ok, err = notify_send("وصلك هذا الإشعار؟ معناه Hojas Studio يقدر يكلّمك ويرسل لك مقاطعك.", title="Hojas Studio: تجربة")
+        print("انرسل. شيّك جوالك." if ok else "ما انرسل: " + err)
+    elif sub == "off": c = notify_cfg(); c["on"] = False; wj(notify_cfg_path(), c); print("انطفت الإشعارات.")
+    elif sub == "send":
+        f = o("--file"); w = o("--work"); click = o("--click")
+        ok, err = notify_send(" ".join(args[1:]) or "Hojas Studio", file=f, click=click, work=os.path.abspath(w) if w else None)
+        print("انرسل." if ok else "ما انرسل: " + err)
+    else:
+        c = notify_cfg(); print(("شغّالة · القناة: %s · الخادم: %s" % (c.get("topic"), c.get("server"))) if c.get("on") else "مطفية. فعّلها: python hs.py notify setup")
+
+# ───────────────────────── 4.1: يتعلّم أسلوبك من تعديلاتك على التايم لاين ─────────────────────────
+STYLE_FILES = ("studio.json", "caps.json", "theme.json")
+def style_path(): return os.path.join(HOME_CFG, "style.json")
+def style_prof(): return rj(style_path(), {}) or {}
+def style_base(work): return J(work, ".hs", "style-base")
+def style_snap(work):
+    """لقطة لمونتاج Claude قبل ما يستلمه المستخدم. اللي يغيّره بعدها هو ذوقه."""
+    d = style_base(work); os.makedirs(d, exist_ok=True)
+    for f in STYLE_FILES:
+        if os.path.exists(J(work, f)): shutil.copy(J(work, f), os.path.join(d, f))
+    return d
+def _words(card): return [str(w.get("t", "")) for w in (card.get("w") or [])]
+def style_diff(b, c):
+    """يقارن نسخة Claude (b) بنسخة المستخدم (c). كل وحدة dict فيها studio, caps, theme."""
+    out = {"cap": {}, "en": {}, "theme": {}, "outro": {}, "removed": {}, "added": {}, "kept": {}, "words": {}}
+    bh = (b.get("studio") or {}).get("hs") or {}; ch = (c.get("studio") or {}).get("hs") or {}
+    for sec in ("cap", "en"):
+        bb, cc = bh.get(sec) or {}, ch.get(sec) or {}
+        for k, v in cc.items():
+            if k != "map" and bb.get(k) != v and isinstance(v, (str, int, float, bool)): out[sec][k] = v
+    bt, ct = b.get("theme") or {}, c.get("theme") or {}
+    for k in ("bg", "ink", "acc", "font", "handle"):
+        if k in ct and bt.get(k) != ct[k]: out["theme"][k] = ct[k]
+    bo, co = (b.get("studio") or {}).get("outro") or {}, (c.get("studio") or {}).get("outro") or {}
+    for k in ("font", "l1", "l2", "cta", "word", "sub"):
+        if k in co and bo.get(k) != co[k]: out["outro"][k] = co[k]
+    bl = {str(l.get("id")): l.get("type", "?") for l in bh.get("layers") or []}; cl = {str(l.get("id")): l.get("type", "?") for l in ch.get("layers") or []}
+    for i, ty in bl.items(): out["removed" if i not in cl else "kept"][ty] = out["removed" if i not in cl else "kept"].get(ty, 0) + 1
+    for i, ty in cl.items():
+        if i not in bl: out["added"][ty] = out["added"].get(ty, 0) + 1
+    bc, cc = (b.get("caps") or {}).get("cards") or [], (c.get("caps") or {}).get("cards") or []
+    if len(bc) == len(cc):
+        for x, y in zip(bc, cc):
+            a1, a2 = _words(x), _words(y)
+            for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a1, a2).get_opcodes():
+                if op == "replace" and (i2 - i1) <= 3 and (j2 - j1) <= 3:
+                    k, v = " ".join(a1[i1:i2]), " ".join(a2[j1:j2])
+                    if k.strip() and v.strip() and k != v: out["words"][k] = v
+    return out
+def style_learn(work):
+    """يقارن لقطة Claude بالموجود الحين، يضيف الفرق لملف الأسلوب، ويحدّث اللقطة (عشان ما ينحسب نفس التعديل مرتين)."""
+    d = style_base(work)
+    if not os.path.isdir(d): return None
+    ld = lambda root: {"studio": rj(os.path.join(root, "studio.json"), {}) or {}, "caps": rj(os.path.join(root, "caps.json"), {}) or {}, "theme": rj(os.path.join(root, "theme.json"), {}) or {}}
+    df = style_diff(ld(d), ld(work))
+    if not any(df[k] for k in df): return df
+    p = style_prof(); p["n"] = int(p.get("n", 0)) + 1; p["updated"] = time.strftime("%Y-%m-%d")
+    for sec in ("cap", "en", "theme", "outro"): p.setdefault(sec, {}).update(df[sec])
+    for sec in ("removed", "added", "kept"):
+        q = p.setdefault(sec, {})
+        for k, v in df[sec].items(): q[k] = q.get(k, 0) + v
+    W, N = p.setdefault("words", {}), p.setdefault("wordsN", {})
+    for k, v in df["words"].items(): N[k] = (N.get(k, 0) + 1) if W.get(k) == v else 1; W[k] = v
+    if len(W) > 300:
+        for k in list(W)[:-300]: W.pop(k, None); N.pop(k, None)
+    os.makedirs(HOME_CFG, exist_ok=True); wj(style_path(), p); style_snap(work); return df
+def style_text(p=None):
+    p = p if p is not None else style_prof()
+    if not p.get("n"): return "ما تعلّمت أسلوبه للحين. يتعلّم لحاله من تعديلاته بعد ما تسلّمه التايم لاين (style snap قبل التسليم)."
+    L = ["تعلّمت من تعديلاته على %d مونتاج (آخرها %s). طبّق هذا من البداية:" % (p["n"], p.get("updated", "?"))]
+    if p.get("cap"): L.append("- الكابشن اللي يرجع له: " + json.dumps(p["cap"], ensure_ascii=False) + "  ← hs set cap.<key>=<value>")
+    if p.get("en"): L.append("- الترجمة الإنجليزية: " + json.dumps(p["en"], ensure_ascii=False))
+    if p.get("theme"): L.append("- ألوانه وحسابه: " + json.dumps(p["theme"], ensure_ascii=False) + "  (theme.json)")
+    if p.get("outro"): L.append("- كرت الختام: " + json.dumps(p["outro"], ensure_ascii=False) + "  ← hs set outro.<key>=<value>")
+    rm = sorted(((k, v) for k, v in (p.get("removed") or {}).items() if v >= 2 and v > (p.get("kept") or {}).get(k, 0)), key=lambda x: -x[1])
+    if rm: L.append("- طبقات يحذفها أكثر ما يخليها، قلّل منها: " + "، ".join("%s (%d)" % kv for kv in rm))
+    ad = sorted(((k, v) for k, v in (p.get("added") or {}).items() if v >= 2), key=lambda x: -x[1])
+    if ad: L.append("- طبقات يضيفها بنفسه، حطها له: " + "، ".join("%s (%d)" % kv for kv in ad))
+    if p.get("words"):
+        N = p.get("wordsN") or {}; sure = [(k, v) for k, v in p["words"].items() if N.get(k, 0) >= 2]; once = [(k, v) for k, v in p["words"].items() if N.get(k, 0) < 2]
+        if sure: L.append("- تصحيحات يكررها (style apply يطبّقها لحاله): " + "، ".join("%s ← %s" % kv for kv in sure[-12:]))
+        if once: L.append("- تصحيحات سواها مرة (انتبه لها بالتفريغ، ما تنطبق لحالها): " + "، ".join("%s ← %s" % kv for kv in once[-8:]))
+    return "\n".join(L)
+def style_apply(work):
+    """يطبّق تصحيحات الكلمات اللي علّمها المستخدم على caps.json. يرجّع عدد الكلمات اللي تغيّرت."""
+    words = style_prof().get("words") or {}; cp = J(work, "caps.json"); caps = rj(cp)
+    if not caps or not words: return 0
+    cnt = style_prof().get("wordsN") or {}
+    n = 0; one = {k: v for k, v in words.items() if " " not in k and " " not in v and cnt.get(k, 0) >= 2}   # نفس التصحيح مرتين = عادة، مو تعديل لمرة وحدة
+    for c in caps.get("cards") or []:
+        for w in c.get("w") or []:
+            if str(w.get("t")) in one: w["t"] = one[w["t"]]; n += 1
+    if n: wj(cp, caps)
+    return n
+def cmd_style(args):
+    sub = args[0] if args else "show"
+    if sub == "show": print(style_text())
+    elif sub == "reset":
+        try: os.remove(style_path())
+        except OSError: pass
+        print("انمسح الأسلوب المتعلَّم.")
+    elif sub in ("snap", "learn", "apply"):
+        if len(args) < 2: sys.exit("style %s <work>" % sub)
+        work = os.path.abspath(args[1])
+        if sub == "snap": style_snap(work); print("انحفظت لقطة مونتاجك. اللي يغيّره المستخدم بعدها ينحسب من ذوقه.")
+        elif sub == "learn":
+            df = style_learn(work)
+            print("ما فيه لقطة (style snap) لهذا المشروع." if df is None else ("ما غيّر شي من بعد اللقطة." if not any(df[k] for k in df) else "تعلّمت: " + json.dumps({k: v for k, v in df.items() if v}, ensure_ascii=False)[:900]))
+        else: print("تصحيحات انطبقت على الكابشن: %d" % style_apply(work))
+    else: sys.exit("style show | snap <work> | learn <work> | apply <work> | reset")
+
+# ───────────────────────── 4.1: النشر من متصفح المستخدم (بلا مفاتيح) ─────────────────────────
+PUBLISH_PRIVATE = os.path.join(HERE, "publish-private.md")
+PUBLISH_PUBLIC = {"tiktok": {"ar": "تيك توك", "url": "https://www.tiktok.com/tiktokstudio/upload", "frame": "9:16"}}
+def publish_platforms():
+    d = dict(PUBLISH_PUBLIC)
+    if os.path.exists(PUBLISH_PRIVATE):
+        for m in re.finditer(r"^platform:\s*(\w+)\s*\|\s*([^|]+)\|\s*(\S+)\s*\|\s*(\S+)", open(PUBLISH_PRIVATE, encoding="utf-8").read(), re.M):
+            d[m.group(1)] = {"ar": m.group(2).strip(), "url": m.group(3), "frame": m.group(4), "private": True}
+    return d
+def post_for(work, plat):
+    """نص البوست الخاص بالمنصة من post.txt (تحت عنوان باسمها)، وإلا النص كامل."""
+    p = J(work, "post.txt")
+    if not os.path.exists(p): return ""
+    txt = open(p, encoding="utf-8").read().strip()
+    names = {"tiktok": ("تيك توك", "tiktok"), "instagram": ("انستقرام", "إنستقرام", "انستا", "instagram"), "x": ("إكس", "x"), "linkedin": ("لينكدإن", "linkedin")}
+    pat = r"^[ \t]*#*[ \t]*(" + "|".join(re.escape(n) for ns in names.values() for n in ns) + r")[ \t]*:?[ \t]*$"
+    parts = re.split(pat, txt, flags=re.M | re.I)
+    for i in range(1, len(parts) - 1, 2):
+        if parts[i].lower() in [n.lower() for n in names.get(plat, (plat,))]: return parts[i + 1].strip()
+    return txt
+def publish_plan(work, plat, when=None):
+    P = publish_platforms()
+    if plat not in P: return None, "النشر على %s مو متاح بهذي النسخة. المتاح: %s" % (plat, "، ".join(P))
+    pi = P[plat]; ar = pi["frame"]; f = J(work, "ad-master.mp4") if ar == "9:16" else J(work, "ad-%dx%d.mp4" % tuple(FRAMES.get(ar, (1080, 1920))))
+    if not os.path.exists(f): f = J(work, "ad-master.mp4")
+    if not os.path.exists(f): return None, "ما فيه ملف نهائي. صدّر أول: python hs.py export <work>"
+    plan = {"platform": plat, "name": pi["ar"], "url": pi["url"], "file": os.path.abspath(f), "caption": post_for(work, plat), "when": when or "now",
+            "guide": PUBLISH_PRIVATE if pi.get("private") else None, "at": int(time.time()), "status": "ready"}
+    os.makedirs(J(work, ".hs"), exist_ok=True); wj(J(work, ".hs", "publish-%s.json" % plat), plan); return plan, ""
+def cmd_publish(work, args):
+    if not args: sys.exit("publish <work> list | <المنصة> [--at \"2026-10-12 20:00\"] | done <المنصة> <الرابط>")
+    if args[0] == "list":
+        for k, v in publish_platforms().items(): print("%s  %s%s" % (k, v["ar"], "  (خاص)" if v.get("private") else ""))
+        return
+    if args[0] == "done":
+        p = J(work, ".hs", "publish-%s.json" % args[1]); plan = rj(p, {}) or {}; plan.update(status="done", link=(args[2] if len(args) > 2 else ""), doneAt=int(time.time())); wj(p, plan)
+        say(work, "انتشر على %s %s" % (args[1], plan.get("link", "")), "done"); notify_quiet("انتشر المقطع على %s %s" % (args[1], plan.get("link", "")), title="Hojas Studio: انتشر"); print("تمام."); return
+    when = None
+    if "--at" in args: i = args.index("--at"); when = args[i + 1]; del args[i:i + 2]
+    plan, err = publish_plan(work, args[0], when)
+    if not plan: sys.exit(err)
+    print(json.dumps(plan, ensure_ascii=False, indent=1))
+    print("\nخطوات النشر: اقرأ قسم «النشر» في SKILL.md%s. وقف قبل زر النشر النهائي واطلب موافقته." % ((" ثم " + plan["guide"]) if plan.get("guide") else ""))
+
+# ───────────────────────── 4.1: تحديث السكل ─────────────────────────
+def cmd_update():
+    if not os.path.isdir(os.path.join(HERE, ".git")):
+        print("هذي النسخة منزّلة كملف مضغوط. للتحديث: نزّل النسخة الجديدة من https://github.com/rakaga66/hojas-studio وشغّل التثبيت مرة ثانية.\nأو ثبّتها بـ git عشان يصير التحديث أمر واحد (شوف README)."); return
+    if not shutil.which("git"): sys.exit("ما لقيت git على الجهاز.")
+    r = subprocess.run(["git", "-C", HERE, "pull", "--ff-only"], capture_output=True, text=True); print((r.stdout + r.stderr).strip())
+    if r.returncode == 0: print("الإصدار الحين: " + (open(os.path.join(HERE, "VERSION")).read().strip() if os.path.exists(os.path.join(HERE, "VERSION")) else "?"))
+
 def main():
     a = sys.argv[1:]
     if not a or a[0] in ("-h", "--help"): print(__doc__); return
@@ -1887,6 +2150,9 @@ def main():
     if cmd == "doctor": sys.exit(0 if cmd_doctor(engine) else 1)
     if cmd == "platform": return cmd_platform(a[1:])
     if cmd == "tools": print(tools_text()); return
+    if cmd == "notify": return cmd_notify(a[1:])
+    if cmd == "style": return cmd_style(a[1:])
+    if cmd == "update": return cmd_update()
     if cmd == "selftest": sys.exit(0 if cmd_selftest(os.path.abspath(a[1]) if len(a) > 1 else None, engine) else 1)
     if len(a) < 2: sys.exit("لازم مجلد الشغل: python hs.py %s <work>" % cmd)
     work = os.path.abspath(a[1])
@@ -1934,6 +2200,7 @@ def main():
     elif cmd == "beat": cmd_beat(work, rest)
     elif cmd == "pack": print("\n".join(pack(work))); print("→ " + J(work, ".hs", "pack.zip"))
     elif cmd == "brand": cmd_brand(work, rest)
+    elif cmd == "publish": cmd_publish(work, rest)
     elif cmd == "status": cmd_status(work)
     else: sys.exit("أمر غير معروف: " + cmd)
 

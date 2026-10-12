@@ -12,14 +12,14 @@
 
 <p align="center">
   <img alt="Claude Code skill" src="docs/assets/badge-skill.svg">
-  <img alt="Version 4.0.1" src="docs/assets/badge-version.svg">
+  <img alt="Version 4.1" src="docs/assets/badge-version.svg">
   <img alt="Runs on Windows, macOS, Linux" src="docs/assets/badge-platforms.svg">
   <img alt="License: PolyForm Noncommercial" src="docs/assets/badge-license.svg">
 </p>
 
 **Hojas Studio** is a [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) skill that edits talking-head videos the way a good editor would, and then hands you the edit on a real timeline in your browser.
 
-Give Claude a clip. It cuts the silences, transcribes every word, writes word-timed Arabic captions, asks you a few questions on a page (platform, aspect ratio, caption style), designs explainer cards, adds b-roll and sound, and opens the result on a timeline where you change anything you want before exporting.
+Give Claude a clip. It cuts the silences, transcribes every word, writes word-timed Arabic captions, asks you a few questions on a page (platform, aspect ratio, caption style), designs explainer cards, adds b-roll and sound, and opens the result on a timeline where you change anything you want before exporting. Then it pings your phone with the finished clip, and can post it to TikTok from your own browser once you say yes.
 
 Everything runs on your computer. No API keys, no uploads.
 
@@ -56,6 +56,10 @@ Hojas Studio turns that into a conversation. Claude does the heavy edit, and you
 | **You and your background** | Blur or replace what is behind you, or slide a word behind your head. Segmentation runs in the browser on your machine. |
 | **Sound** | A 30-sound library, your own sounds and music, voice clean-up presets and automatic ducking under speech. |
 | **Exports** | 9:16 master plus 4:5, 1:1 or 16:9 versions, hook variants and a clean no-caption copy, with a post caption written for each platform. |
+| **Phone notifications** <sup>new</sup> | Through the free ntfy app, no account and no keys. Claude pings you when it needs you and sends the finished clip to your phone. |
+| **Learns your style** <sup>new</sup> | Every change you make to Claude's edit (fonts, colors, end card, layers you delete, words you fix) is remembered, so the next edit starts closer to your taste. |
+| **Post to TikTok** <sup>new</sup> | Claude uploads the clip in TikTok Studio from your own browser and account, fills the caption, then stops before the Post button for your yes. Scheduling too. |
+| **End card font** <sup>new</sup> | Pick any caption font or your own uploaded font for the end card. |
 
 ## The studio
 
@@ -75,22 +79,40 @@ The timeline opens in your browser while Claude works. Layers, captions, sound a
 ## Quick start
 
 1. Install [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) and sign in.
-2. Download this repository (**Code → Download ZIP**) and unzip it somewhere permanent, such as `Documents`.
-3. Run the installer:
-   - **Windows:** double-click `install.bat`
-   - **macOS / Linux:** `bash install.sh`
-4. Restart Claude Code and type:
+2. Open Claude Code and paste:
+
+   ```
+   Install the Hojas Studio skill: git clone https://github.com/rakaga66/hojas-studio ~/.claude/skills/hojas-studio
+   ```
+
+   Or run it yourself in a terminal:
+
+   ```bash
+   # macOS / Linux
+   git clone https://github.com/rakaga66/hojas-studio ~/.claude/skills/hojas-studio
+   ```
+   ```powershell
+   # Windows (PowerShell)
+   git clone https://github.com/rakaga66/hojas-studio "$HOME\.claude\skills\hojas-studio"
+   ```
+3. Restart Claude Code and type:
 
    ```
    Check the Hojas Studio tools
    ```
 
    Claude lists what is missing (ffmpeg, Python with Whisper, Node, Chrome, and Git for Windows on Windows), explains why each is needed and where it comes from, and installs nothing without your approval.
-5. Then just ask:
+4. Then just ask:
 
    ```
    Edit this clip for TikTok: C:\Users\you\Videos\clip.mp4
    ```
+
+**Updating:** ask Claude "Update Hojas Studio" (it runs `python hs.py update`, a `git pull`).
+
+**No git?** Download the zip from [hojas-studio.netlify.app](https://hojas-studio.netlify.app/) or the [latest release](https://github.com/rakaga66/hojas-studio/releases/latest), unzip it somewhere permanent, and run `install.bat` (Windows) or `bash install.sh` (macOS / Linux).
+
+**OpenCode:** it reads skills from the same `~/.claude/skills` folder, so the same line works. Cutting, transcription, captions and the studio run the same; the studio's agent button detects OpenCode (experimental). Features that drive your browser (generating with your ChatGPT or Gemini account, posting) need Claude Code with Claude in Chrome.
 
 The full A to Z guide, with every tool explained, is in [`GUIDE.html`](GUIDE.html) (also as [`GUIDE.pdf`](GUIDE.pdf)).
 
@@ -110,7 +132,9 @@ The full A to Z guide, with every tool explained, is in [`GUIDE.html`](GUIDE.htm
 - Video, audio and transcripts never leave your computer.
 - No API keys anywhere. Optional AI images or clips are generated with **your own** ChatGPT or Gemini account in your browser, only when you ask.
 - The studio is reachable on your local network so your phone can open it, protected by an access code. Ten wrong codes from one device lock it for 15 minutes. Do not run it on public Wi-Fi.
-- What touches the internet: Google Fonts, the Mixkit sound library on first use, and Wikimedia image search when you ask for it. `python hs.py tools` lists it all.
+- Phone notifications are off until you turn them on. When on, the message and the attached clip pass through the ntfy.sh server for a few hours; your channel name works as the password. You can point it at your own ntfy server.
+- Posting happens only when you ask, in your own browser and account, and Claude stops before the final Post button until you say yes. It never types your password.
+- What touches the internet: Google Fonts, the Mixkit sound library on first use, Wikimedia image search when you ask for it, and ntfy when notifications are on. `python hs.py tools` lists it all.
 
 ## Command line
 
@@ -121,6 +145,10 @@ python hs.py doctor              # check the tools
 python hs.py open <project>      # open the studio for a project
 python hs.py tools               # what each tool is for, and what goes online
 python hs.py selftest            # self-check of the studio files
+python hs.py notify setup        # phone notifications (ntfy, no account)
+python hs.py style show          # what it learned about your style
+python hs.py publish <project> tiktok   # prepare a post (Claude finishes it in your browser)
+python hs.py update              # update the skill (git installs)
 ```
 
 ## Project layout

@@ -123,7 +123,7 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);font-si
   <div class="brand"><svg class="mark" viewBox="0 0 40 40" aria-hidden="true"><rect x="1" y="1" width="38" height="38" rx="10" fill="var(--clay)"/><rect x="9" y="11" width="15" height="5" rx="2.5" fill="#FFF"/><rect x="15" y="18" width="16" height="5" rx="2.5" fill="#FFF" opacity=".85"/><rect x="9" y="25" width="22" height="5" rx="2.5" fill="#FFF" opacity=".7"/></svg>Hojas Studio · دليل الاستخدام</div>
   <h1>منتج مقطعك مع <span>Claude</span>، وعدّل لمساتك على التايم لاين</h1>
   <p class="lead">هذا الدليل يمشي معك من الصفر: كيف تنزّل الأداة وتثبّتها، وكيف تمنتج أول مقطع، ووش تسوي كل أداة داخل الاستوديو.</p>
-  <div class="meta"><span>النسخة <b>4.0</b></span><span>ويندوز وماك</span><span>يشتغل على جهازك بالكامل</span><span>صاحب الأداة <b>هوجاس</b></span></div>
+  <div class="meta"><span>النسخة <b>4.1</b></span><span>ويندوز وماك</span><span>يشتغل على جهازك بالكامل</span><span>صاحب الأداة <b>هوجاس</b></span></div>
 </header>
 
 <nav class="toc" aria-label="المحتويات">
@@ -180,14 +180,17 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);font-si
   <div class="kicker">03</div>
   <h2>التثبيت خطوة بخطوة</h2>
   <ol class="steps">
-    <li><div><b>ثبّت Claude Code وسجّل دخول</b><p>من الصفحة الرسمية. لو هو عندك من قبل تخطّ هذي الخطوة.</p></div></li>
-    <li><div><b>نزّل Hojas Studio من GitHub</b><p>افتح صفحة المستودع، اضغط الزر الأخضر <b>Code</b>، ثم <b>Download ZIP</b>.</p></div></li>
-    <li><div><b>فك الضغط</b><p>اضغط على الملف يمين ← <b>Extract All</b>، وحطه في <code>Documents</code>. اسم المجلد ما يفرق (مثلاً <code>hojas-studio-main</code>).</p></div></li>
-    <li><div><b>شغّل ملف التثبيت</b><p>ويندوز: افتح المجلد ودبل كلك على <code>install.bat</code>. لو طلع تحذير ويندوز اضغط «More info» ثم «Run anyway». ماك: افتح الطرفية داخل المجلد واكتب <code>bash install.sh</code>. لازم تطلع رسالة <code>Hojas Studio skill installed</code>.</p></div></li>
+    <li><div><b>ثبّت Claude Code وسجّل دخول</b><p>من الصفحة الرسمية. لو هو عندك من قبل تخطّ هذي الخطوة. (OpenCode يشتغل بعد، شوف تحت.)</p></div></li>
+    <li><div><b>افتح Claude Code والصق هذا السطر</b><span class="say">ثبّت سكل Hojas Studio: git clone https://github.com/rakaga66/hojas-studio ~/.claude/skills/hojas-studio</span><p>Claude ينسخ الأداة كاملة لمجلد السكلز. لو git مو موجود عندك يقول لك ويثبّته بموافقتك.</p></div></li>
     <li><div><b>اقفل Claude Code وافتحه من جديد</b><p>عشان يتعرّف على الأداة.</p></div></li>
     <li><div><b>خلّ Claude يفحص جهازك</b><span class="say">افحص أدوات Hojas Studio</span><p>يقول لك وش موجود ووش ناقص. وافق على اللي يحتاجه، وهو يثبّته ويتأكد إنه اشتغل.</p></div></li>
   </ol>
-  <div class="note"><b>ملف التثبيت وش يسوي بالضبط؟</b> ينسخ ملف تعليمات واحد (<code>SKILL.md</code>) لمجلد Claude Code، ويكتب فيه مكان ملفات الأداة على جهازك. ما ينزّل شي من النت ولا يغيّر إعدادات جهازك. باقي الملفات تبقى بالمجلد اللي فكّيته، فلا تنقله بعد التثبيت (ولو نقلته شغّل <code>install.bat</code> مرة ثانية).</div>
+  <h3>من الطرفية بنفسك</h3>
+  <p>ماك ولينكس:</p><p dir="ltr" style="text-align:left"><code style="white-space:normal;word-break:break-all">git clone https://github.com/rakaga66/hojas-studio ~/.claude/skills/hojas-studio</code></p>
+  <p>ويندوز (PowerShell):</p><p dir="ltr" style="text-align:left"><code style="white-space:normal;word-break:break-all">git clone https://github.com/rakaga66/hojas-studio "$HOME\.claude\skills\hojas-studio"</code></p>
+  <h3>بدون git (الملف المضغوط)</h3>
+  <p>نزّل الملف المضغوط من الموقع، فك الضغط في <code>Documents</code>، ودبل كلك على <code>install.bat</code> (ماك: <code>bash install.sh</code>). لو طلع تحذير ويندوز اضغط «More info» ثم «Run anyway». لازم تطلع رسالة <code>Hojas Studio skill installed</code>، ولا تنقل المجلد بعدها.</p>
+  <div class="note"><b>OpenCode؟</b> يقرأ نفس مجلد <code>~/.claude/skills</code>، فنفس السطر يكفي. القص والتفريغ والكابشن والاستوديو تشتغل، وزر «نفّذ» يكتشفه لحاله (تجريبي). اللي يحتاج Claude in Chrome (التوليد من حساباتك والنشر) يشتغل مع Claude Code بس.</div>
 </section>
 
 <section id="first">
@@ -334,7 +337,7 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);font-si
   <p>Claude يقسّم الكابشن على أنفاس كلامك بدل التقسيم الآلي، ويشيل الجمل اللي يخترعها التفريغ فوق السكوت مثل «اشتركوا في القناة». وفيه تمييزين جداد للكلمة المنطوقة: توهّج وقلم تظليل. وبلوحة الصوت: تحسين صوتك بستة أشكال (أوضح، أقل طنين، أنظف، أنعم، إذاعي، مكالمة)، والموسيقى الطويلة تنخفض لحالها وقت كلامك.</p>
 
   <h3>كرت الختام</h3>
-  <p>مربع «كرت الختام» آخر تراك الفيديو. اضغطه تعدّل نصه: سطرين، دعوة، كلمة بارزة، سطر صغير، ونقاط. اسحب طرفه اليمين تغيّر مدته، أو احذفه. ولو ما فيه ختام تضيفه من «الملفات».</p>
+  <p>مربع «كرت الختام» آخر تراك الفيديو. اضغطه تعدّل نصه: سطرين، دعوة، كلمة بارزة، سطر صغير، ونقاط. واختر <b>خطه</b> من القائمة (أي خط من خطوط الكابشن أو خط رفعته). اسحب طرفه اليمين تغيّر مدته، أو احذفه. ولو ما فيه ختام تضيفه من «الملفات».</p>
 
   <h3>لوحات اليمين</h3>
   <div class="tw"><table>
@@ -386,6 +389,13 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);font-si
     <li><div><b>عدّل من الجوال</b><p>المعاينة فوق، شريط تمرير وتشغيل، وخمس تبويبات: النص، الكابشن، إضافات، ملاحظات، تصدير.</p></div></li>
   </ol>
   <p class="tiny">المعاينة بالجوال بنص الدقة عشان تمشي خفيفة. التصدير ما يتأثر ويطلع بالدقة الكاملة.</p>
+  <h3>إشعارات ومقاطعك على جوالك</h3>
+  <p>بنفس نافذة «الجوال» اضغط <b>فعّل الإشعارات</b>. نزّل تطبيق <b>ntfy</b> المجاني (بدون حساب)، اضغط + واكتب اسم القناة اللي يطلع لك أو صوّر رمزه، واضغط «أرسل تجربة». بعدها Claude يكلّمك لحاله:</p>
+  <div class="grid">
+    <div class="tool"><h5>ينتظرك</h5><p>لما تنفتح صفحة الأسئلة، أو يحتاج منك شي، يوصلك إشعار بدل ما يجلس ينتظر.</p></div>
+    <div class="tool"><h5>المقطع جاهز</h5><p>أول ما يخلص التصدير يوصلك المقطع نفسه على الجوال (لين 15MB)، والأكبر منه يقول لك وينه.</p></div>
+    <div class="tool"><h5>قبل النشر</h5><p>لو طلبت ينشر، يرسل لك إن المقطع جاهز وينتظر موافقتك قبل الضغطة الأخيرة.</p></div>
+  </div>
 </section>
 
 <section id="export">
@@ -397,6 +407,10 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);font-si
     <div class="tool"><h5>حزمة النشر</h5><p>من «المشروع»: المقطع، ملفات ترجمة SRT عربي وإنجليزي، نص كلامك، نص المنشور، وحقوق الصور، بملف zip واحد.</p></div>
     <div class="tool"><h5>مراجعة العميل</h5><p>رابط برمز خاص. العميل يعلّق على أي ثانية ويرسم ويعتمد، وتعليقاته ما تتطبّق إلا لو حوّلتها لملاحظة.</p></div>
   </div>
+  <h3>النشر على تيك توك</h3>
+  <p>بعد التصدير قل له: <span class="say">انشره على تيك توك</span> أو <span class="say">جدوله على تيك توك بكرة الساعة 8 المغرب</span>. Claude يفتح TikTok Studio من متصفحك وبحسابك المسجّل، يرفع المقطع ويحط الوصف من نص المنشور، و<b>يوقف قبل زر النشر</b> ويسألك. ما يحتاج أي مفتاح، وما يكتب كلمة سرك أبداً. الضغطة الأخيرة لك عشان أي غلطة ما تنزل للعامة، وعشان تيك توك ما يقيّد حسابك.</p>
+  <h3>يتعلّم أسلوبك</h3>
+  <p>كل تعديل تسويه على مونتاج Claude (الخط، الألوان، كرت الختام، الطبقات اللي تحذفها، الكلمات اللي تصحّحها بالتفريغ) ينحفظ لما تصدّر. المقطع الجاي يبدأ قريب من ذوقك، والتصحيح اللي تكرره مرتين يتطبّق لحاله. اسأله <span class="say">وش تعرف عن أسلوبي؟</span> يعرضه لك.</p>
 </section>
 
 <section id="ask">
@@ -426,6 +440,8 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);font-si
       <tr><td>مكتبة الأصوات</td><td>أول مرة تستخدم صوتاً ينزل من Mixkit وينحفظ عندك</td></tr>
       <tr><td>بحث الصور والمقاطع</td><td>يسأل ويكيميديا كومنز بكلمات البحث فقط</td></tr>
       <tr><td>لقطة موقع</td><td>يفتح الرابط اللي تكتبه أنت فقط</td></tr>
+      <tr><td>إشعارات الجوال (لو فعّلتها)</td><td>الإشعار والمقطع يمرّون على خادم ntfy.sh ساعات قليلة. اسم القناة هو كلمة السر</td></tr>
+      <tr><td>النشر (لو طلبته)</td><td>من متصفحك وبحسابك، وبعد موافقتك على الضغطة الأخيرة</td></tr>
     </tbody>
   </table></div>
   <div class="grid">
@@ -457,12 +473,12 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);font-si
   <div class="kicker">14</div>
   <h2>التحديث والإزالة</h2>
   <h3>التحديث</h3>
-  <p>نزّل النسخة الجديدة من GitHub وفك ضغطها مكان القديمة، ثم شغّل <code>install.bat</code> مرة ثانية. مشاريعك ما تتأثر، وتلقى وش الجديد في ملف <code>CHANGELOG.md</code>.</p>
+  <p>لو ثبّتها بـ git: قل لـ Claude <span class="say">حدّث Hojas Studio</span> (يشغّل <code>python hs.py update</code>). لو ثبّتها بالملف المضغوط: نزّل الجديد وفك ضغطه مكان القديم وشغّل <code>install.bat</code> مرة ثانية. مشاريعك ما تتأثر، وتلقى وش الجديد في ملف <code>CHANGELOG.md</code>.</p>
   <h3>الإزالة</h3>
-  <p>احذف مجلد الأداة، واحذف مجلد <code>.claude\skills\hojas-studio</code> من مجلد المستخدم. أصواتك وإعداداتك في <code>.hojas-studio</code> بنفس المكان لو تبي تمسحها بعد.</p>
+  <p>احذف مجلد <code>.claude\skills\hojas-studio</code> من مجلد المستخدم (ولو ثبّتها بالملف المضغوط احذف مجلدها بعد). أصواتك وإعداداتك في <code>.hojas-studio</code> بنفس المكان لو تبي تمسحها بعد.</p>
 </section>
 
-<footer><span>Hojas Studio 4.0 · صاحب الأداة هوجاس</span><span>يعمل مع Claude Code</span></footer>
+<footer><span>Hojas Studio 4.1 · صاحب الأداة هوجاس</span><span>يعمل مع Claude Code وOpenCode</span></footer>
 </div>
 
 </body>

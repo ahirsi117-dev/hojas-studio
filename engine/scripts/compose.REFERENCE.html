@@ -664,7 +664,8 @@ function stickers(t){
 /* ---------- outro ---------- */
 let RECAP=[['شيل السكتات'],['كابشن لحظي'],['موشن قرافيكس'],['حل اتجاه العربي']];
 let OUTRO_T={l1:'شكراً على المشاهدة',l2:'انمنتج بـ Hojas Studio',cta:'تابعني',word:'للمزيد'};
-function outro(t){ const s=VEND; if(t<s)return;
+function outro(t){ return outroF(t,OUTRO_T.font?'"'+OUTRO_T.font+'"':FONT); }   /* 4.1: خط كرت الختام يتغيّر من الاستوديو */
+function outroF(t,FONT){ const s=VEND; if(t<s)return;
   const wipe=eio(pr(t,s,s+0.45)), top=H*(1-wipe);
   X.save();X.fillStyle=BG;X.fillRect(0,top,W,H);
   X.beginPath();X.rect(0,top,W,H);X.clip();X.translate(0,top);
