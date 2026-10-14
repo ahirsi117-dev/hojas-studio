@@ -140,6 +140,7 @@ def guide():
 
 
 NEWS_SHOWN = 20
+NOBREAK_HYPHEN = re.compile(r"(?<=\w)-(?=\w)")
 MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
 
 def esc(t):
@@ -163,9 +164,10 @@ def news_body():
         badge = '<span class="posted">نزل في %s</span>' % " و".join(posted) if posted else ""
         srcs = " · ".join('<a href="%s" target="_blank" rel="noopener">%s</a>' % (esc(s["url"]), esc(s["name"])) for s in it["sources"])
         note = '<p class="news-note">%s</p>' % esc(it["note"]) if it.get("note") else ""
+        title = NOBREAK_HYPHEN.sub("\u2011", esc(it["title"]))  # model names like Decision-1 stay on one line
         rows.append(f'''<li class="news-item" id="{it["key"]}">
 <div class="news-meta"><time datetime="{it["date"]}">{when}</time><span>{esc(it["company"])}</span><span>{esc(it["category"])}</span>{badge}</div>
-<h2>{re.sub(r"(?<=\w)-(?=\w)", "\u2011", esc(it["title"]))}</h2>
+<h2>{title}</h2>
 <p>{esc(it["summary"])}</p>
 {note}
 <div class="news-foot"><span class="trust trust-{lvl}" title="{N.label(t)}"><b>{t}%</b> {N.label(t)}</span><span class="news-src">المصدر: {srcs}</span></div>
