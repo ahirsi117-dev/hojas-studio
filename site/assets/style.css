@@ -198,3 +198,31 @@ html { scroll-behavior: smooth; }
   .chip:nth-child(n+4), .layer:nth-child(2) { display: none; }
   .hero-actions .btn { width: 100%; }
 }
+
+/* أخبار الذكاء */
+.news-wrap { display: grid; gap: 40px; padding: 32px 0 64px; }
+.news-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.news-item { display: grid; gap: 10px; padding: 28px 0; border-bottom: 1px solid var(--line); scroll-margin-top: 16px; }
+.news-item h2 { font-size: 1.25rem; line-height: 1.45; }
+.news-item p { max-width: 68ch; color: var(--muted); }
+.news-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; color: var(--muted); font-size: 0.875rem; }
+.news-meta time { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.posted { padding: 1px 10px; border-radius: 4px; background: var(--accent); color: var(--ink); font-size: 0.8125rem; font-weight: 600; }
+.news-note { font-size: 0.875rem; }
+.news-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; font-size: 0.875rem; }
+.trust { display: inline-flex; align-items: baseline; gap: 6px; padding: 2px 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--white); color: var(--muted); }
+.trust b { color: var(--ink); font: 500 0.9375rem var(--mono); }
+.trust-hi { border-color: #8FB39A; }
+.trust-mid { border-color: var(--accent); }
+.trust-lo { border-color: #C9A227; }
+.news-src { min-width: 0; color: var(--muted); overflow-wrap: anywhere; }
+.trust-key { align-self: start; padding: 24px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--white); }
+.trust-key h2 { font-size: 1.125rem; }
+.trust-key ul { display: grid; gap: 6px; margin: 16px 0; padding: 0; list-style: none; }
+.trust-key li { display: grid; grid-template-columns: 3.5em 1fr; gap: 8px; }
+.trust-key b { font: 500 0.9375rem var(--mono); }
+.trust-key p { color: var(--muted); font-size: 0.875rem; }
+@media (min-width: 960px) {
+  .news-wrap { grid-template-columns: minmax(0, 1fr) 300px; gap: 56px; }
+  .trust-key { position: sticky; top: 24px; }
+}

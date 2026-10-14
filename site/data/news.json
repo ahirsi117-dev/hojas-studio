@@ -1,0 +1,348 @@
+[
+ {
+  "key": "noiz-helix-world",
+  "date": "2026-10-12",
+  "company": "Noiz AI",
+  "category": "فيديو",
+  "title": "Helix World: عالم فيديو تتجول فيه بصوت مجسم",
+  "summary": "نموذج عالم يولّد فيديو تقدر تتحرك فيه، مع صوت ستيريو يتبع الكاميرا، بسرعة 24 إطار في الثانية على كرت H800 واحد. نسخة تجريبية.",
+  "sources": [
+   {
+    "name": "Noiz AI",
+    "url": "https://noiz.ai/lp/blog/meet-helix-world",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ },
+ {
+  "key": "meta-muse-wonder",
+  "date": "2026-10-12",
+  "company": "Meta",
+  "category": "نماذج",
+  "title": "ميتا تطلق Muse Wonder لمهام الوكلاء",
+  "summary": "عائلة نماذج للمهام الشخصية والمهنية، فيها ذاكرة نشطة تحفظ سياقك بين المحادثات، وتركيز نشط يخليها تكمل الأهداف الصعبة وتستأذن قبل الخطوات المهمة. متاحة عبر Meta Model API و Muse Code.",
+  "sources": [
+   {
+    "name": "Meta AI",
+    "url": "https://research.meta.ai/blog/muse-wonder",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ },
+ {
+  "key": "microsoft-decision-1",
+  "date": "2026-10-09",
+  "company": "Microsoft",
+  "category": "نماذج",
+  "title": "مايكروسوفت تطلق Decision-1 للقرارات السريعة",
+  "summary": "نموذج يعطي درجات لاختيارات محددة مثل التوجيه والتصنيف. سعر الإدخال 0.042 دولار لكل مليون توكن والإخراج مجاني، ومتاح في Microsoft Foundry و OpenRouter.",
+  "note": "أرقام الدقة والسرعة من مايكروسوفت نفسها.",
+  "sources": [
+   {
+    "name": "Microsoft",
+    "url": "https://commandline.microsoft.com/microsoft-decision-1-model-foundry/",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ },
+ {
+  "key": "cloudflare-clef-omni",
+  "date": "2026-10-09",
+  "company": "Cloudflare",
+  "category": "نماذج",
+  "title": "Cloudflare تطلق Clef-omni يفهم الصوت والفيديو بطلب واحد",
+  "summary": "يقبل نص وصور وصوت وفيديو في نداء API واحد، وسعره يبدأ من 0.15 دولار لكل مليون توكن إدخال.",
+  "sources": [
+   {
+    "name": "Cloudflare",
+    "url": "https://blog.cloudflare.com/clef-faster-cheaper-multimodal/",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ },
+ {
+  "key": "jetbrains-mellum-2-1",
+  "date": "2026-10-08",
+  "company": "JetBrains",
+  "category": "برمجة",
+  "title": "JetBrains تطلق Mellum2.1 مفتوح لوكلاء البرمجة",
+  "summary": "نموذج 12 مليار معامل (2.5 مليار نشطة) برخصة Apache 2.0، مصمم لوكلاء البرمجة ويشتغل على جهازك أو سيرفرك.",
+  "sources": [
+   {
+    "name": "JetBrains",
+    "url": "https://blog.jetbrains.com/ai/2026/10/mellum2-1-gets-to-work-a-fast-open-model-for-coding-agents/",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ },
+ {
+  "key": "perplexity-embed-v2-late",
+  "date": "2026-10-07",
+  "company": "Perplexity",
+  "category": "بحث",
+  "title": "Perplexity تطلق بحث يقرأ صفحات PDF بدون OCR",
+  "summary": "pplx-embed-v2-late بحجمين 0.6B و 9B، يبحث في صفحات PDF كصور مباشرة بدون استخراج النص، والنسختين تشتركان بنفس الفهرس.",
+  "sources": [
+   {
+    "name": "Perplexity",
+    "url": "https://www.perplexity.ai/hub/blog/multimodal-embeddings-beyond-a-single-vector",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ },
+ {
+  "key": "liquid-d1",
+  "date": "2026-10-07",
+  "company": "Liquid AI",
+  "category": "نماذج",
+  "title": "Liquid AI تطلق نماذج تجاوب بخطوة وحدة",
+  "summary": "d1-3B و d1-omni-600M مفتوحة على Hugging Face، وتطلع الجواب في تمريرة وحدة بدل ما تولّد كلمة كلمة.",
+  "note": "ترتيب الأداء من الشركة نفسها.",
+  "sources": [
+   {
+    "name": "Liquid AI",
+    "url": "https://www.liquid.ai/blog/d1-open",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ },
+ {
+  "key": "anthropic-claude-haiku-5-5",
+  "date": "2026-10-07",
+  "company": "Anthropic",
+  "category": "نماذج",
+  "title": "Anthropic تطلق Claude Haiku 5.5",
+  "summary": "أرخص وأسرع نموذج صغير من Anthropic، وتكلفة تشغيله أقل بحوالي 75% من Haiku 4.5.",
+  "sources": [
+   {
+    "name": "Anthropic",
+    "url": "https://www.anthropic.com/claude-haiku-5-5",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ },
+ {
+  "key": "mistral-large-4",
+  "date": "2026-10-06",
+  "company": "Mistral",
+  "category": "نماذج",
+  "title": "ميسترال تطلق Large 4 بأوزان مفتوحة",
+  "summary": "معاينة عامة بإجمالي 1.05 تريليون معامل و52 مليار نشطة، مع مشفّر رؤية.",
+  "note": "متتبع إصدارات كتب 49 مليار نشطة، والرقم هنا من صفحة ميسترال الرسمية.",
+  "sources": [
+   {
+    "name": "Mistral",
+    "url": "https://docs.mistral.ai/models/mistral-large-4-0",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ },
+ {
+  "key": "google-nano-banana-2-1",
+  "date": "2026-10-06",
+  "company": "Google",
+  "category": "صور",
+  "title": "جوجل تطلق Nano Banana 2.1 للصور",
+  "summary": "مبني على Gemini 3.6 Flash ويطلع صور 4K، ومتاح في تطبيق Gemini و AI Studio و Flow و Stitch وإعلانات جوجل.",
+  "sources": [
+   {
+    "name": "Google DeepMind",
+    "url": "https://deepmind.google/models/model-cards/nano-banana-2-1/",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ },
+ {
+  "key": "google-embeddinggemma-2",
+  "date": "2026-10-06",
+  "company": "Google",
+  "category": "بحث",
+  "title": "جوجل تطلق EmbeddingGemma 2 للبحث على الجهاز",
+  "summary": "740 مليون معامل برخصة Apache 2.0، متعدد الوسائط ويشتغل على الجهاز، وسياقه 8 آلاف توكن، أربع أضعاف النسخة الأولى.",
+  "sources": [
+   {
+    "name": "Google",
+    "url": "https://blog.google/innovation-and-ai/technology/developers-tools/embeddinggemma-2/",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ },
+ {
+  "key": "reka-rho-1",
+  "date": "2026-10-05",
+  "company": "Reka",
+  "category": "نماذج",
+  "title": "Reka تطلق Rho-1 يفهم الفيديو ويحرك الروبوتات",
+  "summary": "19 مليار معامل تجمع النص والصور والفيديو وحركات الروبوت في شبكة وحدة، تدرّب على 320 كرت H100 حوالي ثلاث شهور. نسخة بحثية.",
+  "sources": [
+   {
+    "name": "Reka",
+    "url": "https://reka.ai/news/rho-1-collapsing-the-multimodal-stack",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ },
+ {
+  "key": "reflection-beam",
+  "date": "2026-10-05",
+  "company": "Reflection",
+  "category": "برمجة",
+  "title": "Reflection تكشف Beam أول نموذج مفتوح لها",
+  "summary": "للبرمجة والاستدلال والوكلاء. متاح الآن بقائمة انتظار، والشركة تقول الأوزان بتنزل برخصة Apache 2.0 آخر أكتوبر.",
+  "sources": [
+   {
+    "name": "Reflection",
+    "url": "https://reflection.ai/blog/introducing-beam",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ },
+ {
+  "key": "amazon-nova-2-5-sonic",
+  "date": "2026-10-05",
+  "company": "Amazon",
+  "category": "صوت",
+  "title": "أمازون تتيح Nova 2.5 Sonic للمكالمات الصوتية",
+  "summary": "نموذج كلام إلى كلام لوكلاء الصوت، صار متاح للجميع في Amazon Bedrock بتأخير أقل ودقة أعلى في الأدوات، وبنفس سعر النسخة السابقة.",
+  "note": "الصفحة تقول سبع لغات بدون ما تسميها، فدعم العربي مو مؤكد.",
+  "sources": [
+   {
+    "name": "AWS",
+    "url": "https://aws.amazon.com/about-aws/whats-new/2026/10/amazon-nova-2.5-sonic/",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ },
+ {
+  "key": "aleph-alpha-kolibri",
+  "date": "2026-10-03",
+  "company": "Aleph Alpha",
+  "category": "نماذج",
+  "title": "Aleph Alpha تطلق Kolibri بسياق مليون توكن",
+  "summary": "نموذج مفتوح بإجمالي 78 مليار معامل و3 مليار نشطة برخصة Apache 2.0، مركّز على الإنجليزي والألماني والقطاعات الحكومية.",
+  "sources": [
+   {
+    "name": "Aleph Alpha",
+    "url": "https://aleph-alpha.com/en/blog/kolibri-has-landed-a-sovereign-open-weight-model/",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ },
+ {
+  "key": "cactus-whistle",
+  "date": "2026-10-02",
+  "company": "Cactus",
+  "category": "صوت",
+  "title": "Whistle: تفريغ صوت بحجم 17 ميقا على المعالج",
+  "summary": "ملف واحد 16.9 ميقا بدون مكتبات، يفرّغ سبع لغات أوروبية. العربي مو منها.",
+  "sources": [
+   {
+    "name": "Cactus",
+    "url": "https://cactuscompute.com/blog/whistle",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ },
+ {
+  "key": "ai2-astabrief",
+  "date": "2026-10-02",
+  "company": "Ai2",
+  "category": "بحث",
+  "title": "Ai2 تطلق AstaBrief يكتب تقارير بحثية بمراجع",
+  "summary": "نموذج 8 مليار مفتوح مبني على Qwen3-8B، يحول سؤال بحثي إلى تقرير موثّق في حوالي 51 ثانية.",
+  "sources": [
+   {
+    "name": "Ai2",
+    "url": "https://allenai.org/blog/astabrief",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ },
+ {
+  "key": "tavus-griffin-lite",
+  "date": "2026-10-01",
+  "company": "Tavus",
+  "category": "فيديو",
+  "title": "Tavus: 48% حسبوا نموذج الفيديو إنسان حقيقي",
+  "summary": "في مكالمات فيديو مدتها دقيقة، 48% من 54 مشارك ظنوا Griffin-Lite شخص حقيقي. متاح لمختبرين محددين بس.",
+  "note": "التجربة أجرتها الشركة نفسها.",
+  "sources": [
+   {
+    "name": "Tavus",
+    "url": "https://www.tavus.io/griffin",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ },
+ {
+  "key": "microsoft-mai-transcribe-2",
+  "date": "2026-10-01",
+  "company": "Microsoft",
+  "category": "صوت",
+  "title": "مايكروسوفت تطلق تفريغ صوت مباشر بـ60 لغة",
+  "summary": "MAI-Transcribe-2-Streaming يفرّغ الكلام لحظيًا بـ60 لغة، ومعه MAI-Voice-2.1 لتوليد الصوت بـ23 لغة.",
+  "note": "الصفحة ما تذكر العربي بالاسم.",
+  "sources": [
+   {
+    "name": "Microsoft AI",
+    "url": "https://microsoft.ai/news/our-first-streaming-transcription-model/",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ },
+ {
+  "key": "decagon-voice-3",
+  "date": "2026-10-01",
+  "company": "Decagon",
+  "category": "صوت",
+  "title": "Decagon تطلق Voice 3 بنموذجين يشتغلون مع بعض",
+  "summary": "نموذج سريع يسمع ويتكلم، وأقوى منه يفكر ويستخدم الأدوات بنفس اللحظة. يدعم أكثر من 70 لغة، ومعه Chord أول نموذج صوت للشركة.",
+  "sources": [
+   {
+    "name": "Decagon",
+    "url": "https://decagon.ai/blog/voice-3",
+    "type": "official"
+   }
+  ],
+  "trust": 95,
+  "posted": {}
+ }
+]

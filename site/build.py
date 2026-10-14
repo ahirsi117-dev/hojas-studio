@@ -12,9 +12,10 @@ VER_SHORT = re.sub(r"\.0$", "", VER)
 PAGES = {
     "index": ("هوجاس ستوديو: منتج مقطعك مع Claude", "هوجاس ستوديو أداة مونتاج لمقاطع الكلام للكاميرا: كابشن عربي، كروت شرح، تايم لاين في المتصفح، إشعارات على جوالك، ونشر على تيك توك بموافقتك. تعمل مع Claude Code على جهازك.", "/"),
     "features": ("الميزات: هوجاس ستوديو", "كل ميزات هوجاس ستوديو مرتبة حسب الغرض: القص والتفريغ، الكابشن، كروت الشرح، الصور والمقاطع، المؤثرات، الصوت، التايم لاين، التصدير والنشر.", "/features"),
+    "news": ("أخبار الذكاء الاصطناعي: هوجاس ستوديو", "أهم أخبار الذكاء الاصطناعي بالعربي، كل خبر بمصدره ونسبة وثوقه، والأخبار اللي نزلت في حساباتنا معلّمة.", "/news"),
     "updates": ("التحديثات: هوجاس ستوديو", "سجل كل إصدار من هوجاس ستوديو: وش انضاف، ومتى. الأحدث فوق.", "/updates"),
 }
-NAV = [("/", "الرئيسية"), ("/features", "الميزات"), ("/guide", "دليل الاستخدام"), ("/updates", "التحديثات")]
+NAV = [("/", "الرئيسية"), ("/features", "الميزات"), ("/guide", "دليل الاستخدام"), ("/news", "أخبار الذكاء"), ("/updates", "التحديثات")]
 
 def nav(cur, cls_nav="nav", cls_btn="btn btn-primary"):
     links = "\n".join("<a %shref='%s'>%s</a>" % ("aria-current='page' " if u == cur else "", u, t) for u, t in NAV)
@@ -68,6 +69,7 @@ def page(name, body, size):
 <ul class="foot-links">
 <li><a href='/features'>الميزات</a></li>
 <li><a href='/guide'>دليل الاستخدام</a></li>
+<li><a href='/news'>أخبار الذكاء</a></li>
 <li><a href='/updates'>التحديثات</a></li>
 <li><a href="downloads/hojas-studio.zip" download>تحميل الأداة</a></li>
 <li><a href="downloads/hojas-studio-guide.pdf" download>دليل PDF</a></li>
@@ -136,6 +138,66 @@ def guide():
     s = s.replace("</body>", '<script src="assets/site.js" defer></script>\n</body>', 1)
     return s
 
+
+NEWS_SHOWN = 20
+MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
+
+def esc(t):
+    return str(t).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+def news_body():
+    """صفحة الأخبار من site/data/news.json (يتحقق منها news.py ويحسب الوثوق)."""
+    sys.path.insert(0, SITE)
+    import news as N
+    items = N.load()
+    for i, it in enumerate(items):
+        N.validate(it, i)
+    items.sort(key=lambda x: (x["date"], x["key"]), reverse=True)
+    shown = items[:NEWS_SHOWN]
+    rows = []
+    for it in shown:
+        y, m, d = it["date"].split("-")
+        when = "%d %s" % (int(d), MONTHS[int(m) - 1])
+        t = it["trust"]; lvl = "hi" if t >= 90 else "mid" if t >= 60 else "lo"
+        posted = [n for k, n in (("tiktok", "تيك توك"), ("instagram", "إنستقرام")) if it.get("posted", {}).get(k)]
+        badge = '<span class="posted">نزل في %s</span>' % " و".join(posted) if posted else ""
+        srcs = " · ".join('<a href="%s" target="_blank" rel="noopener">%s</a>' % (esc(s["url"]), esc(s["name"])) for s in it["sources"])
+        note = '<p class="news-note">%s</p>' % esc(it["note"]) if it.get("note") else ""
+        rows.append(f'''<li class="news-item" id="{it["key"]}">
+<div class="news-meta"><time datetime="{it["date"]}">{when}</time><span>{esc(it["company"])}</span><span>{esc(it["category"])}</span>{badge}</div>
+<h2>{re.sub(r"(?<=\w)-(?=\w)", "\u2011", esc(it["title"]))}</h2>
+<p>{esc(it["summary"])}</p>
+{note}
+<div class="news-foot"><span class="trust trust-{lvl}" title="{N.label(t)}"><b>{t}%</b> {N.label(t)}</span><span class="news-src">المصدر: {srcs}</span></div>
+</li>''')
+    posted_n = sum(1 for it in shown if any(it.get("posted", {}).values()))
+    last = ""
+    if shown:
+        y, m, d = shown[0]["date"].split("-"); last = "%d %s %s" % (int(d), MONTHS[int(m) - 1], y)
+    return f'''<section class="page-head">
+<div class="wrap">
+<h1>أخبار الذكاء الاصطناعي</h1>
+<p>آخر {len(shown)} خبر، كل واحد برابط مصدره ونسبة وثوق محسوبة من نوع المصدر. آخر تحديث {last}{" · %d منها نزلت في حساباتنا" % posted_n if posted_n else ""}.</p>
+</div>
+</section>
+<div class="wrap news-wrap">
+<ol class="news-list">
+{"".join(rows)}
+</ol>
+<aside class="trust-key" aria-labelledby="tk">
+<h2 id="tk">كيف نحسب نسبة الوثوق</h2>
+<ul>
+<li><b>95%</b> إعلان رسمي من الشركة نفسها.</li>
+<li><b>85%</b> مصدرين إخباريين معروفين.</li>
+<li><b>70%</b> مصدر إخباري واحد.</li>
+<li><b>45%</b> منشورات تواصل اجتماعي فقط.</li>
+<li><b>35%</b> حد أعلى للتسريبات والإشاعات.</li>
+</ul>
+<p>الأرقام اللي تقولها الشركة عن نفسها (سرعة، دقة) نكتب جنبها إنها من الشركة.</p>
+</aside>
+</div>
+'''
+
 def tool_zip(path):
     """ملف التحميل = آخر commit بدون docs ولا site (git archive يطبّق .gitattributes، فـ install.bat بنهايات ويندوز)."""
     raw = subprocess.run(["git", "-C", ROOT, "archive", "--format=zip", "--prefix=hojas-studio/", "HEAD"], capture_output=True, check=True).stdout
@@ -155,9 +217,10 @@ def main():
     size = "%.1f" % (os.path.getsize(z) / 1048576)
     shutil.copy(os.path.join(ROOT, "GUIDE.pdf"), os.path.join(OUT, "downloads", "hojas-studio-guide.pdf"))
     for name in PAGES:
-        body = open(os.path.join(SITE, "pages", name + ".html"), encoding="utf-8").read()
+        body = news_body() if name == "news" else open(os.path.join(SITE, "pages", name + ".html"), encoding="utf-8").read()
         open(os.path.join(OUT, name + ".html"), "w", encoding="utf-8").write(page(name, body, size))
     open(os.path.join(OUT, "guide.html"), "w", encoding="utf-8").write(guide())
+    shutil.copy(os.path.join(SITE, "data", "news.json"), os.path.join(OUT, "news.json"))
     print("الموقع جاهز:", OUT, "· الإصدار", VER, "· التحميل", size, "ميقا")
 
 if __name__ == "__main__": main()
