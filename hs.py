@@ -1419,7 +1419,7 @@ def cmd_selftest(work=None, engine=None):
         except UnicodeDecodeError as e: chk("ترميز UTF-8: " + f, False, str(e)[:80]); continue
         hit = [m for m in MOJIBAKE if m in txt[f]] if f != "qr.js" else []
         chk("النص سليم: " + f, not hit, "فيه حروف خربانة " + repr(hit))
-    if not os.path.isfile(os.path.join(HERE, "fonts", "nt-panorama-naskh-long.otf")): print("ملاحظة: خط الواجهة الخاص مو موجود في fonts/، الواجهة تشتغل بالخط البديل")
+    if not os.path.isfile(ui_font()): print("ملاحظة: خط الواجهة الخاص مو موجود في fonts/، الواجهة تشتغل بالخط البديل")
     eng0 = find_engine(engine); chk("المحرّك engine كامل", bool(eng0) and all(os.path.exists(os.path.join(eng0, p)) for p in ("studio/studio.py", "scripts/04_render_frames.js", "scripts/21_vision.js", "vision/vision_bundle.mjs", "vision/wasm/vision_wasm_internal.wasm", "vision/selfie_segmentation.tflite", "vision/face_detection_short_range.tflite", "scripts/compose.REFERENCE.html", "scripts/03_cut_zoom.py", "scripts/05_sfx.py", "scripts/06b_master.sh", "MONTAGE.md")), "ملفات ناقصة من engine")
     try: compile(txt.get("hs.py", ""), "hs.py", "exec"); chk("صياغة hs.py", True)
     except SyntaxError as e: chk("صياغة hs.py", False, str(e))
@@ -1487,6 +1487,10 @@ def cmd_selftest(work=None, engine=None):
         import sqlite3; cx = sqlite3.connect(":memory:"); cx.execute("CREATE VIRTUAL TABLE t USING fts5(a)"); f5 = True
     except Exception: f5 = False
     chk("قاعدة البيانات: توحيد الحروف وبحث سريع", norm_txt("أَلحقيقة إلى") == "الحقيقه الي" and (f5 or True), "" if f5 else "FTS5 مو متوفر، البحث بيشتغل بالطريقة العادية")
+    try:
+        pj = rj(os.path.join(HERE, ".claude-plugin", "plugin.json"), {}) or {}; sk = os.path.join(HERE, "skills", "hojas-studio", "SKILL.md")
+        chk("البلقن: النسخة ونسخة السكل محدّثة", pj.get("version") == VERSION and os.path.isfile(sk) and open(sk, encoding="utf-8").read() == plugin_skill_text(), "شغّل: hs release")
+    except Exception as e: chk("البلقن: النسخة ونسخة السكل محدّثة", False, str(e)[:120])
     chk("الرسم الحر بالمحرّك والاستوديو", "function drawLayer" in txt.get("ext.js", "") and "function drawStart" in txt.get("app.js", ""))
     if work and os.path.isdir(work):
         eng = find_engine(engine)
@@ -1500,7 +1504,7 @@ def cmd_selftest(work=None, engine=None):
                     try: urllib.request.urlopen("http://127.0.0.1:%d/hs/info" % port, timeout=2).read(); up = True; break
                     except Exception: pass
                 chk("الخادم اشتغل", up)
-                for path, need in (("/", b"app.js"), ("/hs/app.js", b"CAPPRE"), ("/hs/i18n.js", b"I18N"), ("/hs/info", b'"safe"'), ("/hs/brief", b'"cards"'), ("/hs/pulse", b'"sig"'), ("/review", b"<")) + ((("/hs/ui-font.otf", b"OTTO"),) if os.path.isfile(os.path.join(HERE, "fonts", "nt-panorama-naskh-long.otf")) else ()):
+                for path, need in (("/", b"app.js"), ("/hs/app.js", b"CAPPRE"), ("/hs/i18n.js", b"I18N"), ("/hs/info", b'"safe"'), ("/hs/brief", b'"cards"'), ("/hs/pulse", b'"sig"'), ("/review", b"<")) + ((("/hs/ui-font.otf", b"OTTO"),) if os.path.isfile(ui_font()) else ()):
                     try: body = urllib.request.urlopen("http://127.0.0.1:%d%s" % (port, path), timeout=8).read(); chk("يرد " + path, need in body, "الرد ما فيه المتوقع")
                     except Exception as e: chk("يرد " + path, False, str(e)[:100])
             finally: pr.kill()
@@ -1961,7 +1965,7 @@ def serve(work, port, engine):
                     self.send_header("Location", p or "/"); self.send_header("Content-Length", "0"); self.end_headers(); return
             # ── صفحة المراجعة (العميل): صلاحيات محدودة ──
             if p == "/hs/ui-font.otf":
-                f = os.path.join(HERE, "fonts", "nt-panorama-naskh-long.otf")
+                f = ui_font()
                 if not os.path.isfile(f): return self.send_error(404)
                 b = open(f, "rb").read(); self.send_response(200); self.send_header("Content-Type", "font/otf"); self.send_header("Cache-Control", "max-age=86400"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
             if p == "/review": return self._file(os.path.join(HERE, "review.html"), "text/html; charset=utf-8")
@@ -3352,6 +3356,95 @@ def proj_start(work, engine=None):
         if port_alive(use, work): _PM["t"] = 0; return use
         time.sleep(0.25)
     raise RuntimeError("الخادم ما اشتغل: " + J(work, ".hs", "server.log"))
+# ───────────────────────── 4.4: بلقن Claude Code والتحديث التلقائي ─────────────────────────
+UI_FONT = "nt-panorama-naskh-long.otf"
+def ui_font():
+    for d in (os.path.join(HERE, "fonts"), os.path.join(HOME_CFG, "fonts")):
+        f = os.path.join(d, UI_FONT)
+        if os.path.isfile(f): return f
+    return os.path.join(HERE, "fonts", UI_FONT)
+def current_path(): return os.path.join(HOME_CFG, "current.json")
+LAUNCHER = """# Hojas Studio: يشغّل أحدث نسخة مركّبة (يكتبه hs sync، لا تعدّله)
+import json, os, sys, glob, subprocess
+H = os.path.join(os.path.expanduser("~"), ".hojas-studio")
+def pick():
+    try:
+        r = json.load(open(os.path.join(H, "current.json"), encoding="utf-8")).get("root")
+        if r and os.path.isfile(os.path.join(r, "hs.py")): return os.path.join(r, "hs.py")
+    except Exception: pass
+    c = glob.glob(os.path.join(os.path.expanduser("~"), ".claude", "plugins", "cache", "*", "hojas-studio", "*", "hs.py"))
+    c += [os.path.join(os.path.expanduser("~"), d, "hs.py") for d in (os.path.join(".claude", "skills", "hojas-studio"), os.path.join("Documents", "hojas-studio"))]
+    c = [x for x in c if os.path.isfile(x)]
+    return max(c, key=os.path.getmtime) if c else None
+hs = pick()
+if not hs: sys.exit("Hojas Studio files not found")
+sys.exit(subprocess.call([sys.executable, hs] + sys.argv[1:]))
+"""
+def launcher_path(): return os.path.join(HOME_CFG, "launch.py")
+def hub_ping(port=None):
+    port = port or hub_cfg().get("port") or HUB_PORT
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:%d/hub/api/ping" % port, timeout=1.5) as r: return json.loads(r.read().decode())
+    except Exception: return None
+def hub_busy(port):
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:%d/hub/api/device" % port, timeout=8) as r: d = json.loads(r.read().decode())
+        return any(x.get("job") or x.get("agent") for x in d.get("live") or [])
+    except Exception: return False
+def cmd_sync(args):
+    """يشتغل مع بداية كل جلسة Claude Code (من البلقن): يسجّل أحدث نسخة، ولو المكتبة شغّالة بنسخة أقدم يعيد تشغيلها من الجديدة."""
+    os.makedirs(HOME_CFG, exist_ok=True)
+    cur = rj(current_path(), {}) or {}; changed = cur.get("version") != VERSION or os.path.normcase(cur.get("root") or "") != os.path.normcase(HERE)
+    wj(current_path(), {"root": HERE, "version": VERSION, "at": int(time.time()), "plugin": bool(os.environ.get("CLAUDE_PLUGIN_ROOT"))})
+    try:
+        if not os.path.isfile(launcher_path()) or open(launcher_path(), encoding="utf-8").read() != LAUNCHER: open(launcher_path(), "w", encoding="utf-8").write(LAUNCHER)
+    except Exception: pass
+    fd = os.path.join(HOME_CFG, "fonts")   # خط الواجهة الخاص ما ينرفق بالنسخة العامة: نحفظه مرة من التثبيت القديم
+    if not os.path.isfile(os.path.join(HERE, "fonts", UI_FONT)) and not os.path.isfile(os.path.join(fd, UI_FONT)):
+        for d in (os.path.join(os.path.expanduser("~"), "Documents", "hojas-studio", "fonts"), os.path.join(os.path.expanduser("~"), ".claude", "skills", "hojas-studio", "fonts")):
+            if os.path.isfile(os.path.join(d, UI_FONT)):
+                os.makedirs(fd, exist_ok=True); shutil.copy2(os.path.join(d, UI_FONT), os.path.join(fd, UI_FONT)); break
+    find_engine(None) and remember_engine(find_engine(None))
+    port = hub_cfg().get("port") or HUB_PORT; pg = hub_ping(port)
+    if pg and (pg.get("version") != VERSION or os.path.normcase(pg.get("root") or "") != os.path.normcase(HERE)):
+        if "--now" not in args:   # لا نأخّر بداية الجلسة: نكمّل بالخلفية
+            spawn_bg(["sync", "--now"], os.path.join(HOME_CFG, "sync.log"))
+        elif hub_busy(port): print("المكتبة مشغولة بتصدير أو Claude، بتتحدّث بالجلسة الجاية")
+        else:
+            try: urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:%d/hub/api/restart" % port, data=json.dumps({"latest": True}).encode(), headers={"Content-Type": "application/json"}), timeout=5).read()
+            except Exception: pass
+            time.sleep(4); pg2 = hub_ping(port)
+            if not pg2 or pg2.get("version") != VERSION or os.path.normcase(pg2.get("root") or "") != os.path.normcase(HERE):   # مكتبة قديمة ما تعرف «latest»
+                if pg2:
+                    try: urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:%d/hub/api/shutdown" % port, data=b"{}", headers={"Content-Type": "application/json"}), timeout=5).read()
+                    except Exception: pass
+                    time.sleep(2)
+                if not hub_ping(port): spawn_bg(["hub", "--no-browser"], os.path.join(HOME_CFG, "hub.log")); time.sleep(4)
+            pg3 = hub_ping(port)
+            print("المكتبة انتقلت لنسخة " + VERSION if pg3 and pg3.get("version") == VERSION else "ما قدرت أنقل المكتبة للنسخة الجديدة، شغّل: hs hub --restart")
+    if changed and "--now" not in args and cur.get("version"):
+        print("Hojas Studio اتحدّث من %s إلى %s. الجديد في %s" % (cur.get("version"), VERSION, os.path.join(HERE, "CHANGELOG.md")))
+def cmd_autoupdate(args):
+    """hs autoupdate on|off: يشغّل التحديث التلقائي لبلقن Hojas في إعدادات Claude Code (~/.claude/settings.json)."""
+    on = (args[0] if args else "on") != "off"; sp = os.path.join(os.path.expanduser("~"), ".claude", "settings.json")
+    st = rj(sp, {}) or {}; ek = st.setdefault("extraKnownMarketplaces", {})
+    e = ek.setdefault("hojas", {"source": {"source": "github", "repo": "rakaga66/hojas-studio"}}); e["autoUpdate"] = on
+    os.makedirs(os.path.dirname(sp), exist_ok=True)
+    if os.path.exists(sp): shutil.copy2(sp, sp + ".bak-hojas")
+    wj(sp, st); print(("شغّلت" if on else "طفّيت") + " التحديث التلقائي لـ Hojas Studio في " + sp + " (نسخة احتياطية: settings.json.bak-hojas)")
+def plugin_skill_text():
+    """نسخة SKILL.md للبلقن (skills/hojas-studio/SKILL.md): نفس السكل مع مسار البلقن."""
+    src = open(os.path.join(HERE, "SKILL.md"), encoding="utf-8").read(); fm, body = src.split("\n---\n", 1)
+    body = body.replace("تحت: `hs` = `python <skill>/hs.py`.", "تحت: `hs` أمر جاهز بالطرفية من البلقن (ولو ما اشتغل: `python \"${CLAUDE_PLUGIN_ROOT}/hs.py\"`).", 1)
+    note = ("\n> **مثبّت كبلقن Claude Code:** مجلد السكل `<skill>` = `${CLAUDE_PLUGIN_ROOT}`، والمحرّك `${CLAUDE_PLUGIN_ROOT}/engine`. "
+            "`hs` أمر جاهز. التحديث تلقائي من البلقن، فلا تستخدم `hs update`. مشاريعه وإعداداته وقاعدة بياناته في `~/.hojas-studio` وما تتأثر بالتحديث.\n")
+    return fm + "\n---\n" + note + body
+def cmd_release(args):
+    """hs release: يجهّز البلقن قبل الرفع (نسخة SKILL.md للبلقن + رقم النسخة من VERSION)."""
+    sk = os.path.join(HERE, "skills", "hojas-studio", "SKILL.md"); os.makedirs(os.path.dirname(sk), exist_ok=True)
+    open(sk, "w", encoding="utf-8").write(plugin_skill_text())
+    pj = os.path.join(HERE, ".claude-plugin", "plugin.json"); d = rj(pj, {}) or {}; d["version"] = VERSION; wj(pj, d)
+    print("البلقن جاهز: %s · النسخة %s" % (sk, VERSION))
 def cmd_hub(args):
     """hs hub [--root <مجلد المشاريع>] [--port 8800] [--no-browser] [--tailscale] [--restart] [--cookies chrome|off] [--autostart [off]]"""
     rest = list(args)
@@ -3371,7 +3464,8 @@ def cmd_hub(args):
             if os.path.exists(vb): os.remove(vb)
             print("انطفى التشغيل التلقائي للمكتبة."); return
         pyw = PY[:-10] + "pythonw.exe" if PY.lower().endswith("python.exe") and os.path.exists(PY[:-10] + "pythonw.exe") else PY
-        open(vb, "w", encoding="utf-8").write('CreateObject("WScript.Shell").Run """%s"" ""%s"" hub --no-browser", 0, False\r\n' % (pyw, os.path.abspath(__file__)))
+        cmd_sync(["--quiet"]) if not os.path.isfile(launcher_path()) else None
+        open(vb, "w", encoding="utf-8").write('CreateObject("WScript.Shell").Run """%s"" ""%s"" hub --no-browser", 0, False\r\n' % (pyw, launcher_path() if os.path.isfile(launcher_path()) else os.path.abspath(__file__)))
         print("المكتبة بتشتغل لحالها كل ما يشتغل الجهاز (بدون نافذة). للإطفاء: python hs.py hub --autostart off"); return
     alive = False
     try:
@@ -3504,14 +3598,14 @@ def hub_serve(root, port):
                 POOL.c.pop(port, None)
         def _route(self):
             u = urllib.parse.urlparse(self.path); p = u.path; q = self._q()
-            if p == "/hub/api/ping": return self._json(200, {"hub": True, "version": VERSION})
+            if p == "/hub/api/ping": return self._json(200, {"hub": True, "version": VERSION, "root": HERE})
             if not self._ok(): return self._deny()
             if (q.get("k") or [""])[0] == TOKEN and not self._local() and ("hs_k=" + TOKEN) not in (self.headers.get("Cookie") or ""):
                 self.send_response(302); self.send_header("Set-Cookie", "hs_k=%s; Path=/; Max-Age=2592000; SameSite=Lax" % TOKEN); self.send_header("Location", p or "/library"); self.send_header("Content-Length", "0"); self.end_headers(); return
             if p in ("/library", "/library/"):
                 b = open(os.path.join(HERE, "hub.html"), "rb").read(); return self._send(200, b, "text/html; charset=utf-8", {"Set-Cookie": "hs_hub=1; Path=/; SameSite=Lax"})
             if p == "/hub/ui-font.otf":
-                f = os.path.join(HERE, "fonts", "nt-panorama-naskh-long.otf")
+                f = ui_font()
                 return self._send(200, open(f, "rb").read(), "font/otf") if os.path.isfile(f) else self._send(404, b"")
             if p == "/hub/qr.js": return self._send(200, open(os.path.join(HERE, "qr.js"), "rb").read(), "application/javascript; charset=utf-8")
             if p.startswith("/hub/api/"): return self._api(p[9:], q)
@@ -3703,6 +3797,13 @@ def hub_serve(root, port):
                         urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:%d%s" % (pt, ep), data=b"{}", headers={"Content-Type": "application/json"}), timeout=5); n += 1
                     except Exception: pass
                 return self._json(200, {"ok": True, "n": n})
+            if a == "shutdown" and self._local():
+                for w in hub_projects(root)[:60]:
+                    pt = proj_port(w)
+                    if pt:
+                        try: urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:%d/hs/quit" % pt, data=b"{}", headers={"Content-Type": "application/json"}), timeout=3)
+                        except Exception: pass
+                self._json(200, {"ok": True}); threading.Thread(target=lambda: (time.sleep(0.4), os._exit(0)), daemon=True).start(); return
             if a == "restart":
                 for w in hub_projects(root)[:60]:
                     pt = proj_port(w)
@@ -3714,7 +3815,9 @@ def hub_serve(root, port):
                     time.sleep(0.6); kw = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
                     if os.name == "nt": kw["creationflags"] = 0x00000008 | 0x00000200 | 0x08000000
                     else: kw["start_new_session"] = True
-                    subprocess.Popen([PY, os.path.abspath(__file__), "hub", "--no-browser"], **kw); time.sleep(0.2); os._exit(0)
+                    tgt = (rj(current_path(), {}) or {}).get("root") if data.get("latest") else None
+                    hp = os.path.join(tgt, "hs.py") if tgt and os.path.isfile(os.path.join(tgt, "hs.py")) else os.path.abspath(__file__)
+                    subprocess.Popen([PY, hp, "hub", "--no-browser"], **kw); time.sleep(0.2); os._exit(0)
                 threading.Thread(target=again, daemon=True).start(); return
             if a == "upload":
                 name = re.sub(r"[^\w\-]+", "-", (q.get("name") or [""])[0]).strip("-")[:40] or time.strftime("clip-%m%d-%H%M")
@@ -3768,6 +3871,9 @@ def main():
     if cmd == "clips": return cmd_clips(a[1:])
     if cmd == "grab": return cmd_grab(a[1:])
     if cmd == "db": return cmd_db(a[1:])
+    if cmd == "sync": return cmd_sync(a[1:])
+    if cmd == "release": return cmd_release(a[1:])
+    if cmd == "autoupdate": return cmd_autoupdate(a[1:])
     if cmd == "hub": return cmd_hub(a[1:])
     if cmd == "selftest": sys.exit(0 if cmd_selftest(os.path.abspath(a[1]) if len(a) > 1 else None, engine) else 1)
     if len(a) < 2: sys.exit("لازم مجلد الشغل: python hs.py %s <work>" % cmd)

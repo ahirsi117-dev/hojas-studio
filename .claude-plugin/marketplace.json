@@ -1,0 +1,16 @@
+{
+  "name": "hojas",
+  "owner": {
+    "name": "Hojas (Rakan Alzahrani)"
+  },
+  "metadata": {
+    "description": "Hojas Studio plugins"
+  },
+  "plugins": [
+    {
+      "name": "hojas-studio",
+      "source": "./",
+      "description": "Arabic video editing studio for Claude Code, with auto-updates."
+    }
+  ]
+}

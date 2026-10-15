@@ -110,22 +110,16 @@ The timeline opens in your browser while Claude works. Layers, captions, sound a
 ## Quick start
 
 1. Install [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) and sign in.
-2. Open Claude Code and paste:
+2. In Claude Code, add the plugin (recommended, it updates itself):
 
    ```
-   Install the Hojas Studio skill: git clone https://github.com/rakaga66/hojas-studio ~/.claude/skills/hojas-studio
+   /plugin marketplace add rakaga66/hojas-studio
+   /plugin install hojas-studio@hojas
    ```
 
-   Or run it yourself in a terminal:
+   Then turn on auto-update once: `/plugin` > **Marketplaces** > **hojas** > **Enable auto-update**. From then on every new version arrives by itself, and the Library switches to it the next time you open Claude Code. Your projects, settings and clip database live in `~/.hojas-studio` and are never touched by an update.
 
-   ```bash
-   # macOS / Linux
-   git clone https://github.com/rakaga66/hojas-studio ~/.claude/skills/hojas-studio
-   ```
-   ```powershell
-   # Windows (PowerShell)
-   git clone https://github.com/rakaga66/hojas-studio "$HOME\.claude\skills\hojas-studio"
-   ```
+   Prefer a plain skill? `git clone https://github.com/rakaga66/hojas-studio ~/.claude/skills/hojas-studio` still works, and you update it with "update Hojas Studio".
 3. Restart Claude Code and type:
 
    ```

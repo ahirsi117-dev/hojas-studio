@@ -1,0 +1,18 @@
+{
+ "name": "hojas-studio",
+ "version": "4.4.0",
+ "description": "Hojas Studio: Arabic talking-head video editing with Claude Code. Captions, explainer cards, a browser timeline, clips from any link, and a local library you can search.",
+ "author": {
+  "name": "Hojas (Rakan Alzahrani)"
+ },
+ "homepage": "https://hojas-studio.netlify.app/",
+ "repository": "https://github.com/rakaga66/hojas-studio",
+ "license": "PolyForm-Noncommercial-1.0.0",
+ "keywords": [
+  "video",
+  "arabic",
+  "captions",
+  "editing",
+  "montage"
+ ]
+}

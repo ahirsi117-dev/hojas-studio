@@ -234,7 +234,7 @@ hs gen <work> import 3 "C:/Users/…/Downloads/الناتج.png"   # يدخّل 
 | كرت الختام | `hs set <work> outro.font="Lalezar" outro.cta="تابعني"` |
 | ورق متحرك | `hs kinetic <work> auto [--from ث --to ث] [--deco both]` · `hs kinetic <work> set mark=@حسابه` · `hs layer <work> set <id> text="سطر\n* كبير\n> صندوق" card=terminal cardText="…"` |
 | الدحيح | `hs dahih <work> on --title "…" --tag "#…" [--avatar assets/x.jpg] [--logo claude] [--layout full]` · `hs dahih <work> bg navy --at ث` · `hs layer <work> add type=desk kind=note text="…" label="EDIT REQUEST #1" s=… e=…` |
-| تحديث السكل | `hs update` |
+| تحديث السكل | بلقن: تلقائي (`hs autoupdate on` يشغّله لو مطفي، بعد موافقته) · سكل عادي: `hs update` |
 | فحص ملفات الاستوديو نفسها | `hs selftest [<work>]` |
 | الهويات | `hs brand <work> list` · `save <اسم>` · `apply <اسم>` |
 | الحالة | `hs status <work>` |

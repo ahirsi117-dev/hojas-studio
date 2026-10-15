@@ -94,20 +94,21 @@
 ## التثبيت
 
 1. ثبّت [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) وسجّل دخول.
-2. افتح Claude Code والصق له:
+2. ركّبه كبلقن (الأفضل، يتحدّث لحاله). اكتب داخل Claude Code:
 
    ```
-   Install this skill: git clone https://github.com/rakaga66/hojas-studio ~/.claude/skills/hojas-studio
+   /plugin marketplace add rakaga66/hojas-studio
+   /plugin install hojas-studio@hojas
    ```
 
-   أو شغّله بنفسك من الطرفية:
-   - **ماك ولينكس:** `git clone https://github.com/rakaga66/hojas-studio ~/.claude/skills/hojas-studio`
-   - **ويندوز (PowerShell):** `git clone https://github.com/rakaga66/hojas-studio "$HOME\.claude\skills\hojas-studio"`
+   وشغّل التحديث التلقائي مرة وحدة: `/plugin` ← **Marketplaces** ← **hojas** ← **Enable auto-update**. بعدها كل نسخة جديدة توصلك لحالها، والمكتبة تنتقل لها أول ما تفتح Claude Code. مشاريعك وإعداداتك وقاعدة بياناتك في `~/.hojas-studio` وما يلمسها أي تحديث.
+
+   تبيه سكل عادي؟ `git clone https://github.com/rakaga66/hojas-studio ~/.claude/skills/hojas-studio` يشتغل بعد، وتحدّثه بـ«حدّث Hojas Studio».
 3. اقفل Claude Code وافتحه، واكتب له: «افحص أدوات Hojas Studio».
    يقول لك وش الناقص (ffmpeg، Python مع Whisper، Node، Chrome، وعلى ويندوز Git for Windows)، ليش يحتاجه ومن وين ينزل، وما يثبّت شي إلا بموافقتك.
 4. وبعدها: «منتج هذا المقطع لتيك توك» مع مسار الفيديو.
 
-**التحديث:** قل له «حدّث Hojas Studio».
+**التحديث:** البلقن يتحدّث لحاله. السكل العادي: قل له «حدّث Hojas Studio».
 
 **ما عندك git؟** نزّل الملف المضغوط من [hojas-studio.netlify.app](https://hojas-studio.netlify.app/) أو [آخر إصدار](https://github.com/rakaga66/hojas-studio/releases/latest)، فك الضغط في مكان ثابت، وشغّل `install.bat` (ويندوز) أو `bash install.sh` (ماك ولينكس).
 
