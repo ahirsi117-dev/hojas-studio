@@ -30,6 +30,7 @@
 | الملاحظات | `notes . list` ثم لكل وحدة `notes . done <id> "وش سويت"` |
 | ملاحظة صوتية | فيها `audio`. لو نصها «ما قدرت أفرّغها» فرّغ الملف بوِسبر قبل التنفيذ |
 | حلقة طويلة | اقرأ `<engine>/references/clips.md` ثم `clips scan` (يرشّح لحاله) · `clips cand <مجلد> list` · `cand <مجلد> set c3 --score 88 --why "…\|…" --title "…"` · `clips build <مجلد> --picks c1,c3 --edit none` |
+| وين قال كلام معيّن (كل مقاطعه) | `db search "كلمة"` (بلا مجلد) |
 | فيديو من رابط | `grab "<الرابط>" --mode clips\|manual\|auto` (لو yt-dlp مو مثبّت استأذنه أول) |
 | رسم حر | `layer . add type=draw pts='[[0.3,0.3],[0.6,0.3],null,[0.4,0.6],[0.6,0.6]]' color="#FFD21F" lw=12 reveal=0.9 s=4 e=7` |
 | ملاحظة منك له | `notes . add <ثانية> "اقتراح" [--kind question\|info]`، ولا تنفّذ قبل رده |

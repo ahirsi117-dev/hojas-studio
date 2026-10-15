@@ -1483,6 +1483,10 @@ def cmd_selftest(work=None, engine=None):
         chk("ترشيح اللقطات", len(C) >= 3 and all(20 <= c["to"] - c["from"] <= 41 for c in C) and C[0]["score"] >= C[-1]["score"] and "تبدأ بسؤال" in C[0]["why"], json.dumps(C[:2], ensure_ascii=False)[:200])
         shutil.rmtree(td, ignore_errors=True)
     except Exception as e: chk("ترشيح اللقطات", False, str(e))
+    try:
+        import sqlite3; cx = sqlite3.connect(":memory:"); cx.execute("CREATE VIRTUAL TABLE t USING fts5(a)"); f5 = True
+    except Exception: f5 = False
+    chk("قاعدة البيانات: توحيد الحروف وبحث سريع", norm_txt("أَلحقيقة إلى") == "الحقيقه الي" and (f5 or True), "" if f5 else "FTS5 مو متوفر، البحث بيشتغل بالطريقة العادية")
     chk("الرسم الحر بالمحرّك والاستوديو", "function drawLayer" in txt.get("ext.js", "") and "function drawStart" in txt.get("app.js", ""))
     if work and os.path.isdir(work):
         eng = find_engine(engine)
@@ -3034,6 +3038,159 @@ def hub_eps(root):
             jb = job_get(d)
             if not jb.get("done") or jb.get("stage") == "error": out.append(job_card(d))
     return out
+# ── 4.4: قاعدة بيانات المقاطع (SQLite على جهازه فقط): العناوين والكلام بالتوقيت والملاحظات ──
+DB_VER = 1
+AR_NORM = str.maketrans({"أ": "ا", "إ": "ا", "آ": "ا", "ٱ": "ا", "ة": "ه", "ى": "ي", "ؤ": "و", "ئ": "ي", "ـ": ""})
+def norm_txt(s): return re.sub(r"[ً-ٰٟۖ-ۭ]", "", str(s or "")).translate(AR_NORM).lower()
+def db_path(): return os.path.join(HOME_CFG, "library.db")
+_DBL = threading.Lock()
+def db_conn():
+    import sqlite3
+    os.makedirs(HOME_CFG, exist_ok=True); c = sqlite3.connect(db_path(), timeout=15, check_same_thread=False)
+    c.execute("PRAGMA journal_mode=WAL")
+    c.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
+    c.execute("CREATE TABLE IF NOT EXISTS items (id TEXT PRIMARY KEY, kind TEXT, work TEXT, title TEXT, dur REAL, sig TEXT, at REAL, made REAL, src TEXT, by TEXT, lang TEXT, words INTEGER)")
+    fts = True
+    try: c.execute("CREATE VIRTUAL TABLE IF NOT EXISTS fx USING fts5(body, item UNINDEXED, t UNINDEXED, field UNINDEXED, orig UNINDEXED, tokenize='unicode61')")
+    except Exception:
+        fts = False; c.execute("CREATE TABLE IF NOT EXISTS fx (body TEXT, item TEXT, t REAL, field TEXT, orig TEXT)")
+    return c, fts
+def item_id(work): return hashlib.md5(os.path.normcase(os.path.abspath(work)).encode()).hexdigest()[:10]
+def db_sig(work, kind):
+    fs = ("caps.json", "studio.json", "notes.json", "a.json", "source.json") if kind == "proj" else ("clips.json", "long.json", "source.json")
+    return "%d:" % DB_VER + ",".join("%d" % int(os.path.getmtime(J(work, f))) if os.path.exists(J(work, f)) else "-" for f in fs)
+def db_rows(work, kind):
+    """يرجّع (معلومات المقطع، صفوف البحث [(النص، التوقيت، الحقل)])"""
+    rows = []; so = rj(J(work, "source.json"), {}) or {}
+    if kind == "ep":
+        cfg = clips_cfg(work); title = cfg.get("title") or so.get("title") or os.path.basename(work.rstrip("/\\")); dur = cfg.get("dur") or so.get("dur") or 0; lang = cfg.get("lang")
+        for s in (rj(J(work, "long.json"), {}) or {}).get("segments") or []:
+            if str(s.get("text", "")).strip(): rows.append((s["text"].strip(), round(float(s["start"]), 2), "say"))
+        for c in cfg.get("cands") or []:
+            if c.get("title"): rows.append((c["title"], round(float(c["from"]), 2), "cand"))
+    else:
+        hs = hs_of(load_studio(work)); caps = rj(J(work, "caps.json"), {}) or {}
+        title = (hs.get("title") or (hs.get("pod") or {}).get("title") or (hs.get("dahih") or {}).get("title") or "").strip() or os.path.basename(work.rstrip("/\\"))
+        dur = float(caps.get("total") or so.get("dur") or 0); lang = (hs.get("pod") or {}).get("lang") or "ar"
+        cards = caps.get("cards") or []
+        if cards:
+            for c in cards:
+                tx = " ".join(str(w.get("t", "")) for w in c.get("w") or []).strip()
+                if tx: rows.append((tx, round(float(c.get("s", 0)), 2), "say"))
+        else:
+            for s in (rj(J(work, "a.json"), {}) or {}).get("segments") or []:
+                if str(s.get("text", "")).strip(): rows.append((s["text"].strip(), round(float(s["start"]), 2), "say"))
+        for n in rj(J(work, "notes.json"), []) or []:
+            tx = " ".join(x for x in (n.get("text"), n.get("reply")) if x)
+            if tx: rows.append((tx, round(float(n.get("t") or 0), 2), "note"))
+        for L in hs.get("layers") or []:
+            tx = " ".join(str(L.get(k) or "") for k in ("text", "title", "sub") if isinstance(L.get(k), str)).strip()
+            if tx: rows.append((tx[:300], round(float(L.get("s", 0)), 2), "layer"))
+        for h in ((hs.get("hooks") or {}).get("items") or []):
+            if h.get("text"): rows.append((h["text"], 0.0, "hook"))
+        pt = J(work, "post.txt")
+        if os.path.exists(pt): rows.append((open(pt, encoding="utf-8", errors="replace").read()[:2000], None, "post"))
+    meta = " ".join(x for x in (title, os.path.basename(work.rstrip("/\\")), so.get("title"), so.get("by"), so.get("site")) if x)
+    rows.insert(0, (meta, None, "title"))
+    info = {"title": title, "dur": round(float(dur or 0), 1), "src": so.get("url") or "", "by": so.get("by") or "", "lang": lang or "",
+            "made": os.path.getctime(work) if os.path.exists(work) else 0, "words": sum(len(r[0].split()) for r in rows if r[2] == "say")}
+    return info, rows
+def db_index(work, kind="proj", force=False, c=None):
+    own = c is None
+    if own: c, _ = db_conn()
+    iid = item_id(work); sig = db_sig(work, kind)
+    try:
+        r = c.execute("SELECT sig FROM items WHERE id=?", (iid,)).fetchone()
+        if r and r[0] == sig and not force: return False
+        info, rows = db_rows(work, kind)
+        with _DBL:
+            c.execute("DELETE FROM fx WHERE item=?", (iid,))
+            c.executemany("INSERT INTO fx (body, item, t, field, orig) VALUES (?,?,?,?,?)", [(norm_txt(tx), iid, t, f, tx) for tx, t, f in rows])
+            c.execute("INSERT OR REPLACE INTO items (id, kind, work, title, dur, sig, at, made, src, by, lang, words) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                      (iid, kind, os.path.abspath(work), info["title"], info["dur"], sig, time.time(), info["made"], info["src"], info["by"], info["lang"], info["words"]))
+            c.commit()
+        return True
+    finally:
+        if own: c.close()
+def db_sync(root=None, force=False):
+    c, _ = db_conn(); n = 0; seen = set()
+    try:
+        for w in hub_projects(root):
+            seen.add(item_id(w))
+            try: n += db_index(w, "proj", force, c)
+            except Exception: pass
+        for e in hub_eps(root):
+            if e.get("kind") != "ep": continue
+            seen.add(e["id"])
+            try: n += db_index(e["work"], "ep", force, c)
+            except Exception: pass
+        gone = [r[0] for r in c.execute("SELECT id FROM items").fetchall() if r[0] not in seen]
+        with _DBL:
+            for i in gone: c.execute("DELETE FROM fx WHERE item=?", (i,)); c.execute("DELETE FROM items WHERE id=?", (i,))
+            c.execute("INSERT OR REPLACE INTO meta VALUES ('synced', ?)", (str(time.time()),)); c.commit()
+        return n, len(gone)
+    finally: c.close()
+def _hl(orig, toks):
+    out = []
+    for w in re.split(r"(\s+)", str(orig)):
+        nw = norm_txt(re.sub(r"[^\w]", "", w))
+        out.append([w, bool(nw) and any(nw.startswith(t) or (len(t) > 2 and t in nw) for t in toks)])
+    return out
+def db_search(q, limit=30, kind=None):
+    toks = [t for t in re.findall(r"\w+", norm_txt(q)) if t][:8]
+    if not toks: return {"q": q, "items": []}
+    c, fts = db_conn()
+    try:
+        if fts:
+            mq = " ".join('"%s"*' % t.replace('"', "") for t in toks)
+            try: rows = c.execute("SELECT item, t, field, orig, bm25(fx) FROM fx WHERE fx MATCH ? ORDER BY bm25(fx) LIMIT 600", (mq,)).fetchall()
+            except Exception: rows = []
+        else:
+            sql = " AND ".join("body LIKE ?" for _ in toks)
+            rows = [r + (0,) for r in c.execute("SELECT item, t, field, orig FROM fx WHERE " + sql + " LIMIT 600", ["%" + t + "%" for t in toks]).fetchall()]
+        if not rows:   # بحث أوسع: أي كلمة من الكلمات
+            mq = " OR ".join('"%s"*' % t for t in toks)
+            try: rows = c.execute("SELECT item, t, field, orig, bm25(fx) FROM fx WHERE fx MATCH ? ORDER BY bm25(fx) LIMIT 300", (mq,)).fetchall() if fts else []
+            except Exception: rows = []
+        items = {r[0]: r for r in c.execute("SELECT id, kind, work, title, dur, made, src, by, words FROM items").fetchall()}
+        by = {}
+        for iid, t, field, orig, rank in rows:
+            it = items.get(iid)
+            if not it or (kind and it[1] != kind): continue
+            g = by.setdefault(iid, {"id": iid, "kind": it[1], "work": it[2], "title": it[3], "dur": it[4], "made": it[5], "src": it[6], "by": it[7], "score": 0.0, "titleHit": False, "hits": []})
+            g["score"] += -float(rank or 0) * (3 if field == "title" else 1) + (2 if field == "title" else 0.4)
+            if field == "title": g["titleHit"] = True
+            elif len(g["hits"]) < 6: g["hits"].append({"t": t, "field": field, "text": _hl(str(orig)[:260], toks)})
+        out = sorted(by.values(), key=lambda g: -g["score"])[:limit]
+        for g in out: g["hits"].sort(key=lambda h: (h["t"] is None, h["t"] or 0))
+        return {"q": q, "items": out, "total": sum(len(g["hits"]) for g in by.values())}
+    finally: c.close()
+def db_stats():
+    c, fts = db_conn()
+    try:
+        n = c.execute("SELECT COUNT(*), COALESCE(SUM(dur),0), COALESCE(SUM(words),0) FROM items").fetchone(); s = c.execute("SELECT COUNT(*) FROM fx WHERE field='say'").fetchone()[0]
+        syn = (c.execute("SELECT v FROM meta WHERE k='synced'").fetchone() or [0])[0]
+        return {"items": n[0], "secs": round(n[1]), "words": n[2], "lines": s, "fts": fts, "path": db_path(), "size": os.path.getsize(db_path()) if os.path.exists(db_path()) else 0, "synced": float(syn or 0)}
+    finally: c.close()
+def cmd_db(args):
+    """hs db index [--full] · search "كلمة" [--n 20] · stats · reset"""
+    sub = args[0] if args else "stats"; rest = list(args[1:]); root = hub_cfg().get("root")
+    if sub == "index":
+        n, g = db_sync(root, "--full" in rest); s = db_stats(); print("انفهرس %d مقطع (وانشال %d محذوف). بالقاعدة: %d مقطع · %d جملة · %s" % (n, g, s["items"], s["lines"], s["path"]))
+    elif sub == "search":
+        q = " ".join(x for x in rest if not x.startswith("--")) or sys.exit('db search "كلمة"'); n = int(rest[rest.index("--n") + 1]) if "--n" in rest else 20
+        db_sync(root); R = db_search(q, n)
+        if not R["items"]: print("ما لقيت شي لـ «%s»" % q); return
+        for g in R["items"]:
+            print("● %s  [%s] %s" % (g["title"], "حلقة" if g["kind"] == "ep" else "مقطع", g["work"]))
+            for h in g["hits"]: print("    %s  %s" % (tfmt(h["t"]) if h["t"] is not None else "  -  ", "".join(w for w, _ in h["text"])[:150]))
+    elif sub == "stats":
+        s = db_stats(); print("القاعدة: %s\n%d مقطع · %d جملة · %d كلمة · %s ساعة كلام · %.1f ميقا · بحث %s" % (s["path"], s["items"], s["lines"], s["words"], round(s["secs"] / 3600, 1), s["size"] / 1e6, "سريع (FTS5)" if s["fts"] else "عادي"))
+    elif sub == "reset":
+        for f in (db_path(), db_path() + "-wal", db_path() + "-shm"):
+            if os.path.exists(f): os.remove(f)
+        print("انمسحت القاعدة (مقاطعك نفسها ما انلمست). تنبني من جديد أول ما تفتح المكتبة أو: hs db index")
+    else: sys.exit(cmd_db.__doc__)
 def proj_dup(w):
     base = os.path.basename(w.rstrip("/\\")); dst = os.path.join(os.path.dirname(w), base + "-v2"); k = 2
     while os.path.exists(dst): k += 1; dst = os.path.join(os.path.dirname(w), "%s-v%d" % (base, k))
@@ -3382,6 +3539,23 @@ def hub_serve(root, port):
                 cards = [proj_card(w, live=True) for w in hub_projects(root)]; cards.sort(key=lambda c: -c["mt"])
                 eps = hub_eps(root); eps.sort(key=lambda c: -c["mt"])
                 return self._json(200, {"root": root, "projects": cards, "eps": eps, "awake": AWAKE["on"], "battery": battery(), "ytdlp": bool(ytdlp_cmd()), "claude": have_claude()})
+            if a == "search":
+                qq = (q.get("q") or [""])[0].strip()
+                if len(qq) < 2: return self._json(200, {"q": qq, "items": []})
+                try: R = db_search(qq, 40, (q.get("kind") or [None])[0] or None)
+                except Exception as e: return self._json(500, {"ok": False, "msg": str(e)[:200]})
+                for g in R["items"]:
+                    w = g["work"]; g["thumb"] = None
+                    if g["kind"] == "ep": g["thumb"] = ".hs/th.jpg" if os.path.exists(J(w, ".hs", "th.jpg")) else None
+                    else:
+                        for f in ("vfr/00045.jpg", "vfr/00001.jpg", ".hs/th/2.jpg"):
+                            if os.path.exists(J(w, f)): g["thumb"] = f; break
+                    g["mt"] = int(os.path.getmtime(w)) if os.path.exists(w) else 0
+                return self._json(200, R)
+            if a == "db":
+                if self.command == "POST": threading.Thread(target=lambda: db_sync(root, bool(data.get("full"))), daemon=True).start()
+                try: return self._json(200, db_stats())
+                except Exception as e: return self._json(200, {"items": 0, "err": str(e)[:200]})
             if a == "link":
                 url = str(data.get("url") or "").strip()
                 m = re.search(r"https?://\S+", url)
@@ -3532,6 +3706,12 @@ def hub_serve(root, port):
                 grab_bg(dst, w, {"mode": mode, "pick": (q.get("pick") or ["claude"])[0], "n": (q.get("n") or ["5"])[0], "len": (q.get("len") or [""])[0], "note": note})
                 return self._json(200, {"ok": True, "work": w, "started": True, "msg": ""})
             return self._json(404, {"ok": False})
+    def db_loop():   # 4.4: يحدّث قاعدة البيانات بالخلفية (بس المقاطع اللي تغيّرت)
+        while True:
+            try: db_sync(root)
+            except Exception: pass
+            time.sleep(45)
+    threading.Thread(target=db_loop, daemon=True).start()
     srv = http.server.ThreadingHTTPServer(("0.0.0.0", port), HB); srv.daemon_threads = True
     print("المكتبة شغّالة: http://127.0.0.1:%d/library · الجوال: http://%s:%d/library?k=%s" % (port, LAN, port, TOKEN)); sys.stdout.flush()
     try: srv.serve_forever()
@@ -3561,6 +3741,7 @@ def main():
     if cmd == "update": return cmd_update()
     if cmd == "clips": return cmd_clips(a[1:])
     if cmd == "grab": return cmd_grab(a[1:])
+    if cmd == "db": return cmd_db(a[1:])
     if cmd == "hub": return cmd_hub(a[1:])
     if cmd == "selftest": sys.exit(0 if cmd_selftest(os.path.abspath(a[1]) if len(a) > 1 else None, engine) else 1)
     if len(a) < 2: sys.exit("لازم مجلد الشغل: python hs.py %s <work>" % cmd)

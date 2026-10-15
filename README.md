@@ -89,6 +89,7 @@ Pick one on the questions page, or ask Claude: "edit it in the paper style".
 
 - **Any link:** paste a TikTok, YouTube, Instagram or X link in the Library and it pulls the video (free yt-dlp tool, one-tap install).
 - **Clips from a long video:** it transcribes the whole thing and ranks the strongest moments by how likely they are to hit (hook, numbers, energy, a complete thought, your request). Let Claude pick and edit them, or pick yourself: preview each moment, nudge the start and end, or tap two sentences to make your own.
+- **Search everything you said:** every clip and every line you spoke, with timestamps, lives in a small database file on your computer only. Search from the Library and it opens the clip at that second.
 - **Edit it yourself:** "I edit it myself" cuts the silences, writes the captions and opens the timeline for you. Add text, explainer cards, number animations, marks, characters, and freehand drawing that draws itself on. Everything saves as you go.
 
 ## The studio
