@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Hojas Studio 4.1 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
+"""Hojas Studio 4.2 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
 
   python hs.py open   <work> [--engine <مجلد المحرّك>] [--port 8800] [--no-browser]
         يشغّل الخادم بالخلفية ويفتح المتصفح. شغّله أول ما تبدأ المونتاج، حتى قبل ما يجهز أي ملف.
@@ -38,6 +38,8 @@
   python hs.py style  show | snap <work> | learn <work> | apply <work> | reset   يتعلّم أسلوب المستخدم من تعديلاته
   python hs.py publish <work> list | <tiktok> [--at "وقت"] | done <المنصة> <الرابط>   يجهّز النشر من متصفح المستخدم
   python hs.py update                                يحدّث السكل (لو مثبّت بـ git)
+  python hs.py kinetic <work> auto [--from ث --to ث] [--deco flowers|badges|both|none] | clear | set mark=… avatar=…   أسلوب «ورق متحرك»
+  python hs.py dahih  <work> on [--title …] [--tag …] [--avatar …] [--layout window|full] | bg <mode> --at ث | off      أسلوب «الدحيح»
   python hs.py tools                                 وش الأدوات اللي يحتاجها السكل وليش (اعرضها على المستخدم قبل أي تثبيت)
   python hs.py doctor [--engine …]
   python hs.py selftest [<work>]      فحص ذاتي: صياغة الملفات · النصوص العربية سليمة · كل مفاتيح الواجهة موجودة · الخادم يرد
@@ -61,7 +63,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.1.0"
+VERSION = "4.2.0"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -460,7 +462,19 @@ def mask_need(work):
         except Exception: continue
         f0 = max(1, int(a * 30) + 1); f1 = min(n, int(b * 30 + 0.999) + 1)
         if f1 >= f0 and not any(r[0] <= f0 and r[1] >= f1 for r in have): need.append("%.2f-%.2f" % (a, b))
+    for a, b in dahih_cut_ranges(work, n / 30.0):   # 4.2: مكتب الدحيح يحتاج قص الشخص بكل مدى خلفيته مو «original»
+        f0 = max(1, int(a * 30) + 1); f1 = min(n, int(b * 30 + 0.999) + 1)
+        if f1 >= f0 and not any(r[0] <= f0 and r[1] >= f1 for r in have): need.append("%.2f-%.2f" % (a, b))
     return need
+def dahih_cut_ranges(work, total):
+    D = (load_studio(work).get("hs") or {}).get("dahih") or {}
+    if not D.get("on"): return []
+    pts = [(0.0, D.get("bg") or "paper")] + sorted(((float(b["s"]), b["mode"]) for b in (D.get("bgs") or []) if b.get("mode")), key=lambda x: x[0])
+    out = []
+    for i, (a, m) in enumerate(pts):
+        b = pts[i + 1][0] if i + 1 < len(pts) else total
+        if m != "original" and b > a: out.append((max(0.0, a - 0.5), min(total, b + 0.1)))
+    return out
 def face_stale(work):
     fj = J(work, "face.json"); src = J(work, "cutz.mp4")
     if not _nvf(work): return False
@@ -832,6 +846,9 @@ def brief_apply(work):
                      "1:1": "المقاس مربع: التصدير يقص إلى 1080×1080. كل شي مهم داخل الحزام بين %s%% و%s%% من الارتفاع، والمشاهد اللي تملأ الشاشة طولياً بتنقص" % tuple(sz["crop"] or (0, 100)),
                      "16:9": "المقاس عرضي 16:9: المحرّك يركّب عمودي، فالتصدير يحط المقطع بالنص وخلفية مغبّشة منه. قل له هذا بوضوح، ولو يبي عرضي حقيقي يملأ الشاشة يحتاج مونتاج عرضي من المصدر"}[ar])
     for k, v in (a.get("extra") or {}).items(): todo.append("إجابة «%s»: %s" % (k, v))
+    stl = a.get("style") or "normal"
+    if stl == "paper": todo.append("الأسلوب: ورق متحرك. اقرأ <engine>/references/styles.md (القسم 1) ثم: hs kinetic <work> auto --deco both، وراجع كل شاشة بنفسك")
+    elif stl == "dahih": todo.append("الأسلوب: الدحيح. اقرأ <engine>/references/styles.md (القسم 2) ثم: hs dahih <work> on --title \"…\" --tag \"…\"، وحط كروت المكتب على كلامه")
     if a.get("ref"): todo.append("مرجع يبي مثله: " + a["ref"])
     if a.get("notes"): todo.append("ملاحظاته الحرّة: " + a["notes"])
     nw = style_apply(work)
@@ -1280,6 +1297,10 @@ def cmd_selftest(work=None, engine=None):
     chk("الأسلوب: الملخص يطلع", "Tajawal" in style_text({"n": 1, "updated": "x", "cap": {"font": "Tajawal"}, "words": {"a": "b"}}))
     chk("النشر: تيك توك متاح للكل", "tiktok" in publish_platforms())
     chk("الإشعارات: الرابط سليم", notify_url({"server": "https://ntfy.sh", "topic": "hojas-x"}, title="عنوان", filename="a.mp4").startswith("https://ntfy.sh/hojas-x?title=%D8"))
+    # 4.2: الورق المتحرك والدحيح
+    chk("الأساليب: إضافة الرسم فيها الورق المتحرك والدحيح", all(x in txt.get("ext.js", "") for x in ("function kinetics", "function deskItems", "function dkHeader", "function dkPerson", "dkNeedMask")))
+    k0 = kin_compose("مونتاج ساعتين صار يخلص وأنت تشرب قهوتك".split(), 2)
+    chk("الورق المتحرك: النص يتقسم لسطر وكلمة كبيرة", "\n* " in k0 or k0.startswith("* "), k0)
     sz = safe_of(["tiktok", "instagram"]); chk("حساب المنطقة الآمنة", sz["capMax"] == 67.0 and sz["capMin"] == 18.0, json.dumps(sz))
     chk("حساب القص 4:5", safe_of([], "4:5")["crop"] == [11.77, 82.08], json.dumps(safe_of([], "4:5")))
     if work and os.path.isdir(work):
@@ -1364,12 +1385,12 @@ def cmd_layer(work, args):
         return
     if sub == "add":
         o = parse_kv(args[1:])
-        if o.get("type") not in ("text", "image", "char", "fx", "split", "viz", "cover", "bg", "behind", "pip", "mark", "cursor", "lt", "collage"): sys.exit("type لازم: text | image | char | fx | split | viz | cover | bg | behind | pip | mark | cursor | lt | collage")
+        if o.get("type") not in ("text", "image", "char", "fx", "split", "viz", "cover", "bg", "behind", "pip", "mark", "cursor", "lt", "collage", "kinetic", "desk"): sys.exit("type لازم: text | image | char | fx | split | viz | cover | bg | behind | pip | mark | cursor | lt | kinetic | desk | collage")
         if o["type"] in ("split", "viz", "pip"):
             for k2, v2 in (hs.get("cardDefault") or {}).items(): o.setdefault(k2, v2) if not (k2 == "deco" and o["type"] == "viz") else None
         for k in ("text", "title"):
             if isinstance(o.get(k), str): o[k] = o[k].replace("\\n", "\n")
-        o.setdefault("s", 0); o.setdefault("e", float(o["s"]) + ({"split": 5, "viz": 5, "cover": 0.9, "pip": 5, "collage": 4, "mark": 2.5, "lt": 4}.get(o["type"], 3))); o["id"] = new_id(Ls); o.setdefault("track", {"fx": 2, "text": 1, "split": 2, "viz": 2, "cover": 2, "behind": 1, "mark": 1, "cursor": 1, "lt": 1, "collage": 2, "pip": 2}.get(o["type"], 0)); Ls.append(o); wj(sp, st); print(o["id"])
+        o.setdefault("s", 0); o.setdefault("e", float(o["s"]) + ({"split": 5, "viz": 5, "cover": 0.9, "pip": 5, "collage": 4, "mark": 2.5, "lt": 4, "kinetic": 3, "desk": 4}.get(o["type"], 3))); o["id"] = new_id(Ls); o.setdefault("track", {"fx": 2, "text": 1, "split": 2, "viz": 2, "cover": 2, "behind": 1, "mark": 1, "cursor": 1, "lt": 1, "collage": 2, "pip": 2, "kinetic": 2, "desk": 1}.get(o["type"], 0)); Ls.append(o); wj(sp, st); print(o["id"])
         if o["type"] in ("bg", "behind", "split", "pip") or (o["type"] == "viz"):
             try: vision_ensure(work)
             except Exception as e: print("تنبيه: " + str(e)[:160])
@@ -2131,6 +2152,90 @@ def cmd_update():
     r = subprocess.run(["git", "-C", HERE, "pull", "--ff-only"], capture_output=True, text=True); print((r.stdout + r.stderr).strip())
     if r.returncode == 0: print("الإصدار الحين: " + (open(os.path.join(HERE, "VERSION")).read().strip() if os.path.exists(os.path.join(HERE, "VERSION")) else "?"))
 
+# ───────────────────────── 4.2: أسلوب «ورق متحرك» وأسلوب «الدحيح» ─────────────────────────
+KIN_STOP = set("في من على الى إلى عن مع اللي الي التي الذي هذا هذي هذه ذا ذي و ف يا لو ما لا هو هي انا أنا انت إنت انتو إنتوا كان كانت يعني بس كل عشان علشان لأن لان او أو ثم بعد قبل عند فيه فيها منه منها له لها لي لك هنا هناك اذا إذا لما حتى قد لقد وش ايش إيش شي شيء كذا".split())
+def kin_compose(words, i):
+    """يحوّل كلام جملة لنص ورق متحرك: سطر صغير، كلمة كبيرة (أطول كلمة لها معنى)، وصندوق أسود كل ثالث شاشة."""
+    ws = [w for w in words if w.strip()]
+    if not ws: return ""
+    if len(ws) <= 2: return "* " + " ".join(ws)
+    cand = [j for j, w in enumerate(ws) if _norm(w) not in KIN_STOP and len(_norm(w)) >= 3] or list(range(len(ws)))
+    late = [j for j in cand if j >= len(ws) * 0.35] or cand
+    k = max(late, key=lambda j: (len(_norm(ws[j])), j))
+    big = [ws[k]]
+    if k + 1 < len(ws) and len(_norm(ws[k + 1])) <= 4 and len(ws) - k - 2 >= 0 and len(" ".join(big + [ws[k + 1]])) <= 14: big.append(ws[k + 1])
+    pre, post = ws[:k], ws[k + len(big):]
+    lines = []
+    for j in range(0, len(pre), 6): lines.append(" ".join(pre[j:j + 6]))
+    lines.append("* " + " ".join(big))
+    if post: lines.append(("> " if i % 3 == 2 and len(post) <= 3 else "") + " ".join(post))
+    return "\n".join(lines)
+def kin_auto(work, a=None, b=None, deco="flowers", card_end=False):
+    caps = rj(J(work, "caps.json")) or sys.exit("ما فيه caps.json")
+    cards = [c for c in caps["cards"] if (a is None or c["e"] > a) and (b is None or c["s"] < b)]
+    if not cards: sys.exit("ما فيه كلام بهالمدى")
+    sp = J(work, "studio.json"); st = load_studio(work); hs = hs_of(st); Ls = hs.setdefault("layers", [])
+    lo = a if a is not None else cards[0]["s"]; hi = b if b is not None else cards[-1]["e"]
+    Ls[:] = [L for L in Ls if not (L.get("type") == "kinetic" and L.get("auto") and float(L["s"]) < hi and float(L["e"]) > lo)]
+    ids = []
+    for i, c in enumerate(cards):
+        s0 = max(lo, c["s"] - (0.12 if i else 0)); e0 = min(hi, cards[i + 1]["s"] - 0.12) if i + 1 < len(cards) else min(hi, c["e"] + 0.35)
+        if e0 - s0 < 0.4: continue
+        L = {"type": "kinetic", "s": round(s0, 3), "e": round(e0, 3), "text": kin_compose([w["t"] for w in c["w"]], i), "deco": deco if i == 0 or deco == "flowers" else "none", "auto": True, "track": 2}
+        if i == 0 and deco == "badges": L["deco"] = "badges"
+        L["id"] = new_id(Ls); Ls.append(L); ids.append(L["id"])
+    if ids and len(ids) > 1:   # كل الشاشات متصلة: آخر وحدة تخلص على أول اللي بعدها
+        ks = [L for L in Ls if L.get("id") in ids]; ks.sort(key=lambda L: L["s"])
+        for x, y in zip(ks, ks[1:]):
+            if 0 < y["s"] - x["e"] < 0.35: x["e"] = y["s"]
+    if card_end and ids: Ls[-1]["card"] = "profile"
+    wj(sp, st); return ids
+def cmd_kinetic(work, args):
+    sub = args[0] if args else "help"
+    def o(nm, d=None):
+        if nm in args: i = args.index(nm); v = args[i + 1]; del args[i:i + 2]; return v
+        return d
+    if sub == "auto":
+        a = o("--from"); b = o("--to"); deco = o("--deco", "flowers"); end = "--profile" in args
+        ids = kin_auto(work, float(a) if a else None, float(b) if b else None, deco, end)
+        print("انضافت %d شاشة ورق متحرك: %s" % (len(ids), " ".join(ids))); print("راجع كل شاشة: layer list ثم layer set <id> text=\"سطر\\n* كلمة كبيرة\\n> صندوق\" card=terminal cardText=\"…\"  (الدليل: engine/references/styles.md)")
+    elif sub == "clear":
+        sp = J(work, "studio.json"); st = load_studio(work); hs = hs_of(st); n0 = len(hs.get("layers") or []); hs["layers"] = [L for L in hs.get("layers") or [] if L.get("type") != "kinetic"]; wj(sp, st); print("انحذفت %d شاشة" % (n0 - len(hs["layers"])))
+    elif sub == "set":
+        sp = J(work, "studio.json"); st = load_studio(work); hs = hs_of(st); hs["kin"] = {**(hs.get("kin") or {}), **parse_kv(args[1:])}; wj(sp, st); print(json.dumps(hs["kin"], ensure_ascii=False))
+    else: sys.exit("kinetic <work> auto [--from ث --to ث] [--deco flowers|badges|both|none] [--profile] | clear | set mark=@حسابك avatar=assets/me.jpg font=Cairo")
+DAHIH_CAP = {"on": True, "font": "Cairo", "weight": 800, "size": 34, "color": "#FFFFFF", "active": "#FFFFFF", "bg": "box", "bgColor": "#E8541E", "bgOpacity": 1,
+             "y": 63.2, "x": 71, "width": 440, "lines": 1, "chunk": 4, "shadow": False, "stroke": 0, "enter": "pop", "hl": "none"}
+def cmd_dahih(work, args):
+    sub = args[0] if args else "help"; rest = args[1:]
+    def o(nm, d=None):
+        if nm in rest: i = rest.index(nm); v = rest[i + 1]; del rest[i:i + 2]; return v
+        return d
+    sp = J(work, "studio.json"); st = load_studio(work); hs = hs_of(st); D = hs.setdefault("dahih", {})
+    if sub == "on":
+        D.update({"on": True, "layout": o("--layout", D.get("layout") or "window"), "bg": o("--bg", D.get("bg") or "paper")})
+        for k in ("title", "tag", "avatar", "logo", "side", "font"):
+            v = o("--" + k)
+            if v is not None: D[k] = v
+        D.setdefault("title", ""); D.setdefault("bgs", [])
+        if "--keep-cap" not in rest:
+            cap = dict(DAHIH_CAP)
+            if D["layout"] == "full": cap.update({"y": 70, "x": 50, "size": 52, "width": 760})
+            elif D.get("side") == "left": cap["x"] = 29
+            hs["cap"] = {**(hs.get("cap") or {}), **cap}
+        wj(sp, st); print("أسلوب الدحيح شغّال: %s" % json.dumps(D, ensure_ascii=False))
+        try: vision_ensure(work)
+        except Exception as e: print("تنبيه: قص الشخص ما جهز (%s). المكتب يظهر بدون قص لين يجهز." % str(e)[:120])
+    elif sub == "bg":
+        if not rest: sys.exit("dahih <work> bg paper|navy|orange|green|dark|original --at <ثانية>")
+        at = float(o("--at", 0)); D.setdefault("bgs", []); D["bgs"] = [b for b in D["bgs"] if abs(float(b["s"]) - at) > 0.05] + [{"s": round(at, 3), "mode": rest[0]}]; D["bgs"].sort(key=lambda b: b["s"])
+        wj(sp, st); print("الخلفيات: " + " · ".join("%s من %.2f" % (b["mode"], b["s"]) for b in D["bgs"]))
+        try: vision_ensure(work)
+        except Exception as e: print("تنبيه: " + str(e)[:120])
+    elif sub == "off": D["on"] = False; wj(sp, st); print("انطفى أسلوب الدحيح (الكروت باقية)")
+    elif sub == "show": print(json.dumps(D, ensure_ascii=False, indent=1))
+    else: sys.exit("dahih <work> on [--title \"…\"] [--tag \"#…\"] [--avatar assets/x.jpg] [--logo claude|none|assets/x.png] [--layout window|full] [--side right|left] [--bg paper] | bg <mode> --at ث | off | show")
+
 def main():
     a = sys.argv[1:]
     if not a or a[0] in ("-h", "--help"): print(__doc__); return
@@ -2201,6 +2306,8 @@ def main():
     elif cmd == "pack": print("\n".join(pack(work))); print("→ " + J(work, ".hs", "pack.zip"))
     elif cmd == "brand": cmd_brand(work, rest)
     elif cmd == "publish": cmd_publish(work, rest)
+    elif cmd == "kinetic": cmd_kinetic(work, rest)
+    elif cmd == "dahih": cmd_dahih(work, rest)
     elif cmd == "status": cmd_status(work)
     else: sys.exit("أمر غير معروف: " + cmd)
 

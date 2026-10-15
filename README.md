@@ -12,7 +12,7 @@
 
 <p align="center">
   <img alt="Claude Code skill" src="docs/assets/badge-skill.svg">
-  <img alt="Version 4.1" src="docs/assets/badge-version.svg">
+  <img alt="Version 4.2" src="docs/assets/badge-version.svg">
   <img alt="Runs on Windows, macOS, Linux" src="docs/assets/badge-platforms.svg">
   <img alt="License: PolyForm Noncommercial" src="docs/assets/badge-license.svg">
 </p>
@@ -56,10 +56,24 @@ Hojas Studio turns that into a conversation. Claude does the heavy edit, and you
 | **You and your background** | Blur or replace what is behind you, or slide a word behind your head. Segmentation runs in the browser on your machine. |
 | **Sound** | A 30-sound library, your own sounds and music, voice clean-up presets and automatic ducking under speech. |
 | **Exports** | 9:16 master plus 4:5, 1:1 or 16:9 versions, hook variants and a clean no-caption copy, with a post caption written for each platform. |
-| **Phone notifications** <sup>new</sup> | Through the free ntfy app, no account and no keys. Claude pings you when it needs you and sends the finished clip to your phone. |
+| **Paper motion style** <sup>new</sup> | A light paper screen where your words are typed in as you say them, with a big keyword, a black box punch line, and soft-shadow cards: a terminal typing your command, a phone, a button, a comment, your profile with a Follow button. |
+| **Dahih desk style** <sup>new</sup> | A title header with your photo, a paper desk behind you (cut out on your machine), clipped index cards, polaroids of your own footage, circled counting numbers, strike-and-replace, invoices and short orange captions. Backgrounds switch with a circle wipe. |
+| **Phone notifications** | Through the free ntfy app, no account and no keys. Claude pings you when it needs you and sends the finished clip to your phone. |
 | **Learns your style** <sup>new</sup> | Every change you make to Claude's edit (fonts, colors, end card, layers you delete, words you fix) is remembered, so the next edit starts closer to your taste. |
 | **Post to TikTok** <sup>new</sup> | Claude uploads the clip in TikTok Studio from your own browser and account, fills the caption, then stops before the Post button for your yes. Scheduling too. |
 | **End card font** <sup>new</sup> | Pick any caption font or your own uploaded font for the end card. |
+
+## Two ready-made styles
+
+<p align="center"><img src="docs/assets/style-paper.jpg" alt="Paper motion style" width="100%"></p>
+
+**Paper motion:** your words typed in on light paper as you speak, with soft-shadow cards and clay stickers.
+
+<p align="center"><img src="docs/assets/style-dahih.jpg" alt="Dahih desk style" width="100%"></p>
+
+**Dahih desk:** a title header, a paper desk behind you, clipped cards, circled numbers and short orange captions.
+
+Pick one on the questions page, or ask Claude: "edit it in the paper style".
 
 ## The studio
 

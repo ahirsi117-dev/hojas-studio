@@ -38,6 +38,8 @@
 | حزمة النشر | `pack .` |
 | خط كرت الختام ونصوصه | `set . outro.font="Lalezar" outro.cta="تابعني"` |
 | أسلوب المستخدم المتعلَّم | `style show` (بلا مجلد) |
+| ورق متحرك (اقرأ engine/references/styles.md) | `kinetic . auto --deco both` · `layer . set L12 text="سطر\n* كبير\n> صندوق" card=pill cardText="…"` |
+| الدحيح (اقرأ engine/references/styles.md) | `dahih . on --title "…" --tag "#…"` · `dahih . bg navy --at 20` · `layer . add type=desk kind=number n=24 sub="ساعة متاح" s=6 e=9 x=0.3 y=0.45` |
 
 القيم المتاحة:
 - `cap.enter`: rise · pop · slide · drop · zoom · fade · words · none
