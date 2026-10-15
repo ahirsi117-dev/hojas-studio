@@ -3353,7 +3353,7 @@ def proj_start(work, engine=None):
         time.sleep(0.25)
     raise RuntimeError("الخادم ما اشتغل: " + J(work, ".hs", "server.log"))
 def cmd_hub(args):
-    """hs hub [--root <مجلد المشاريع>] [--port 8800] [--no-browser] [--tailscale] [--stop]"""
+    """hs hub [--root <مجلد المشاريع>] [--port 8800] [--no-browser] [--tailscale] [--restart] [--cookies chrome|off] [--autostart [off]]"""
     rest = list(args)
     def o(nm, d=None):
         if nm in rest: i = rest.index(nm); v = rest[i + 1]; del rest[i:i + 2]; return v
@@ -3377,6 +3377,15 @@ def cmd_hub(args):
     try:
         with urllib.request.urlopen("http://127.0.0.1:%d/hub/api/ping" % port, timeout=1.2) as r: alive = b"hub" in r.read()
     except Exception: pass
+    if alive and "--restart" in rest:   # 4.4: يقفل المكتبة القديمة ويشغّل نسخة الملفات الجديدة
+        try: urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:%d/hub/api/restart" % port, data=b"{}", headers={"Content-Type": "application/json"}), timeout=5).read()
+        except Exception: pass
+        print("أعيد تشغيل المكتبة…", flush=True); time.sleep(2.5); alive = False
+        for _ in range(40):
+            try:
+                with urllib.request.urlopen("http://127.0.0.1:%d/hub/api/ping" % port, timeout=1) as r:
+                    if b"hub" in r.read(): alive = True; break
+            except Exception: time.sleep(0.5)
     if not alive:
         lg = open(os.path.join(HOME_CFG, "hub.log"), "ab"); kw = {"stdin": subprocess.DEVNULL, "stdout": lg, "stderr": lg, "cwd": root}
         if os.name == "nt": kw["creationflags"] = 0x00000008 | 0x00000200 | 0x08000000
