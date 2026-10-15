@@ -236,6 +236,23 @@ def keep_seams(work):
     keep = (rj(J(work, "cut.json"), {}) or {}).get("keep") or []; acc = 0.0; out = []
     for a, b in keep[:-1]: acc += b - a; out.append(round(acc, 3))
     return out
+def open_check(first, ev, hs, total):
+    """أول 3 ثواني (نسبة التخطي بانستقرام = اللي يسحب قبل الثانية 3). يرجع قائمة النواقص: voice · change · text."""
+    if total < 6: return {"miss": [], "first": first, "changes": 0}
+    ch = [x for x in ev if 0.3 < x <= 3.0]; hk = hs.get("hooks") or {}
+    txt = bool(hk.get("on") and hk.get("items")) or any(not L.get("off") and L.get("type") in ("text", "cover", "lt") and float(L.get("s", 0)) <= 1.0 for L in hs.get("layers") or [])
+    miss = (["voice"] if (first is not None and 0.7 < first <= 1.0) else []) + ([] if ch else ["change"]) + ([] if txt else ["text"])
+    return {"miss": miss, "first": first, "changes": len(ch)}
+def len_check(total, plats):
+    """مدة المقطع مقابل كل منصة مختارة: over = يتعدى الحد · long/short = برا المدى الأنسب."""
+    out = []
+    for n in plats or []:
+        P_ = PLATFORMS.get(n)
+        if not P_ or not total: continue
+        lo, hi = P_["bestS"]
+        k = "over" if total > P_["maxS"] else "long" if total > hi * 1.5 else "short" if total < lo * 0.6 else None
+        if k: out.append({"p": n, "k": k, "max": P_["maxS"], "lo": lo, "hi": hi})
+    return out
 def check(work):
     caps = rj(J(work, "caps.json"), {"cards": [], "total": 0}); cards = caps["cards"]; total = caps.get("total", 0)
     st = load_studio(work); hs = st.get("hs") or {}; cfg = hs.get("check") or {}
@@ -265,7 +282,8 @@ def check(work):
     score = max(0, 100 - 6 * len(gaps) - 4 * len(long_caps) - (15 if (first is not None and first > 1.0) else 0) - int(sum(g["d"] - gap for g in gaps) * 2))
     try: tips = flow_tips(work, ev, total, hs)
     except Exception: tips = []
-    return {"gap": gap, "words": maxw, "fillers": fillers, "dupes": dupes, "gaps": gaps, "longCaps": long_caps, "firstCap": first, "issues": issues, "score": score, "total": total, "tips": tips}
+    return {"gap": gap, "words": maxw, "fillers": fillers, "dupes": dupes, "gaps": gaps, "longCaps": long_caps, "firstCap": first, "issues": issues, "score": score, "total": total, "tips": tips,
+            "open": open_check(first, ev, hs, total), "len": len_check(total, hs.get("platforms"))}
 
 # ───────────────────────── قص مقاطع من الفيديو (حشو · إعادات · بليد) ─────────────────────────
 def snapshot(work, name):
@@ -377,19 +395,19 @@ def remove_ranges(work, S, log, ranges=(), cards=(), words=(), rebuild=True):
 # ───────────────────────── المنصات والمقاسات (3.1) ─────────────────────────
 # safe = نسبة من كل حافة تغطيها واجهة المنصة [فوق، تحت، يسار، يمين]. أرقام تيك توك وانستقرام من أدلة المقاسات المنشورة، وإكس ولينكدإن تقدير محافظ.
 PLATFORMS = {
-    "tiktok": {"ar": "تيك توك", "frames": ["9:16"], "safe": [8, 22, 6, 13], "max": "10 دقايق من التطبيق · 60 دقيقة رفع", "best": "20-45 ثانية",
+    "tiktok": {"ar": "تيك توك", "frames": ["9:16"], "safe": [8, 22, 6, 13], "max": "10 دقايق من التطبيق · 60 دقيقة رفع", "best": "20-45 ثانية", "maxS": 600, "bestS": [20, 45],
                "tips": ["الهوك في أول ثانية ونص: جملة أو حركة توقف الإصبع، بلا مقدمة ولا شعار", "تغيير بصري كل 2-3 ثواني (قطع · زوم · صورة · نص)",
                         "الكابشن على الشاشة أساسي وكلمات البحث تنقال وتنكتب (تيك توك محرك بحث)", "الختام يرجّع لأول المقطع أو يطلب تعليق، لأن الإعادة والإكمال أهم إشارتين",
                         "لا تحط نص تحت 78% من الارتفاع ولا بآخر 13% يمين (أزرار الإعجاب والوصف)"]},
-    "instagram": {"ar": "انستقرام", "frames": ["9:16", "4:5"], "safe": [12, 32, 6, 11], "max": "الريلز لين 3 دقايق عشان ينقترح لناس جدد", "best": "15-45 ثانية",
+    "instagram": {"ar": "انستقرام", "frames": ["9:16", "4:5"], "safe": [12, 32, 6, 11], "max": "الريلز لين 3 دقايق عشان ينقترح لناس جدد", "best": "15-45 ثانية", "maxS": 180, "bestS": [15, 45],
                   "tips": ["أهم إشارة المشاركة بالخاص: اصنع لحظة تستاهل تنرسل لصديق", "العنوان والوجه في وسط الكادر، لأن شبكة الحساب تقص المقطع 3:4",
-                           "الكابشن أعلى من تيك توك: لا تنزل تحت 68% من الارتفاع (الوصف والصوت يغطون آخر 32%)", "بلا علامة مائية من أي تطبيق ثاني، وجودة نظيفة",
+                           "الكابشن أعلى من تيك توك: لا تنزل تحت 68% من الارتفاع (الوصف والصوت يغطون آخر 32%)", "بلا علامة مائية من أي تطبيق ثاني، وجودة نظيفة", "أول 3 ثواني تحدد «نسبة التخطي» اللي تطلع بالإحصائيات: صوت ونص وحركة من البداية",
                            "غلاف واضح بعنوان مقروء لأنه يظهر في الشبكة"]},
-    "x": {"ar": "إكس", "frames": ["16:9", "1:1", "9:16"], "safe": [6, 10, 5, 5], "max": "140 ثانية للحساب العادي · أطول للمشترك", "best": "15-45 ثانية",
+    "x": {"ar": "إكس", "frames": ["16:9", "1:1", "9:16"], "safe": [6, 10, 5, 5], "max": "140 ثانية للحساب العادي · أطول للمشترك", "best": "15-45 ثانية", "maxS": 140, "bestS": [15, 45],
           "tips": ["المقطع يشتغل صامت بالتايم لاين: الفكرة لازم تنفهم من النص على الشاشة من أول فريم", "رأي واضح أو معلومة محددة من أول جملة، بلا تمهيد",
                    "العرضي 16:9 والمربع 1:1 يطلعون أكبر في التايم لاين على الكمبيوتر، والعمودي أحسن بالجوال", "لا تتعدى 140 ثانية لو الحساب مو مشترك، وإلا ما ينرفع",
                    "نص التغريدة يشيل نص السياق والمقطع يشيل الإثبات"]},
-    "linkedin": {"ar": "لينكدإن", "frames": ["4:5", "1:1", "9:16"], "safe": [6, 12, 5, 5], "max": "10 دقايق للمنشور العادي", "best": "30-90 ثانية",
+    "linkedin": {"ar": "لينكدإن", "frames": ["4:5", "1:1", "9:16"], "safe": [6, 12, 5, 5], "max": "15 دقيقة للمنشور العادي", "best": "30-90 ثانية", "maxS": 900, "bestS": [30, 90],
                  "tips": ["نبرة مهنية وفائدة مباشرة: درس · رقم · تجربة شغل، بلا ترندات ولا موسيقى صاخبة", "أول جملة تقول وش بيستفيد المشاهد، والإيقاع أهدأ من تيك توك",
                           "4:5 أو 1:1 ياخذ مساحة أكبر بالفيد من العرضي", "الكابشن المحروق أساسي لأن أغلبهم يشوف بلا صوت بالدوام",
                           "الختام سؤال يفتح نقاش بالتعليقات، مو «تابعني»"]},
@@ -656,6 +674,13 @@ def build_sfx(work, S, log, gains):
     if not flt: return
     fc = ";".join(flt) + ";" + "".join("[s%d]" % i for i in range(len(flt))) + "amix=inputs=%d:duration=longest:normalize=0[o]" % len(flt)
     run(["ffmpeg", "-v", "error"] + ins + ["-filter_complex", fc, "-map", "[o]", "-ac", "2", "-ar", "48000", "-y", J(work, "sfx.wav")], log)
+def bg_fades(mix):
+    """تلاشي الصوت بالخلفية بالثواني (بداية، نهاية). الافتراضي 1.0 و1.4، والحد 0 إلى 6."""
+    def f(k, d):
+        try: v = float(mix.get(k, d))
+        except (TypeError, ValueError): v = d
+        return str(round(min(max(v, 0.0), 6.0), 2))
+    return f("bgIn", 1.0), f("bgOut", 1.4)
 def encode(work, S, log, out_final, out_master, mix):
     caps = rj(J(work, "caps.json")); sfx = rj(J(work, "sfx.json"), {"outro": 0}) or {}
     dur = round(caps["total"] + sfx.get("outro", 0), 3); fade = round(dur - 0.6, 3)
@@ -671,7 +696,7 @@ def encode(work, S, log, out_final, out_master, mix):
     run(["ffmpeg", "-v", "error", "-nostats"] + ins + ["-filter_complex", fc, "-map", "[vo]", "-map", "[ao]", "-c:v", "libx264", "-preset", "slow", "-crf", "21",
          "-maxrate", "6M", "-bufsize", "12M", "-profile:v", "high", "-level", "4.0", "-pix_fmt", "yuv420p", "-color_range", "tv", "-colorspace", "bt709",
          "-color_primaries", "bt709", "-color_trc", "bt709", "-r", "30", "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart", "-y", out_final], log)
-    log("معايرة الصوت…"); env = dict(os.environ); env["BG_GAIN"] = str(mix.get("bg", 0.28))
+    log("معايرة الصوت…"); env = dict(os.environ); env["BG_GAIN"] = str(mix.get("bg", 0.28)); env["BG_FADE_IN"], env["BG_FADE_OUT"] = bg_fades(mix)
     r = run(["bash", os.path.join(S, "06b_master.sh"), work, out_final, out_master], log, cwd=work, check=False, env=env)
     if not os.path.exists(out_master): log("المعايرة ما اشتغلت — أسلّم الملف بلا معايرة"); shutil.copy(out_final, out_master)
 def export(work, S, log, kind="final", hooks=False, frame=None):
@@ -1435,6 +1460,11 @@ def cmd_selftest(work=None, engine=None):
     k0 = kin_compose("مونتاج ساعتين صار يخلص وأنت تشرب قهوتك".split(), 2)
     chk("الورق المتحرك: النص يتقسم لسطر وكلمة كبيرة", "\n* " in k0 or k0.startswith("* "), k0)
     sz = safe_of(["tiktok", "instagram"]); chk("حساب المنطقة الآمنة", sz["capMax"] == 67.0 and sz["capMin"] == 18.0, json.dumps(sz))
+    oc = open_check(0.9, [0.0, 5.0, 9.0], {}, 20); oc2 = open_check(0.2, [0.0, 1.4, 9.0], {"hooks": {"on": True, "items": ["x"]}}, 20)
+    chk("فحص أول 3 ثواني", oc["miss"] == ["voice", "change", "text"] and oc2["miss"] == [] and open_check(1.2, [0.0], {}, 4)["miss"] == [], json.dumps([oc, oc2]))
+    lc = len_check(150, ["tiktok", "x", "linkedin"]); chk("فحص المدة مقابل المنصات", [(l["p"], l["k"]) for l in lc] == [("tiktok", "long"), ("x", "over"), ("linkedin", "long")] and len_check(40, ["tiktok", "instagram"]) == [] and [l["k"] for l in len_check(10, ["linkedin"])] == ["short"], json.dumps(lc))
+    chk("أرقام المدة لكل منصة", all(v.get("maxS") and len(v.get("bestS") or []) == 2 for v in PLATFORMS.values()))
+    chk("تلاشي الصوت بالخلفية", bg_fades({}) == ("1.0", "1.4") and bg_fades({"bgIn": 9, "bgOut": "x"}) == ("6.0", "1.4") and bg_fades({"bgOut": -2}) == ("1.0", "0.0") and "BG_FADE_OUT" in open(os.path.join(find_engine(engine) or HERE, "scripts", "06b_master.sh"), encoding="utf-8").read() if find_engine(engine) else False)
     chk("حساب القص 4:5", safe_of([], "4:5")["crop"] == [11.77, 82.08], json.dumps(safe_of([], "4:5")))
     chk("رقم الملاحظة الجديدة", next_note_id([{"id": "n1"}, {"id": 4}]) == 5)
     with tempfile.TemporaryDirectory() as tw:
@@ -1588,7 +1618,13 @@ def cmd_check(work):
     for f in c["fillers"]: print("حشو: «%s» بالجملة %d عند %.2f" % (f["t"], f["card"] + 1, f["s"]))
     for d in c["dupes"]: print("إعادة: الجملة %d تشبه %d (%d٪)\n   %s\n   %s" % (d["a"] + 1, d["b"] + 1, d["r"] * 100, card_key(caps["cards"][d["a"]]), card_key(caps["cards"][d["b"]])))
     for tp in c.get("tips") or []: print("نصيحة: " + tp["msg"])
-    if not (c["gaps"] or c["longCaps"] or c["fillers"] or c["dupes"] or c.get("tips")): print("ما فيه ملاحظات.")
+    OM = {"voice": "الكلام يبدأ متأخر، قرّبه لأول نص ثانية", "change": "ما فيه تغيير بصري (قطع · زوم · صورة)", "text": "ما فيه عنوان على الشاشة بأول ثانية (هوك أو نص)"}
+    for m in c["open"]["miss"]: print("أول 3 ثواني: " + OM[m])
+    for l in c["len"]:
+        nm = PLATFORMS[l["p"]]["ar"]
+        print("المدة: " + ({"over": "%s ما يقبل أكثر من %d ث، ومقطعك %.0f ث" % (nm, l["max"], c["total"]), "long": "%s الأنسب له %d-%d ث، ومقطعك %.0f ث" % (nm, l["lo"], l["hi"], c["total"]),
+                            "short": "%s الأنسب له %d-%d ث، ومقطعك %.0f ث بس" % (nm, l["lo"], l["hi"], c["total"])}[l["k"]]))
+    if not (c["gaps"] or c["longCaps"] or c["fillers"] or c["dupes"] or c.get("tips") or c["open"]["miss"] or c["len"]): print("ما فيه ملاحظات.")
 def brand_dir(): d = os.path.join(HOME_CFG, "brands"); os.makedirs(d, exist_ok=True); return d
 def brand_pack(work):
     hs = load_studio(work).get("hs") or {}; th = rj(J(work, "theme.json"), {}) or {}

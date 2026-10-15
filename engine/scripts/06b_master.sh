@@ -6,14 +6,16 @@
 #   وتنخفض تلقائياً كل ما تتكلم (sidechain) فما تزاحم صوتك.
 #   ⛔ ما نستخدم موسيقى — المقصود ملف صوتي (أصوات بشرية، أجواء، همهمة مكان).
 # • الصورة تُنسخ كما هي — لا إعادة ترميز ولا خسارة جودة.
-# متغيرات: BG · BG_GAIN (0.28) · LUFS (-14) · NO_LOUDNORM=1
+# متغيرات: BG · BG_GAIN (0.28) · BG_FADE_IN (1.0 ث) · BG_FADE_OUT (1.4 ث) · LUFS (-14) · NO_LOUDNORM=1
 set -e
 . "$(dirname "$0")/_compat.sh"
 W="$(abspath "$1")"; IN="$2"; OUT="${3:-${IN%.mp4}-master.mp4}"
 [ -f "$IN" ] || { echo "❌ ما لقيت $IN"; exit 2; }
 G="${BG_GAIN:-${MUSIC_GAIN:-0.28}}"; I="${LUFS:--14}"
 DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$IN")
-FO=$("$PY" -c "print(max(0,round($DUR-1.4,3)))")
+FI_D=$("$PY" -c "print(round(min(max(float('${BG_FADE_IN:-1.0}' or 0),0.01),max(0.01,$DUR/2)),3))")
+FO_D=$("$PY" -c "print(round(min(max(float('${BG_FADE_OUT:-1.4}' or 0),0.01),max(0.01,$DUR)),3))")
+FO=$("$PY" -c "print(max(0,round($DUR-$FO_D,3)))")
 
 MUS="${BG:-$MUSIC}"
 if [ -z "$MUS" ]; then for n in bg-audio bg sound music; do for e in mp3 m4a wav aac; do
@@ -25,7 +27,7 @@ if [ -n "$MUS" ]; then
   ffmpeg -v error -nostats -i "$IN" -stream_loop -1 -i "$MUS" -filter_complex \
    "[0:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,asplit=2[v0][sc];\
     [1:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,volume=$G,atrim=0:$DUR,asetpts=N/SR/TB,\
-    afade=t=in:st=0:d=1.0,afade=t=out:st=$FO:d=1.4[m];\
+    afade=t=in:st=0:d=$FI_D,afade=t=out:st=$FO:d=$FO_D[m];\
     [m][sc]sidechaincompress=threshold=0.035:ratio=9:attack=8:release=320[md];\
     [v0][md]amix=inputs=2:duration=first:normalize=0[a]" \
    -map "[a]" -ac 2 -ar 48000 -y "$MIX"
