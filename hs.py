@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Hojas Studio 4.2 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
+"""Hojas Studio 4.3 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
 
   python hs.py open   <work> [--engine <مجلد المحرّك>] [--port 8800] [--no-browser]
         يشغّل الخادم بالخلفية ويفتح المتصفح. شغّله أول ما تبدأ المونتاج، حتى قبل ما يجهز أي ملف.
@@ -40,6 +40,8 @@
   python hs.py update                                يحدّث السكل (لو مثبّت بـ git)
   python hs.py kinetic <work> auto [--from ث --to ث] [--deco flowers|badges|both|none] | clear | set mark=… avatar=…   أسلوب «ورق متحرك»
   python hs.py dahih  <work> on [--title …] [--tag …] [--avatar …] [--layout window|full] | bg <mode> --at ث | off      أسلوب «الدحيح»
+  python hs.py hub   [--root <مجلد المشاريع>] [--tailscale] [--no-browser]   المكتبة: كل مقاطعك + أوامرك لـClaude + حالة جهازك (جوال وكمبيوتر)
+  python hs.py clips scan <حلقة.mp4> <مجلد> | make <مجلد> --from 12:30 --to 13:45 --title "…" --credit "…" | list <مجلد>   مقاطع مترجمة من حلقة طويلة
   python hs.py tools                                 وش الأدوات اللي يحتاجها السكل وليش (اعرضها على المستخدم قبل أي تثبيت)
   python hs.py doctor [--engine …]
   python hs.py selftest [<work>]      فحص ذاتي: صياغة الملفات · النصوص العربية سليمة · كل مفاتيح الواجهة موجودة · الخادم يرد
@@ -63,7 +65,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.2.0"
+VERSION = "4.3.0"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -822,11 +824,11 @@ def brief_apply(work):
         if a["pace"] == "calm": th["pace"] = "calm"
         else: th.pop("pace", None)
         wj(tp, th); todo.append({"calm": "إيقاع هادي: مشاهد أقل وزوم أخف", "normal": "إيقاع عادي: تغيير بصري كل 2-3 ثواني", "fast": "إيقاع سريع: تغيير بصري كل 1.5-2 ثانية"}.get(a["pace"], ""))
-    if fx.get("zoom") and stl_ != "dahih":
+    if fx.get("zoom") and stl_ not in ("dahih", "podcast"):
         nz = auto_layers(work, "zooms", True) if (rj(J(work, "caps.json"), {}) or {}).get("cards") else 0
         if nz: done.append("زووم عند الكلمات المميّزة (%d)" % nz)
         else: todo.append("بعد ما يجهز الفيديو: python hs.py auto <work> zooms")
-    if fx.get("transitions") and stl_ != "dahih": todo.append("بعد القص: python hs.py auto <work> transitions")
+    if fx.get("transitions") and stl_ not in ("dahih", "podcast"): todo.append("بعد القص: python hs.py auto <work> transitions")
     if fx.get("bg"): todo.append("يبي صوت بالخلفية: اطلب منه ملف bg-audio.mp3 أو اسأله من وين")
     c = a.get("cut") or {}; cmd = []
     if c.get("drop"):
@@ -867,6 +869,13 @@ def brief_apply(work):
     for k, v in (a.get("extra") or {}).items(): todo.append("إجابة «%s»: %s" % (k, v))
     stl = a.get("style") or "normal"
     if stl == "paper": todo.append("الأسلوب: ورق متحرك. اقرأ <engine>/references/styles.md (القسم 1) ثم: hs kinetic <work> auto --deco both، وراجع كل شاشة بنفسك")
+    elif stl == "podcast":
+        st2 = load_studio(work); h2 = hs_of(st2); P = h2.setdefault("pod", {})
+        if not P.get("on"):
+            P.update({"on": True, "title": P.get("title") or ((a.get("hook") or {}).get("text") or "").strip()[:60], "lang": P.get("lang") or "ar", "orig": True})
+            h2["cap"] = {**(h2.get("cap") or {}), **POD_CAP}; h2["hooks"] = {**(h2.get("hooks") or {}), "on": False}; wj(J(work, "studio.json"), st2)
+        done.append("أسلوب البودكاست المترجم")
+        todo.append("بودكاست مترجم: اقرأ <engine>/references/clips.md. العنوان فوق (pod.title) والمصدر (pod.credit)، والترجمة لكل جملة: hs tr <work> export ثم import. لا موشن ولا مؤثرات ولا زووم، وكروت الشرح بس لو اختارها")
     elif stl == "dahih" and not (hs_of(load_studio(work)).get("dahih") or {}).get("on"):
         ttl = ((a.get("hook") or {}).get("text") or "").strip()[:40]
         try: cmd_dahih(work, ["on"] + (["--title", ttl] if ttl else [])); done.append("أسلوب الدحيح شغّال")
@@ -931,8 +940,8 @@ def brief_reqs(work):
     elif fx.get("sfx") == "light": req("sfx", "مؤثرات صوتية خفيفة (6 بالدقيقة بالكثير)", 1 <= ev and per_min <= 6.5, "الحين %d (%.0f بالدقيقة)" % (ev, per_min))
     elif fx.get("sfx") == "rich": req("sfx", "مؤثرات صوتية أكثر", per_min > 6, "الحين %d (%.0f بالدقيقة)" % (ev, per_min))
     stl = a.get("style") or "normal"
-    if fx.get("zoom") and stl != "dahih": req("zoom", "زووم عند الكلمات المهمة", any(L.get("type") == "fx" and L.get("fx") == "punch" for L in Ls))
-    if fx.get("transitions") and stl != "dahih": req("tr", "انتقالات عند تغيّر الفكرة", any(L.get("type") == "fx" and L.get("fx") not in ("punch", "shake", "flash") for L in Ls))
+    if fx.get("zoom") and stl not in ("dahih", "podcast"): req("zoom", "زووم عند الكلمات المهمة", any(L.get("type") == "fx" and L.get("fx") == "punch" for L in Ls))
+    if fx.get("transitions") and stl not in ("dahih", "podcast"): req("tr", "انتقالات عند تغيّر الفكرة", any(L.get("type") == "fx" and L.get("fx") not in ("punch", "shake", "flash") for L in Ls))
     if fx.get("bg"): req("bgm", "صوت بالخلفية", any(os.path.exists(J(work, f)) for f in ("bg-audio.mp3", "bg-audio.m4a", "bg-audio.wav")) or bool((hs.get("mix") or {}).get("bg")), man=False)
     c = a.get("cut") or {}
     if c.get("fillers") or c.get("dupes"):
@@ -956,7 +965,10 @@ def brief_reqs(work):
         ot = st.get("outro") or {}; txt = (o.get("text") or "").strip(); have_t = (" ".join([ot.get("cta") or "", ot.get("word") or ""])).strip()
         req("outro", "كرت الختام" + ((": " + txt) if txt else ""), float(sx.get("outro") or 0) > 0 and (not txt or _norm(txt) == _norm(have_t) or _norm(txt) in _norm(have_t)), "" if float(sx.get("outro") or 0) > 0 else "مدة كرت الختام صفر")
     else: req("outro", "بلا كرت ختام", not float(sx.get("outro") or 0))
-    if stl == "paper": req("style", "أسلوب الورق المتحرك", any(L.get("type") == "kinetic" for L in Ls))
+    if stl == "podcast":
+        P = hs.get("pod") or {}; mp = (hs.get("en") or {}).get("map") or {}; miss = sum(1 for c in cards if not mp.get(card_key(c)))
+        req("style", "بودكاست مترجم: عنوان وترجمة لكل جملة", P.get("on") and P.get("title") and not miss, ("ناقص ترجمة %d جملة" % miss) if miss else ("" if P.get("title") else "ما فيه عنوان"))
+    elif stl == "paper": req("style", "أسلوب الورق المتحرك", any(L.get("type") == "kinetic" for L in Ls))
     elif stl == "dahih": req("style", "أسلوب الدحيح مع كروت مكتب", (hs.get("dahih") or {}).get("on") and any(L.get("type") == "desk" for L in Ls), "" if (hs.get("dahih") or {}).get("on") else "الأسلوب مو شغّال")
     goal = (a.get("goalText") or "").strip() if a.get("goal") == "other" else a.get("goal")
     if goal: req("goal", "نوع المقطع: " + str(goal), man=True)
@@ -1374,7 +1386,7 @@ def cmd_selftest(work=None, engine=None):
         if good: n_ok += 1
         else: bad.append(name + ((": " + detail) if detail else ""))
         print(("OK   " if good else "خطأ  ") + name + ((" ← " + detail) if (detail and not good) else ""))
-    files = ["hs.py", "ext.js", "app.js", "i18n.js", "qr.js", "studio.html", "review.html", "AGENT.md", "README.md", "SKILL.md"]; txt = {}
+    files = ["hs.py", "ext.js", "app.js", "i18n.js", "qr.js", "studio.html", "hub.html", "review.html", "AGENT.md", "README.md", "SKILL.md"]; txt = {}
     for f in files:
         fp = os.path.join(HERE, f)
         if not os.path.isfile(fp): chk("موجود: " + f, False); continue
@@ -1510,11 +1522,15 @@ def cmd_tr(work, args):
     sp = J(work, "studio.json"); st = load_studio(work); hs = hs_of(st); en = hs.setdefault("en", {}); mp = en.setdefault("map", {})
     caps = rj(J(work, "caps.json")); sub = args[0] if args else "export"
     if sub == "export":
-        out = [{"i": i, "ar": card_key(c), "en": mp.get(card_key(c), "")} for i, c in enumerate(caps["cards"])]
-        print(json.dumps(out, ensure_ascii=False, indent=1)); print("\n# ناقص ترجمة: %d من %d" % (sum(1 for o in out if not o["en"]), len(out)), file=sys.stderr)
+        pod = hs.get("pod") or {}
+        if pod.get("on") and pod.get("lang", "en") != "ar":
+            out = [{"i": i, "src": card_key(c), "tr": mp.get(card_key(c), "")} for i, c in enumerate(caps["cards"])]
+            print("# بودكاست مترجم: اكتب بخانة tr الترجمة العربية لكل جملة، فصحى سهلة وقصيرة تنقرا بنظرة، بنفس المعنى بدون زيادة.", file=sys.stderr)
+        else: out = [{"i": i, "ar": card_key(c), "en": mp.get(card_key(c), "")} for i, c in enumerate(caps["cards"])]
+        print(json.dumps(out, ensure_ascii=False, indent=1)); print("\n# ناقص ترجمة: %d من %d" % (sum(1 for o in out if not (o.get("en") or o.get("tr"))), len(out)), file=sys.stderr)
     elif sub == "import":
         data = rj(args[1]); n = 0
-        items = data.items() if isinstance(data, dict) else [((o.get("ar") or card_key(caps["cards"][o["i"]])), o.get("en", "")) for o in data]
+        items = data.items() if isinstance(data, dict) else [((o.get("src") or o.get("ar") or card_key(caps["cards"][o["i"]])), o.get("tr") or o.get("en", "")) for o in data]
         for ar, e in items:
             if e and e.strip(): mp[ar] = e.strip(); n += 1
         en["on"] = True; hs.setdefault("cap", {})["on"] = True; wj(sp, st); print("انحفظت %d ترجمة · الترجمة شغّالة" % n)
@@ -1643,6 +1659,21 @@ def cmd_open(work, port, engine, browser=True):
     print("الاستوديو شغّال: " + url); u = J(work, ".hs", "url.txt")
     if os.path.exists(u): print(open(u).read().strip().split("\n")[-1])
 
+def voice_transcribe(work, nid, path):
+    """4.3: ملاحظة صوتية من المايك ← نص (وِسبر على جهازه). لو ما فيه وِسبر تبقى الملاحظة صوت وClaude يفرّغه."""
+    txt = ""
+    try:
+        wav = path + ".wav"; subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", path, "-ac", "1", "-ar", "16000", wav], check=True, timeout=120)
+        model = hub_cfg().get("voiceModel") or "small"; od = os.path.dirname(path)
+        r = subprocess.run([PY, "-m", "whisper", wav, "--model", model, "--language", "ar", "--output_format", "txt", "--output_dir", od, "--fp16", "False", "--verbose", "False"], capture_output=True, timeout=900)
+        tp = os.path.splitext(wav)[0] + ".txt"
+        if os.path.exists(tp): txt = open(tp, encoding="utf-8").read().strip()
+    except Exception: pass
+    notes = rj(J(work, "notes.json"), []) or []
+    for n in notes:
+        if str(n["id"]) == str(nid): n["text"] = txt or "ملاحظة صوتية (ما قدرت أفرّغها. Claude: فرّغ الملف %s بوِسبر واسمعها)" % n.get("audio", "")
+    wj(J(work, "notes.json"), notes)
+
 # ───────────────────────── الخادم ─────────────────────────
 def serve(work, port, engine):
     eng = find_engine(engine) or sys.exit("ما لقيت مجلد engine بجنب hs.py — نزّل السكل كامل من جديد (شغّل: python hs.py doctor)")
@@ -1659,6 +1690,15 @@ def serve(work, port, engine):
     LAN = base.lan_ip(); BG = {"thumbsDone": False, "mt": None, "patched": bool(changed is not None)}
     AG = {"running": False, "proc": None, "started": 0}; VIS = {"busy": False, "what": "", "retry": 0}
     FAILS = {}; FAILS_ALL = [0]
+    projects_remember(work); KIDS = []; _RealPopen = subprocess.Popen
+    class _TrackPopen(_RealPopen):          # 4.3: نتتبّع عمليات الرسم والتصدير عشان «أوقف التصدير» من المكتبة
+        def __init__(self, *a, **k): super().__init__(*a, **k); KIDS.append(self); del KIDS[:-60]
+    subprocess.Popen = _TrackPopen
+    def kill_tree(pr):
+        try:
+            if os.name == "nt": subprocess.run(["taskkill", "/F", "/T", "/PID", str(pr.pid)], capture_output=True, creationflags=0x08000000)
+            else: pr.kill()
+        except Exception: pass
 
     def peaks():
         src = P("cutz.mp4"); cp = os.path.join(D, "peaks.json")
@@ -1734,6 +1774,14 @@ def serve(work, port, engine):
             if os.path.exists(os.path.join(vd, f)): shutil.copy(os.path.join(vd, f), P(f))
         return (rj(P("cut.json"), {}) or {}).get("keep") != old_keep            # تغيّر القص ← لازم إعادة بناء الفيديو
     def gen_view(q): return [{**r, "site": GEN_SITES[r["kind"]], "text": gen_prompt(r)} for r in q][-12:]
+    def export_mt():
+        ed = os.path.join(D, "exports"); fs = glob.glob(os.path.join(ed, "*.mp4")) if os.path.isdir(ed) else []
+        return int(max(os.path.getmtime(f) for f in fs)) if fs else 0
+    def hub_url():
+        c = hub_cfg(); pt = c.get("port") or HUB_PORT
+        try:
+            with urllib.request.urlopen("http://127.0.0.1:%d/hub/api/ping" % pt, timeout=0.4) as r: return "http://127.0.0.1:%d/library" % pt if b"hub" in r.read() else None
+        except Exception: return None
     def exports():
         ed = os.path.join(D, "exports"); return sorted(os.listdir(ed), reverse=True) if os.path.isdir(ed) else []
     def latest_preview():
@@ -1752,6 +1800,7 @@ def serve(work, port, engine):
             if n.get("answer"): L.append("- رده: " + n["answer"])
             if n.get("pin"): L.append("- المؤشر على الشاشة: x=%d y=%d (من 1080×1920)" % (n["pin"]["x"] * 1080, n["pin"]["y"] * 1920))
             if n.get("img"): L.append("- لقطة: " + n["img"])
+            if n.get("audio"): L.append("- تسجيل صوتي: " + n["audio"])
             L.append("")
         return "\n".join(L)
     def review(): return rj(P("review.json"), {"approved": None, "comments": []}) or {"approved": None, "comments": []}
@@ -1768,7 +1817,11 @@ def serve(work, port, engine):
         if exe.lower().endswith((".cmd", ".bat")): cmd = ["cmd", "/c"] + cmd
         full = ("مجلد المشروع: %s\nمجلد الاستوديو (hs.py): %s\nمجلد المحرّك: %s\nمفسّر بايثون: %s\n\nالمطلوب:\n%s\n" % (work, HERE, eng, PY, task))
         AG.update(running=True, started=time.time()); say(work, label, "ask")
+        try: snap_id = snapshot(work, "قبل: " + label[:80])
+        except Exception: snap_id = None
+        cid = cmd_log_add(work, label, task, snap_id)
         def go():
+            final = None
             try:
                 kw = {"creationflags": 0x08000000} if os.name == "nt" else {}
                 p = subprocess.Popen(cmd, cwd=work, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kw); AG["proc"] = p
@@ -1784,6 +1837,7 @@ def serve(work, port, engine):
                                 say(work, "%s: %s" % (b.get("name"), str(d)[:160]), "tool")
                     elif ev.get("type") == "result": final = ev
                 p.wait()
+                cmd_log_set(cid, status="err" if (final and final.get("is_error")) or (p.returncode not in (0, None) and not final) else "done", result=str((final or {}).get("result") or "")[:800])
                 if final and final.get("is_error"): say(work, "Claude وقف بخطأ: " + str(final.get("result", ""))[:300], "err")
                 elif p.returncode not in (0, None) and not final: say(work, "Claude ما اشتغل (رمز %s). تأكد إنك مسجّل دخول في Claude Code." % p.returncode, "err")
                 else: say(work, "خلص Claude من الطلب.", "done")
@@ -1798,6 +1852,8 @@ def serve(work, port, engine):
         cmd = [exe, "run", full]
         if exe.lower().endswith((".cmd", ".bat")): cmd = ["cmd", "/c"] + cmd
         AG.update(running=True, started=time.time()); say(work, label + " (OpenCode)", "ask")
+        try: cid = cmd_log_add(work, label, task, snapshot(work, "قبل: " + label[:80]))
+        except Exception: cid = None
         def go():
             try:
                 kw = {"creationflags": 0x08000000} if os.name == "nt" else {}
@@ -1805,7 +1861,7 @@ def serve(work, port, engine):
                 for raw in p.stdout:
                     ln = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", raw.decode("utf-8", "replace")).strip()
                     if ln: say(work, ln[:300], "claude")
-                p.wait(); say(work, "خلص OpenCode من الطلب." if p.returncode == 0 else "OpenCode وقف (رمز %s)." % p.returncode, "done" if p.returncode == 0 else "err")
+                p.wait(); cmd_log_set(cid, status="done" if p.returncode == 0 else "err"); say(work, "خلص OpenCode من الطلب." if p.returncode == 0 else "OpenCode وقف (رمز %s)." % p.returncode, "done" if p.returncode == 0 else "err")
             except Exception as e: say(work, "تعذّر تشغيل OpenCode: " + str(e)[:200], "err")
             finally: AG.update(running=False, proc=None)
         threading.Thread(target=go, daemon=True).start(); return True, ""
@@ -1878,7 +1934,7 @@ def serve(work, port, engine):
                                         "job": {"running": base.JOB["running"], "kind": base.JOB["kind"], "outs": base.JOB.get("outs"), "err": base.JOB["err"]}, "agent": {"running": AG["running"], "elapsed": int(time.time() - AG["started"]) if AG["running"] else 0}})
             if p == "/hs/info":
                 return self._json(200, {"version": VERSION, "vsig": vsig(work), "token": TOKEN, "lan": "http://%s:%d/?k=%s" % (LAN, port, TOKEN), "lanM": "http://%s:%d/m?k=%s" % (LAN, port, TOKEN), "review": "http://%s:%d/review?r=%s" % (LAN, port, RTOKEN),
-                                        "work": work, "name": os.path.basename(work.rstrip("/\\")), "thumbsDone": BG["thumbsDone"], "versions": versions(), "exports": exports(),
+                                        "work": work, "name": os.path.basename(work.rstrip("/\\")), "thumbsDone": BG["thumbsDone"], "versions": versions(), "exports": exports(), "exportMt": export_mt(), "hub": hub_url(), "title": ((hs_of(load_studio(work)).get("pod") or {}).get("title") or (hs_of(load_studio(work)).get("dahih") or {}).get("title") or ""),
                                         "brands": sorted(os.path.splitext(f)[0] for f in os.listdir(brand_dir())), "local": self._local(), "claude": bool(shutil.which("claude") or shutil.which("opencode")), "agent": "claude" if shutil.which("claude") else ("opencode" if shutil.which("opencode") else ""), "notify": bool(notify_cfg().get("on")), "gen": gen_view(gen_list(work)), "safe": safe_of((load_studio(work).get("hs") or {}).get("platforms"), *frame_of(load_studio(work).get("hs") or {})), "platforms": {k: {"safe": v["safe"], "frames": v["frames"], "best": v["best"], "max": v["max"]} for k, v in PLATFORMS.items()},
                                         "assets": sorted(f for f in os.listdir(P("assets")) if os.path.splitext(f)[1].lower() in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg")) if os.path.isdir(P("assets")) else [], "seams": keep_seams(work), "looks": looks_all(), "beats": rj(P("beats.json")),
                                         "post": open(P("post.txt"), encoding="utf-8").read() if os.path.exists(P("post.txt")) else "", "ready": ready(work),
@@ -1941,6 +1997,16 @@ def serve(work, port, engine):
                 return super().do_POST()
             n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(n)
             try:
+                if p == "/hs/voice_note":
+                    if n > 25 * 1024 * 1024: return self._json(400, {"ok": False, "msg": "التسجيل طويل"})
+                    qq = self._q(); ct = (self.headers.get("Content-Type") or "").lower(); ext = ".mp4" if "mp4" in ct or "aac" in ct else ".ogg" if "ogg" in ct else ".wav" if "wav" in ct else ".webm"
+                    notes = rj(P("notes.json"), []) or []; nid = next_note_id(notes); os.makedirs(P("notes"), exist_ok=True); af = "notes/voice-%d%s" % (nid, ext); open(P(af), "wb").write(raw)
+                    ci = (qq.get("card") or [""])[0]
+                    note = {"id": nid, "t": round(float((qq.get("t") or ["0"])[0]), 2), "card": int(ci) if ci.isdigit() else None, "text": "(يتفرّغ صوتك…)", "audio": af, "pin": None, "status": "open",
+                            "who": "أنا" if self._local() else "جوال", "at": time.strftime("%Y-%m-%d %H:%M")}
+                    notes.append(note); wj(P("notes.json"), notes)
+                    threading.Thread(target=voice_transcribe, args=(work, nid, P(af)), daemon=True).start()
+                    return self._json(200, {"ok": True, "notes": notes, "id": nid})
                 if p == "/hs/gen_import":
                     name = os.path.basename(urllib.parse.unquote(self.headers.get("X-Name") or "file")); ext = os.path.splitext(name)[1].lower()
                     if ext not in IMG_EXT + VID_EXT: return self._json(400, {"ok": False, "msg": "ارفع صورة png/jpg/webp أو مقطع mp4/mov/webm"})
@@ -2067,11 +2133,17 @@ def serve(work, port, engine):
                     if not task: return self._json(400, {"ok": False, "msg": "اكتب الطلب"})
                     ctx = "\n\n(سياق من الاستوديو: المؤشر عند %.2f ث%s)" % (float(data.get("t", 0)), ("، المحدد: " + str(data.get("sel"))) if data.get("sel") else "")
                     ok, msg = agent_run(task + ctx, "طلب: " + task[:140], gen=bool(data.get("gen"))); return self._json(200 if ok else 409, {"ok": ok, "msg": msg, "prompt": task + " — المشروع: " + work})
+                if p == "/hs/quit":
+                    if not self._local(): return self._json(403, {"ok": False})
+                    self._json(200, {"ok": True}); threading.Thread(target=lambda: (time.sleep(0.3), os._exit(0)), daemon=True).start(); return
+                if p == "/hs/export_stop":
+                    n = 0
+                    for pr in list(KIDS):
+                        if pr.poll() is None and pr is not AG.get("proc"): kill_tree(pr); n += 1
+                    return self._json(200, {"ok": True, "n": n})
                 if p == "/hs/agent_stop":
                     pr = AG.get("proc")
-                    if pr:
-                        try: pr.kill()
-                        except Exception: pass
+                    if pr: kill_tree(pr)
                     return self._json(200, {"ok": True})
                 if p == "/hs/notify":
                     if role != "owner": return self._deny()
@@ -2395,6 +2467,475 @@ def cmd_dahih(work, args):
     elif sub == "show": print(json.dumps(D, ensure_ascii=False, indent=1))
     else: sys.exit("dahih <work> on [--title \"…\"] [--tag \"#…\"] [--avatar assets/x.jpg] [--logo claude|none|assets/x.png] [--layout window|full] [--side right|left] [--bg paper] | bg <mode> --at ث | off | show")
 
+# ───────────────────────── 4.3: مقاطع من حلقة طويلة (بودكاست مترجم) ─────────────────────────
+POD_CAP = {"on": True, "font": "Cairo", "weight": 700, "size": 44, "color": "#FFFFFF", "active": "#FFFFFF", "bg": "none", "shadow": True, "stroke": 0,
+           "hl": "none", "enter": "fade", "chunk": 0, "lines": 2, "width": 880, "x": 50, "y": 74, "actScale": 1}
+def tsec(v):
+    """12:30 · 1:02:03 · 754.2 ← ثواني"""
+    v = str(v).strip(); p = v.split(":")
+    try:
+        x = 0.0
+        for k in p: x = x * 60 + float(k)
+        return x
+    except ValueError: sys.exit("وقت غلط: " + v + " (اكتبه 12:30 أو 750)")
+def tfmt(x): x = int(round(x)); return ("%d:%02d:%02d" % (x // 3600, x // 60 % 60, x % 60)) if x >= 3600 else "%d:%02d" % (x // 60, x % 60)
+def clips_cfg(d): return rj(J(d, "clips.json"), {}) or {}
+def cmd_clips(args):
+    sub = args[0] if args else "help"; rest = list(args[1:])
+    def o(nm, d=None):
+        if nm in rest: i = rest.index(nm); v = rest[i + 1]; del rest[i:i + 2]; return v
+        return d
+    if sub == "scan":
+        if len(rest) < 2: sys.exit("clips scan <الفيديو الطويل> <مجلد المقاطع> [--model medium] [--lang en|ar]")
+        model = o("--model", "medium"); lang = o("--lang"); src, d = os.path.abspath(rest[0]), os.path.abspath(rest[1])
+        if not os.path.isfile(src): sys.exit("ما لقيت الفيديو: " + src)
+        os.makedirs(d, exist_ok=True); cfg = clips_cfg(d)
+        pr = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration:stream=codec_type,width,height", "-of", "json", src], capture_output=True, text=True)
+        info = json.loads(pr.stdout or "{}"); vs = [s for s in info.get("streams", []) if s.get("codec_type") == "video"]
+        dur = float((info.get("format") or {}).get("duration") or 0)
+        cfg.update({"src": src, "dur": round(dur, 2), "w": vs[0]["width"] if vs else 0, "h": vs[0]["height"] if vs else 0}); cfg.setdefault("clips", [])
+        wav, aj = J(d, "long.wav"), J(d, "long.json")
+        if not os.path.isfile(aj):
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", src, "-vn", "-ac", "1", "-ar", "16000", wav], check=True)
+            print("أفرّغ الحلقة كاملة (%s). تقريباً %d دقيقة على جهاز عادي، شغّله بالخلفية." % (tfmt(dur), max(2, int(dur / 60 * (0.6 if model in ("small", "base") else 1.2)))), flush=True)
+            cmd = [sys.executable, "-m", "whisper", wav, "--model", model, "--word_timestamps", "True", "--output_format", "json", "--output_dir", d, "--fp16", "False", "--verbose", "False"]
+            if lang: cmd += ["--language", lang]
+            with open(J(d, "whisper.log"), "w") as lg: r = subprocess.run(cmd, stdout=lg, stderr=subprocess.STDOUT)
+            if r.returncode != 0 or not os.path.isfile(aj): sys.exit("التفريغ فشل: شوف " + J(d, "whisper.log"))
+        a = rj(aj); cfg["lang"] = lang or a.get("language") or "en"; segs = a.get("segments") or []
+        L = ["# %s · %s · اللغة: %s" % (os.path.basename(src), tfmt(dur), cfg["lang"]), ""]
+        for s in segs: L.append("[%s] %s" % (tfmt(s["start"]), s["text"].strip()))
+        open(J(d, "transcript.txt"), "w", encoding="utf-8").write("\n".join(L)); wj(J(d, "clips.json"), cfg)
+        print("جاهز: %d جملة · %s" % (len(segs), J(d, "transcript.txt")))
+        print("اقرأ النص كامل، واختر أقوى 3 إلى 5 لحظات (30-90 ثانية كل وحدة، تبدأ بجملة تشد وتنتهي بفكرة مكتملة). ثم لكل وحدة:\n  hs clips make %s --from 12:30 --to 13:45 --title \"عنوان قصير بالعربي\" --credit \"اسم الضيف من اسم البرنامج\"" % d)
+    elif sub == "make":
+        if not rest: sys.exit('clips make <مجلد المقاطع> --from 12:30 --to 13:45 --title "…" [--credit "…"] [--name اسم]')
+        d = os.path.abspath(rest[0]); cfg = clips_cfg(d)
+        if not cfg.get("src"): sys.exit("شغّل أول: hs clips scan <الفيديو> " + d)
+        a_, b_ = tsec(o("--from") or sys.exit("لازم --from")), tsec(o("--to") or sys.exit("لازم --to"))
+        if b_ <= a_ + 3: sys.exit("المقطع قصير جداً")
+        title, credit = o("--title", ""), o("--credit", ""); n = len(cfg.get("clips") or []) + 1; name = o("--name") or "clip-%d" % n
+        w = J(d, re.sub(r"[^\w\-]+", "-", name).strip("-") or "clip-%d" % n); os.makedirs(w, exist_ok=True)
+        print("أقص المقطع %s ← %s ..." % (tfmt(a_), tfmt(b_)), flush=True)
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "%.3f" % a_, "-to", "%.3f" % b_, "-i", cfg["src"], "-c:v", "libx264", "-preset", "veryfast", "-crf", "17", "-c:a", "aac", "-b:a", "192k", J(w, "src.mov")], check=True)
+        A = rj(J(d, "long.json"), {}) or {}; segs = []; fix = []
+        for s in A.get("segments") or []:
+            ws = [x for x in (s.get("words") or []) if x["start"] >= a_ - 0.05 and x["end"] <= b_ + 0.05]
+            if not ws: continue
+            ws = [{**x, "start": round(max(0, x["start"] - a_), 3), "end": round(max(0, x["end"] - a_), 3)} for x in ws]
+            segs.append({"start": ws[0]["start"], "end": ws[-1]["end"], "text": " ".join(x["word"].strip() for x in ws), "words": ws}); fix.append([x["word"].strip() for x in ws])
+        wj(J(w, "a.json"), {"text": " ".join(s["text"] for s in segs), "segments": segs, "language": cfg.get("lang", "en")})
+        if not os.path.isfile(J(w, "fixes.json")): wj(J(w, "fixes.json"), {"fix": fix, "hot": []})
+        eng = find_engine(None)
+        if eng and not os.path.isfile(J(w, "compose.html")): shutil.copy(os.path.join(eng, "scripts", "compose.REFERENCE.html"), J(w, "compose.html"))
+        if not os.path.isfile(J(w, "theme.json")): wj(J(w, "theme.json"), {"bg": "#101014", "ink": "#FFFFFF", "acc": "#F2B33D", "clay": "#C98B18", "mut": "#9A9AA5", "font": "Cairo", "grade": False, "badgeUntil": 0})
+        wj(J(w, "sfx.json"), {"outro": 0})
+        st = load_studio(w); hs = hs_of(st); lang = cfg.get("lang", "en")
+        hs["pod"] = {"on": True, "title": title, "credit": credit, "lang": lang, "orig": lang != "ar", "src": os.path.basename(cfg["src"]), "from": round(a_, 2), "to": round(b_, 2)}
+        hs["cap"] = {**(hs.get("cap") or {}), **POD_CAP}; hs["en"] = {**(hs.get("en") or {}), "on": True}
+        wj(J(w, "studio.json"), st)
+        if os.path.isfile(J(d, "brief.json")) and not os.path.isfile(J(w, "brief.json")): shutil.copy(J(d, "brief.json"), J(w, "brief.json"))
+        cfg.setdefault("clips", []).append({"name": os.path.basename(w), "from": round(a_, 2), "to": round(b_, 2), "title": title, "credit": credit}); wj(J(d, "clips.json"), cfg)
+        print("جاهز: %s (%s)" % (w, tfmt(b_ - a_)))
+        print("كمّل عليه خطوات المونتاج العادية من «خطة القص» (MONTAGE.md الخطوة 3). التفريغ جاهز (a.json + fixes.json) فلا تعيده. وبعد الكابشن:")
+        print("  hs tr %s export   ← اكتب الترجمة%s لكل جملة ثم tr import" % (w, " العربية" if lang != "ar" else " الإنجليزية"))
+    elif sub == "list":
+        d = os.path.abspath(rest[0]) if rest else sys.exit("clips list <مجلد المقاطع>"); cfg = clips_cfg(d)
+        print("%s · %s" % (os.path.basename(cfg.get("src", "")), tfmt(cfg.get("dur", 0))))
+        for c in cfg.get("clips") or []: print("  %s  %s ← %s  %s" % (c["name"], tfmt(c["from"]), tfmt(c["to"]), c.get("title", "")))
+    else: sys.exit("clips scan <فيديو> <مجلد> [--model medium] [--lang en] | make <مجلد> --from 12:30 --to 13:45 --title \"…\" [--credit \"…\"] | list <مجلد>")
+
+# ───────────────────────── 4.3: المكتبة (كل المشاريع من مكان واحد · جوال وكمبيوتر) ─────────────────────────
+HUB_PORT = 8800
+def hub_cfg_path(): return os.path.join(HOME_CFG, "hub.json")
+def hub_cfg(): return rj(hub_cfg_path(), {}) or {}
+def projects_reg_path(): return os.path.join(HOME_CFG, "projects.json")
+def projects_remember(work):
+    try:
+        os.makedirs(HOME_CFG, exist_ok=True); reg = rj(projects_reg_path(), []) or []; w = os.path.abspath(work)
+        reg = [x for x in reg if os.path.normcase(x) != os.path.normcase(w)]; reg.insert(0, w); wj(projects_reg_path(), reg[:200])
+    except Exception: pass
+def cmds_path(): return os.path.join(HOME_CFG, "commands.json")
+def cmd_log_add(work, label, task, snap):
+    try:
+        os.makedirs(HOME_CFG, exist_ok=True); L = rj(cmds_path(), []) or []; cid = "c%d" % int(time.time() * 1000)
+        L.insert(0, {"id": cid, "at": time.time(), "work": os.path.abspath(work), "label": label[:200], "task": task[:1500], "snap": snap, "status": "running", "result": ""})
+        wj(cmds_path(), L[:300]); return cid
+    except Exception: return None
+def cmd_log_set(cid, **kw):
+    if not cid: return
+    try:
+        L = rj(cmds_path(), []) or []
+        for x in L:
+            if x["id"] == cid: x.update(kw)
+        wj(cmds_path(), L)
+    except Exception: pass
+def is_project(d): return os.path.isdir(d) and any(os.path.exists(os.path.join(d, f)) for f in ("caps.json", "studio.json", "src.mov", "cutz.mp4"))
+def hub_projects(root):
+    seen, out = set(), []
+    def add(d):
+        k = os.path.normcase(os.path.abspath(d))
+        if k in seen or not is_project(d): return
+        seen.add(k); out.append(os.path.abspath(d))
+    for w in rj(projects_reg_path(), []) or []: add(w)
+    if root and os.path.isdir(root):
+        for n in sorted(os.listdir(root)):
+            d = os.path.join(root, n)
+            if not os.path.isdir(d) or n.startswith("."): continue
+            if is_project(d): add(d)
+            elif os.path.exists(os.path.join(d, "clips.json")):
+                for m in sorted(os.listdir(d)): add(os.path.join(d, m))
+    return out
+def proj_port(work):
+    for p in range(HUB_PORT + 1, HUB_PORT + 40):
+        if port_alive(p, work): return p
+    return None
+def proj_live(port):
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:%d/hs/pulse" % port, timeout=1.5) as r: return json.loads(r.read().decode())
+    except Exception: return None
+def proj_card(work, live=False):
+    caps = rj(J(work, "caps.json"), {"cards": [], "total": 0}) or {"cards": [], "total": 0}; st = load_studio(work); hs = hs_of(st)
+    sfx = rj(J(work, "sfx.json"), {"outro": 0}) or {}; total = float(caps.get("total") or 0); dur = total + float(sfx.get("outro") or 0)
+    title = ((hs.get("pod") or {}).get("title") or (hs.get("dahih") or {}).get("title") or "").strip() or os.path.basename(work.rstrip("/\\"))
+    ed = J(work, ".hs", "exports"); exps = sorted(glob.glob(os.path.join(ed, "*.mp4")), key=os.path.getmtime) if os.path.isdir(ed) else []
+    smt = max([os.path.getmtime(J(work, f)) for f in ("studio.json", "caps.json", "theme.json") if os.path.exists(J(work, f))] or [0])
+    notes = rj(J(work, "notes.json"), []) or []; ask = sum(1 for n in notes if n.get("status") == "ask"); openn = sum(1 for n in notes if n.get("status") in ("open", "sent"))
+    bstate = brief_state(work); port = proj_port(work) if live else None; pl = proj_live(port) if port else None
+    agent = bool(pl and (pl.get("agent") or {}).get("running")); job = bool(pl and (pl.get("job") or {}).get("running"))
+    if bstate == "pending" or ask: state = "wait"
+    elif agent or job or not exps: state = "work"
+    else: state = "ready"
+    if agent: sub = "Claude يشتغل عليه"
+    elif job: sub = "يصدّر الحين"
+    elif bstate == "pending": sub = "ينتظر إجاباتك"
+    elif ask: sub = "Claude ينتظر ردك (%d)" % ask
+    elif not caps.get("cards"): sub = "يتجهّز"
+    elif not exps: sub = "ما تصدّر بعد"
+    elif smt > os.path.getmtime(exps[-1]) + 2: sub = "فيه تعديل ما تصدّر"
+    else: sub = "جاهز"
+    D = max(dur, 0.1); lanes = {"img": [], "cap": [], "vid": [], "sfx": []}
+    for L in hs.get("layers") or []:
+        if L.get("off") or L.get("type") == "fx": continue
+        lanes["img"].append([round(float(L.get("s", 0)) / D, 4), round(float(L.get("e", 0)) / D, 4)])
+    for c in caps.get("cards") or []: lanes["cap"].append([round(c["s"] / D, 4), round(c["e"] / D, 4)])
+    cut = (rj(J(work, "cut.json"), {}) or {}).get("keep") or []; acc = 0
+    for a, b in cut: lanes["vid"].append([round(acc / D, 4), round((acc + b - a) / D, 4)]); acc += b - a
+    if not cut and total: lanes["vid"].append([0, round(total / D, 4)])
+    for k, v in sfx.items():
+        if isinstance(v, list):
+            for x in v:
+                t0 = float(x[0] if isinstance(x, list) else x); lanes["sfx"].append([round(t0 / D, 4), round(min(D, t0 + 0.35) / D, 4)])
+    th = None
+    for f in ("vfr/00045.jpg", "vfr/00001.jpg", ".hs/th/2.jpg", ".hs/th/1.jpg"):
+        if os.path.exists(J(work, f)): th = f; break
+    return {"work": work, "id": hashlib.md5(os.path.normcase(work).encode()).hexdigest()[:10], "name": os.path.basename(work.rstrip("/\\")), "title": title, "dur": round(dur, 1),
+            "state": state, "sub": sub, "lanes": lanes, "thumb": th, "last": (activity(work, 0, 400) or [{}])[-1].get("text", "")[:160] if agent else "", "mt": int(max(smt, os.path.getmtime(work))), "notes": openn, "ask": ask, "port": port, "agent": agent, "job": job}
+def battery():
+    try:
+        if os.name == "nt":
+            import ctypes
+            class SPS(ctypes.Structure): _fields_ = [("ac", ctypes.c_byte), ("flag", ctypes.c_byte), ("pct", ctypes.c_byte), ("r", ctypes.c_byte), ("life", ctypes.c_ulong), ("full", ctypes.c_ulong)]
+            s = SPS()
+            if ctypes.windll.kernel32.GetSystemPowerStatus(ctypes.byref(s)):
+                if s.flag & 128 or s.pct == -1 or (s.pct & 0xFF) == 255: return {"has": False, "ac": True}
+                return {"has": True, "pct": s.pct & 0xFF, "ac": s.ac == 1}
+        elif sys.platform == "darwin":
+            o = subprocess.run(["pmset", "-g", "batt"], capture_output=True, text=True, timeout=3).stdout; m = re.search(r"(\d+)%", o)
+            if m: return {"has": True, "pct": int(m.group(1)), "ac": "AC Power" in o}
+            return {"has": False, "ac": True}
+        else:
+            for b in glob.glob("/sys/class/power_supply/BAT*"):
+                pct = int(open(os.path.join(b, "capacity")).read().strip()); stt = open(os.path.join(b, "status")).read().strip()
+                return {"has": True, "pct": pct, "ac": stt != "Discharging"}
+    except Exception: pass
+    return {"has": False, "ac": True}
+AWAKE = {"on": False, "proc": None, "thread": None}
+def keep_awake(on):
+    if on == AWAKE["on"]: return
+    AWAKE["on"] = on
+    if os.name == "nt":
+        import ctypes
+        def run():
+            ctypes.windll.kernel32.SetThreadExecutionState(0x80000000 | 0x00000001 | 0x00000040)   # CONTINUOUS · SYSTEM_REQUIRED · AWAYMODE
+            while AWAKE["on"]: time.sleep(5)
+            ctypes.windll.kernel32.SetThreadExecutionState(0x80000000)
+        if on: AWAKE["thread"] = threading.Thread(target=run, daemon=True); AWAKE["thread"].start()
+    else:
+        if on:
+            cmd = ["caffeinate", "-s", "-i"] if sys.platform == "darwin" else (["systemd-inhibit", "--what=sleep:idle", "--why=Hojas Studio", "sleep", "infinity"] if shutil.which("systemd-inhibit") else None)
+            if cmd and shutil.which(cmd[0]): AWAKE["proc"] = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        elif AWAKE["proc"]:
+            try: AWAKE["proc"].kill()
+            except Exception: pass
+            AWAKE["proc"] = None
+def screen_off():
+    if os.name == "nt":
+        import ctypes; ctypes.windll.user32.PostMessageW(0xFFFF, 0x0112, 0xF170, 2); return True
+    if sys.platform == "darwin": subprocess.run(["pmset", "displaysleepnow"]); return True
+    if shutil.which("xset"): subprocess.run(["xset", "dpms", "force", "off"]); return True
+    return False
+def tailscale_url():
+    ts = shutil.which("tailscale") or (r"C:\Program Files\Tailscale\tailscale.exe" if os.name == "nt" and os.path.exists(r"C:\Program Files\Tailscale\tailscale.exe") else None)
+    if not ts: return None, None
+    try:
+        d = json.loads(subprocess.run([ts, "status", "--json"], capture_output=True, text=True, timeout=6).stdout or "{}"); dn = ((d.get("Self") or {}).get("DNSName") or "").rstrip(".")
+        return ts, ("https://" + dn + "/") if dn else None
+    except Exception: return ts, None
+def proj_start(work, engine=None):
+    p = proj_port(work)
+    if p: return p
+    eng = find_engine(engine) or sys.exit("ما لقيت المحرّك"); use = next((p for p in range(HUB_PORT + 1, HUB_PORT + 40) if port_free(p)), None)
+    if not use: raise RuntimeError("ما لقيت بورت فاضي")
+    os.makedirs(J(work, ".hs"), exist_ok=True); lg = open(J(work, ".hs", "server.log"), "ab"); kw = {"stdin": subprocess.DEVNULL, "stdout": lg, "stderr": lg, "cwd": work}
+    if os.name == "nt": kw["creationflags"] = 0x00000008 | 0x00000200 | 0x08000000
+    else: kw["start_new_session"] = True
+    subprocess.Popen([PY, os.path.abspath(__file__), "serve", work, "--port", str(use), "--engine", eng], **kw)
+    for _ in range(80):
+        if port_alive(use, work): return use
+        time.sleep(0.25)
+    raise RuntimeError("الخادم ما اشتغل: " + J(work, ".hs", "server.log"))
+def cmd_hub(args):
+    """hs hub [--root <مجلد المشاريع>] [--port 8800] [--no-browser] [--tailscale] [--stop]"""
+    rest = list(args)
+    def o(nm, d=None):
+        if nm in rest: i = rest.index(nm); v = rest[i + 1]; del rest[i:i + 2]; return v
+        return d
+    cfg = hub_cfg(); root = os.path.abspath(o("--root") or cfg.get("root") or os.path.join(os.path.expanduser("~"), "Documents", "hojas-studio-projects"))
+    port = int(o("--port", cfg.get("port") or HUB_PORT)); os.makedirs(root, exist_ok=True); cfg.update(root=root, port=port); os.makedirs(HOME_CFG, exist_ok=True); wj(hub_cfg_path(), cfg)
+    if "--serve" in rest: return hub_serve(root, port)
+    alive = False
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:%d/hub/api/ping" % port, timeout=1.2) as r: alive = b"hub" in r.read()
+    except Exception: pass
+    if not alive:
+        lg = open(os.path.join(HOME_CFG, "hub.log"), "ab"); kw = {"stdin": subprocess.DEVNULL, "stdout": lg, "stderr": lg, "cwd": root}
+        if os.name == "nt": kw["creationflags"] = 0x00000008 | 0x00000200 | 0x08000000
+        else: kw["start_new_session"] = True
+        subprocess.Popen([PY, os.path.abspath(__file__), "hub", "--serve", "--root", root, "--port", str(port)], **kw)
+        for _ in range(60):
+            try:
+                with urllib.request.urlopen("http://127.0.0.1:%d/hub/api/ping" % port, timeout=1) as r:
+                    if b"hub" in r.read(): alive = True; break
+            except Exception: time.sleep(0.25)
+        if not alive: sys.exit("المكتبة ما اشتغلت: " + os.path.join(HOME_CFG, "hub.log"))
+    url = "http://127.0.0.1:%d/library" % port
+    if "--tailscale" in rest:
+        ts, tu = tailscale_url()
+        if not ts: print("Tailscale مو مثبّت. ثبّته من tailscale.com وسجّل بنفس حساب جوالك، ثم أعد الأمر.")
+        else:
+            r = subprocess.run([ts, "serve", "--bg", "http://127.0.0.1:%d" % port], capture_output=True, text=True, timeout=30)
+            if r.returncode != 0: print("Tailscale رفض: " + (r.stderr or r.stdout).strip()[:300] + "\nفعّل HTTPS من لوحة Tailscale (DNS ← HTTPS Certificates) ثم أعد الأمر.")
+            elif tu: print("رابط آمن للجوال (المايك يشتغل فيه): " + tu + "library"); cfg["ts"] = tu; wj(hub_cfg_path(), cfg)
+    if "--no-browser" not in rest:
+        try:
+            import webbrowser; webbrowser.open(url)
+        except Exception: pass
+    tok = open(os.path.join(HOME_CFG, "hub-token")).read().strip() if os.path.exists(os.path.join(HOME_CFG, "hub-token")) else ""
+    print("المكتبة شغّالة: " + url); print("على الجوال: http://%s:%d/library?k=%s" % (lan_ip(), port, tok) + ((" · أو الرابط الآمن: " + cfg["ts"] + "library") if cfg.get("ts") else ""))
+def lan_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.connect(("8.8.8.8", 80)); ip = s.getsockname()[0]; s.close(); return ip
+    except Exception: return "127.0.0.1"
+def hub_serve(root, port):
+    import http.server, http.client
+    tp = os.path.join(HOME_CFG, "hub-token")
+    if not os.path.exists(tp): open(tp, "w").write("%06d" % secrets.randbelow(10 ** 6))
+    TOKEN = open(tp).read().strip(); FAILS = {}; FAILS_ALL = [0]; POOL = threading.local(); LAN = lan_ip()
+    STATE = {"started": time.time()}
+    def conn(p):
+        d = getattr(POOL, "c", None)
+        if d is None: d = POOL.c = {}
+        c = d.get(p)
+        if c is None: c = d[p] = http.client.HTTPConnection("127.0.0.1", p, timeout=120)
+        return c
+    def card_by(pid):
+        for w in hub_projects(root):
+            if hashlib.md5(os.path.normcase(w).encode()).hexdigest()[:10] == pid: return w
+        return None
+    class HB(http.server.BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"; timeout = 75
+        def log_message(self, *a): pass
+        def _local(self): return self.client_address[0] in ("127.0.0.1", "::1", "localhost")
+        def _q(self): return urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        def _ok(self):
+            if self._local(): return True
+            ip = self.client_address[0]; now = time.time(); f = FAILS.get(ip)
+            if f and now - f[1] > 900: FAILS.pop(ip, None); f = None
+            if FAILS_ALL[0] >= 200 or (f and f[0] >= 10): return False
+            ck = self.headers.get("Cookie") or ""; q = self._q()
+            if ("hs_k=" + TOKEN) in ck or (q.get("k") or [""])[0] == TOKEN: return True
+            if q.get("k") or "hs_k=" in ck: FAILS[ip] = [(f[0] if f else 0) + 1, f[1] if f else now]; FAILS_ALL[0] += 1
+            return False
+        def _send(self, code, body, ctype="application/json; charset=utf-8", extra=None):
+            b = body if isinstance(body, bytes) else body.encode("utf-8"); self.send_response(code); self.send_header("Content-Type", ctype); self.send_header("Content-Length", str(len(b)))
+            self.send_header("Cache-Control", "no-store")
+            for k, v in (extra or {}).items(): self.send_header(k, v)
+            self.end_headers(); self.wfile.write(b)
+        def _json(self, code, o, extra=None): self._send(code, json.dumps(o, ensure_ascii=False), extra=extra)
+        def _deny(self):
+            b = ('<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><body dir=rtl style="font-family:system-ui;background:#111113;color:#eee;display:grid;place-items:center;height:100vh;margin:0">'
+                 '<form method=get action=/library style="text-align:center"><p>اكتب رمز الدخول الظاهر بالمكتبة على جهازك</p><input name=k inputmode=numeric autofocus style="font-size:28px;width:180px;text-align:center;padding:10px;border-radius:14px;border:1px solid #444;background:#1c1c1f;color:#fff"><br><br><button style="font-size:18px;padding:10px 28px;border-radius:14px;border:0;background:#F5C443;color:#111">دخول</button></form>')
+            self._send(403, b, "text/html; charset=utf-8")
+        def _body(self):
+            n = int(self.headers.get("Content-Length") or 0); return self.rfile.read(n) if n else b""
+        def _cookie(self, name):
+            m = re.search(r"(?:^|;\s*)" + name + r"=([^;]*)", self.headers.get("Cookie") or ""); return m.group(1) if m else None
+        def _proxy(self, port):
+            body = self._body() if self.command in ("POST", "PUT") else None
+            hd = {k: v for k, v in self.headers.items() if k.lower() not in ("host", "connection", "keep-alive", "proxy-connection", "te", "trailer", "upgrade", "cookie")}
+            hd["Host"] = "127.0.0.1:%d" % port
+            for attempt in (0, 1):
+                c = conn(port)
+                try: c.request(self.command, self.path, body=body, headers=hd); r = c.getresponse(); break
+                except Exception:
+                    try: c.close()
+                    except Exception: pass
+                    POOL.c.pop(port, None)
+                    if attempt: return self._send(502, "<meta charset=utf-8><body dir=rtl style='font-family:system-ui;background:#111;color:#eee;padding:30px'>المشروع وقف. <a style='color:#F5C443' href='/library'>ارجع للمكتبة</a>", "text/html; charset=utf-8")
+            self.send_response(r.status); ln = r.getheader("Content-Length")
+            for k, v in r.getheaders():
+                if k.lower() in ("connection", "keep-alive", "transfer-encoding", "content-length"): continue
+                self.send_header(k, v)
+            if ln is not None: self.send_header("Content-Length", ln)
+            else: self.send_header("Connection", "close"); self.close_connection = True
+            self.end_headers()
+            while True:
+                ch = r.read(65536)
+                if not ch: break
+                try: self.wfile.write(ch)
+                except Exception: r.close(); POOL.c.pop(port, None); return
+            if ln is None or r.will_close:
+                try: c.close()
+                except Exception: pass
+                POOL.c.pop(port, None)
+        def _route(self):
+            u = urllib.parse.urlparse(self.path); p = u.path; q = self._q()
+            if p == "/hub/api/ping": return self._json(200, {"hub": True, "version": VERSION})
+            if not self._ok(): return self._deny()
+            if (q.get("k") or [""])[0] == TOKEN and not self._local() and ("hs_k=" + TOKEN) not in (self.headers.get("Cookie") or ""):
+                self.send_response(302); self.send_header("Set-Cookie", "hs_k=%s; Path=/; Max-Age=2592000; SameSite=Lax" % TOKEN); self.send_header("Location", p or "/library"); self.send_header("Content-Length", "0"); self.end_headers(); return
+            if p in ("/library", "/library/"):
+                b = open(os.path.join(HERE, "hub.html"), "rb").read(); return self._send(200, b, "text/html; charset=utf-8", {"Set-Cookie": "hs_hub=1; Path=/; SameSite=Lax"})
+            if p == "/hub/ui-font.otf":
+                f = os.path.join(HERE, "fonts", "nt-panorama-naskh-long.otf")
+                return self._send(200, open(f, "rb").read(), "font/otf") if os.path.isfile(f) else self._send(404, b"")
+            if p == "/hub/qr.js": return self._send(200, open(os.path.join(HERE, "qr.js"), "rb").read(), "application/javascript; charset=utf-8")
+            if p.startswith("/hub/api/"): return self._api(p[9:], q)
+            if p.startswith("/hub/thumb/"):
+                w = card_by(p.split("/")[3]); f = q.get("f", [""])[0]
+                if not w or not f or ".." in f: return self._send(404, b"")
+                fp = J(w, f)
+                return self._send(200, open(fp, "rb").read(), "image/jpeg", {"Cache-Control": "max-age=300"}) if os.path.isfile(fp) else self._send(404, b"")
+            pp = self._cookie("hs_p")
+            if pp and pp.isdigit(): return self._proxy(int(pp))
+            self.send_response(302); self.send_header("Location", "/library"); self.send_header("Content-Length", "0"); self.end_headers()
+        def do_GET(self):
+            try: self._route()
+            except (BrokenPipeError, ConnectionResetError): pass
+        def do_HEAD(self): self.do_GET()
+        def do_POST(self):
+            try: self._route()
+            except (BrokenPipeError, ConnectionResetError): pass
+        def _api(self, a, q):
+            if self.command == "POST" and a != "upload":
+                try: data = json.loads(self._body() or b"{}")
+                except Exception: data = {}
+            else: data = {}
+            if a == "projects":
+                cards = [proj_card(w, live=True) for w in hub_projects(root)]; cards.sort(key=lambda c: -c["mt"])
+                return self._json(200, {"root": root, "projects": cards, "awake": AWAKE["on"], "battery": battery()})
+            if a == "open":
+                w = card_by(data.get("id", ""))
+                if not w: return self._json(404, {"ok": False, "msg": "ما لقيت المشروع"})
+                try: pt = proj_start(w)
+                except Exception as e: return self._json(500, {"ok": False, "msg": str(e)[:200]})
+                projects_remember(w)
+                return self._json(200, {"ok": True, "url": "/m" if data.get("mobile") else "/"}, {"Set-Cookie": "hs_p=%d; Path=/; SameSite=Lax" % pt})
+            if a == "commands":
+                L = rj(cmds_path(), []) or []; out = []
+                for x in L[:80]:
+                    w = x.get("work", ""); c = {"work": w, "id": hashlib.md5(os.path.normcase(w).encode()).hexdigest()[:10]}
+                    out.append({**x, "pid": c["id"], "title": proj_card(w)["title"] if is_project(w) else os.path.basename(w), "thumb": proj_card(w)["thumb"] if is_project(w) else None})
+                return self._json(200, {"commands": out})
+            if a == "revert":
+                L = rj(cmds_path(), []) or []; x = next((c for c in L if c["id"] == data.get("id")), None)
+                if not x or not x.get("snap"): return self._json(404, {"ok": False, "msg": "ما فيه نسخة قبل هذا الطلب"})
+                try:
+                    pt = proj_start(x["work"]); req = urllib.request.Request("http://127.0.0.1:%d/hs/ver_restore" % pt, data=json.dumps({"id": x["snap"]}).encode(), headers={"Content-Type": "application/json"})
+                    with urllib.request.urlopen(req, timeout=30) as r: res = json.loads(r.read().decode())
+                except Exception as e: return self._json(500, {"ok": False, "msg": str(e)[:200]})
+                cmd_log_set(x["id"], status="reverted"); return self._json(200, {"ok": True, "rebuild": res.get("rebuild")})
+            if a == "device":
+                du = shutil.disk_usage(root); live = []
+                for w in hub_projects(root)[:40]:
+                    pt = proj_port(w)
+                    if pt:
+                        pl = proj_live(pt) or {}; live.append({"name": os.path.basename(w), "port": pt, "agent": bool((pl.get("agent") or {}).get("running")), "job": bool((pl.get("job") or {}).get("running")), "jobKind": (pl.get("job") or {}).get("kind")})
+                ts, tu = (None, hub_cfg().get("ts"))
+                return self._json(200, {"battery": battery(), "disk": {"free": du.free, "total": du.total}, "awake": AWAKE["on"], "version": VERSION, "live": live,
+                                        "notify": bool(notify_cfg().get("topic")), "ts": tu, "lan": "http://%s:%d/library?k=%s" % (LAN, port, TOKEN), "token": TOKEN, "os": sys.platform, "up": int(time.time() - STATE["started"])})
+            if a == "awake": keep_awake(bool(data.get("on"))); return self._json(200, {"ok": True, "awake": AWAKE["on"]})
+            if a == "screen_off": return self._json(200, {"ok": screen_off()})
+            if a == "notify_test":
+                if not notify_cfg().get("topic"): return self._json(200, {"ok": False, "msg": "الإشعارات مو مفعّلة. فعّلها من زر «الجوال» داخل أي مشروع."})
+                notify_send("تجربة من المكتبة: الإشعارات شغّالة"); return self._json(200, {"ok": True})
+            if a in ("stop_agent", "stop_export"):
+                n = 0
+                for w in hub_projects(root)[:40]:
+                    pt = proj_port(w)
+                    if not pt: continue
+                    try:
+                        ep = "/hs/agent_stop" if a == "stop_agent" else "/hs/export_stop"
+                        urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:%d%s" % (pt, ep), data=b"{}", headers={"Content-Type": "application/json"}), timeout=5); n += 1
+                    except Exception: pass
+                return self._json(200, {"ok": True, "n": n})
+            if a == "restart":
+                for w in hub_projects(root)[:60]:
+                    pt = proj_port(w)
+                    if pt:
+                        try: urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:%d/hs/quit" % pt, data=b"{}", headers={"Content-Type": "application/json"}), timeout=3)
+                        except Exception: pass
+                self._json(200, {"ok": True})
+                def again():
+                    time.sleep(0.6); kw = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+                    if os.name == "nt": kw["creationflags"] = 0x00000008 | 0x00000200 | 0x08000000
+                    else: kw["start_new_session"] = True
+                    subprocess.Popen([PY, os.path.abspath(__file__), "hub", "--no-browser"], **kw); time.sleep(0.2); os._exit(0)
+                threading.Thread(target=again, daemon=True).start(); return
+            if a == "upload":
+                name = re.sub(r"[^\w\-]+", "-", (q.get("name") or [""])[0]).strip("-")[:40] or time.strftime("clip-%m%d-%H%M")
+                ext = os.path.splitext((q.get("file") or ["v.mov"])[0])[1].lower() or ".mov"; kind = (q.get("kind") or ["edit"])[0]
+                w = os.path.join(root, name); n = 1
+                while os.path.exists(w): w = os.path.join(root, "%s-%d" % (name, n)); n += 1
+                os.makedirs(w); dst = J(w, ("long" + ext) if kind == "long" else "src.mov"); left = int(self.headers.get("Content-Length") or 0)
+                with open(dst, "wb") as f:
+                    while left > 0:
+                        ch = self.rfile.read(min(1 << 20, left))
+                        if not ch: break
+                        f.write(ch); left -= len(ch)
+                note = (q.get("note") or [""])[0][:1500]
+                task = ("حلقة طويلة وصلت من المكتبة: %s. اتبع <engine>/references/clips.md: فرّغها (hs clips scan) بمجلد %s، واختر أقوى اللحظات، وسوّ منها مقاطع." % (dst, w)) if kind == "long" else \
+                       ("فيديو جديد وصل من المكتبة: %s. منتجه كامل حسب SKILL.md من البداية (البث الحي ثم صفحة الأسئلة ثم المونتاج)." % dst)
+                if note: task += "\nملاحظته: " + note
+                started = False; msg = ""
+                exe = shutil.which("claude")
+                if exe:
+                    cmd = [exe, "-p", task, "--permission-mode", "acceptEdits", "--add-dir", HERE, "--allowedTools", "Bash", "Read", "Edit", "Write", "Glob", "Grep"]
+                    if exe.lower().endswith((".cmd", ".bat")): cmd = ["cmd", "/c"] + cmd
+                    kw = {"cwd": w, "stdin": subprocess.DEVNULL, "stdout": open(J(w, "claude.log"), "ab"), "stderr": subprocess.STDOUT}
+                    if os.name == "nt": kw["creationflags"] = 0x08000000
+                    try: subprocess.Popen(cmd, **kw); started = True; cmd_log_add(w, "مقطع جديد" if kind != "long" else "حلقة طويلة", task, None)
+                    except Exception as e: msg = str(e)[:200]
+                else: msg = "ما لقيت Claude Code على الجهاز. افتح Claude Code وقل له: منتج " + dst
+                projects_remember(w) if kind != "long" else None
+                return self._json(200, {"ok": True, "work": w, "started": started, "msg": msg})
+            return self._json(404, {"ok": False})
+    srv = http.server.ThreadingHTTPServer(("0.0.0.0", port), HB); srv.daemon_threads = True
+    print("المكتبة شغّالة: http://127.0.0.1:%d/library · الجوال: http://%s:%d/library?k=%s" % (port, LAN, port, TOKEN)); sys.stdout.flush()
+    try: srv.serve_forever()
+    except KeyboardInterrupt: pass
+
 def main():
     a = sys.argv[1:]
     if not a or a[0] in ("-h", "--help"): print(__doc__); return
@@ -2417,6 +2958,8 @@ def main():
     if cmd == "notify": return cmd_notify(a[1:])
     if cmd == "style": return cmd_style(a[1:])
     if cmd == "update": return cmd_update()
+    if cmd == "clips": return cmd_clips(a[1:])
+    if cmd == "hub": return cmd_hub(a[1:])
     if cmd == "selftest": sys.exit(0 if cmd_selftest(os.path.abspath(a[1]) if len(a) > 1 else None, engine) else 1)
     if len(a) < 2: sys.exit("لازم مجلد الشغل: python hs.py %s <work>" % cmd)
     work = os.path.abspath(a[1])

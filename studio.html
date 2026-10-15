@@ -330,17 +330,143 @@ body.m #live .in,body.m .ngrid,body.m .cmp{grid-template-columns:1fr}
   #pinbox{width:160px;margin:0 auto}
   #toast{bottom:20px}
 }
+/* ═══════════ 4.3: الواجهة الجديدة (غامق + أصفر) ═══════════ */
+:root{--bg:#111113;--s1:#18181b;--s2:#222226;--s3:#2d2d32;--bd:rgba(255,255,255,.075);--tx:#f2f2f4;--mut:#8f8f97;--y:#F5C443;--yk:#1d1600;--cap:#8f73f5;--note:#5b8def;--au:#3fbf7f}
+html,body{background:var(--bg)}
+button{border-radius:12px;background:var(--s2);border-color:var(--bd)}
+button.sm{border-radius:10px}
+button.pri{background:var(--y);border-color:var(--y);color:var(--yk)}
+button.on{border-color:var(--y)}
+input[type=text],input[type=search],input[type=number],textarea,select{border-radius:11px}
+input:focus,textarea:focus,select:focus{border-color:var(--y)}
+input[type=range],input[type=checkbox]{accent-color:var(--y)}
+.tabs button.on{border-bottom-color:var(--y)}
+.sw-t.on{background:var(--y);border-color:var(--y)}.sw-t.on::after{background:#fff}
+.card,.tog,.note,.item{border-radius:14px}
+.card.on{border-color:var(--y)}
+button.ic{width:44px;height:44px;padding:0;display:inline-grid;place-items:center;border-radius:14px;background:var(--s1);border:1px solid var(--bd);color:var(--tx)}
+button.ic:disabled{opacity:.35}
+#top{background:var(--bg);border-bottom:1px solid var(--bd);gap:10px}
+#top .name{font-family:"HS UI","IBM Plex Sans Arabic",sans-serif;font-size:19px}
+#top .proj{color:var(--tx);font-weight:600}
+.pill{display:inline-flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--bd);border-radius:20px;padding:4px 12px;font-size:12.5px;color:#d8d8dd;white-space:nowrap}
+.pill i{width:7px;height:7px;border-radius:50%;background:var(--mut)}
+.pill.dirty i{background:#d9d9de}.pill.ready i{background:var(--au)}.pill.work i{background:var(--y)}
+.pill:empty,.pill.none{display:none}
+#bBack{width:36px;height:36px;border-radius:12px}
+#bBack[hidden]{display:none}
+button.mic{display:inline-flex;align-items:center;gap:6px}
+button.mic svg{width:16px;height:16px}
+button.mic.rec{background:var(--y);color:var(--yk);border-color:var(--y)}
+#wrap{border-radius:18px}
+#sideTools{position:absolute;top:16px;inset-inline-end:16px;display:flex;flex-direction:column;gap:10px;z-index:5}
+#ph{background:var(--y);width:2px}
+#ph::before{background:var(--y);left:-6px;width:14px;height:12px;border-radius:2px 2px 7px 7px}
+#tl{background:var(--bg)}
+#tlbar{border-bottom-color:var(--bd)}
+.clip{border-radius:7px}
+.clip.cap{background:#6f58d6}
+.clip.image,.clip.viz,.clip.split,.clip.pip,.clip.bg{background:#3d64b3}
+#tFilm{border-radius:8px}
+.mk.ai{background:#a78bfa}
+#mtools,#mhint,#mdock,#msh,#rec{display:none}
+#rec.on{display:flex;position:fixed;left:50%;top:22%;transform:translateX(-50%);z-index:80;align-items:center;gap:10px;background:#1d1d21;border:1px solid var(--y);border-radius:20px;padding:12px 20px;font-size:15px}
+#rec i{width:12px;height:12px;border-radius:50%;background:#ef5a4a;animation:recb 1s infinite}
+@keyframes recb{50%{opacity:.25}}
+.note audio{width:100%;height:34px;margin-top:6px}
+/* ── الجوال ── */
+body.m #top{height:58px;border:0;padding:6px 14px 0}
+body.m #top .name,body.m #bLang,body.m #bNote,body.m #bExport,body.m #saved,body.m #bMic,body.m #busy{display:none}
+body.m #top .proj{display:block;max-width:none;flex:1;font-family:"HS UI","IBM Plex Sans Arabic",sans-serif;font-size:21px;font-weight:700;color:var(--tx);order:1}
+body.m #bBack{order:0}
+body.m #pill{order:2}
+body.m #top .sp{display:none}
+body.m #mid{overflow:visible;flex:1 1 auto;min-height:0}
+body.m #stage{position:relative;height:100%;min-height:0;padding:6px 16px;flex:1}
+body.m #wrap{border-radius:20px;height:100%}
+body.m #sideTools{top:12px;inset-inline-end:auto;inset-inline-start:14px}
+html[dir=rtl] body.m #sideTools{left:14px;right:auto}
+body.m #stageBtns{display:none}
+body.m #mbar,body.m #mnav{display:none!important}
+body.m #mtools{display:flex;align-items:center;gap:8px;padding:10px 16px 4px;flex:none;direction:ltr}
+body.m #mtools .sp{flex:1}
+body.m #mClock{font-variant-numeric:tabular-nums;font-size:19px;color:var(--mut);direction:ltr}
+body.m #mClock b{color:var(--tx);font-weight:600}
+body.m #mPlay2{border-radius:50%}
+body.m #tl{display:grid;flex:none;height:206px;border-top:0;grid-template-rows:minmax(0,1fr);grid-template-columns:52px minmax(0,1fr)}
+body.m #tlbar{display:none}
+body.m #gut{border:0;font-size:11px}
+body.m #lane{height:262px}
+body.m #mhint{display:block;flex:none;text-align:center;color:var(--mut);font-size:13px;margin:6px 16px}
+body.m #mdock{display:flex;flex:none;align-items:center;justify-content:space-between;padding:4px 22px calc(12px + env(safe-area-inset-bottom));direction:ltr}
+body.m #mdock .ic{width:54px;height:54px;border-radius:18px}
+body.m #mMic{width:92px;height:76px;border-radius:26px;background:var(--y);color:var(--yk);border:0;display:grid;place-items:center;-webkit-touch-callout:none;user-select:none;touch-action:none}
+body.m #mMic.rec{transform:scale(1.06);background:#ffd45c}
+body.m #msh{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.45);align-items:flex-end}
+body.m[data-mv="bin"] #msh,body.m[data-mv="panel"] #msh{display:flex}
+body.m #msh .in{width:100%;max-height:76dvh;background:#1f1f22;border-radius:26px 26px 0 0;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom)}
+body.m #msh .grab{width:46px;height:5px;border-radius:3px;background:var(--s3);margin:10px auto 8px;flex:none;cursor:pointer}
+body.m #mshHead{display:flex;gap:8px;align-items:center;padding:0 12px 8px;flex:none}
+body.m #mtabs{flex:1;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+body.m #mtabs::-webkit-scrollbar{display:none}
+body.m #mtabs button{flex:none;border-radius:14px;padding:7px 13px;font-size:13.5px;background:var(--s2);color:var(--mut);border:1px solid transparent}
+body.m #mtabs button.on{background:var(--s3);color:var(--tx);border-color:var(--bd)}
+body.m #mExport{flex:none;display:inline-flex;align-items:center;gap:5px}
+body.m #mshBody{overflow:auto;flex:1;min-height:0}
+body.m #mshBody #bin,body.m #mshBody #panel{background:transparent}
+body.m.nr #mtools,body.m.nr #tl,body.m.nr #mhint{display:none}
+body.m #top{order:0;position:static}body.m #mid{order:1}body.m #mtools{order:2}body.m #tl{order:3;position:static;top:auto;z-index:1}body.m #mhint{order:4}body.m #mdock{order:5}
+html:has(body.m),body.m{overflow:hidden;height:100%}
+body.m #stage{position:relative;top:auto;height:auto}
+/* ── الكمبيوتر ── */
+@media (min-width:761px){
+  body:not(.m) #mid{grid-template-columns:300px minmax(0,1fr) 370px}
+  body:not(.m) .side{background:var(--s1)}
+  body:not(.m) #bin{border-right:1px solid var(--bd)}
+}
+/* ── لمسة Hojas: زجاج وأزرق ── */
+:root{--bg:#0a0c11;--s1:#11141b;--s2:rgba(255,255,255,.065);--s3:rgba(255,255,255,.11);--bd:rgba(255,255,255,.09);--tx:#f1f4fa;--mut:#8b93a7;--y:#4C8DFF;--yk:#fff;--glass:blur(16px) saturate(140%)}
+body{background:radial-gradient(60% 35% at 90% -10%,rgba(76,141,255,.16),transparent 70%),var(--bg)}
+html,body{background-color:var(--bg)}
+#top,#tl,.side{background:transparent}
+.side{background:rgba(255,255,255,.02)}
+button,button.ic,.pill,.card,.tog,.note,.item,.seg,#mtabs button{backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass)}
+button,button.ic{background:linear-gradient(180deg,rgba(255,255,255,.085),rgba(255,255,255,.035));border:1px solid rgba(255,255,255,.11);box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+button.pri,body.m #mMic,button.mic.rec{background:linear-gradient(180deg,#6aa2ff,#3f7ff0);color:#fff;border:1px solid rgba(255,255,255,.22);box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
+body.m #mMic.rec{background:linear-gradient(180deg,#86b4ff,#4C8DFF);transform:scale(1.06)}
+button.ghost{background:transparent;box-shadow:none}
+.tabs button,.seg button,#binTabs button{background:transparent!important;box-shadow:none;border:0}
+.seg button.on{background:rgba(76,141,255,.22)!important;color:#fff}
+.card,.tog,.note,.item{background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.07)}
+#ph,#ph::before{background:#4C8DFF}
+#wrap{box-shadow:0 0 0 1px rgba(255,255,255,.08)}
+body.m #msh .in{background:rgba(18,21,29,.88);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
+body.m #mtabs button.on{background:rgba(76,141,255,.22);color:#fff}
+#rec.on{background:rgba(18,21,29,.85);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-color:#4C8DFF}
+.pill{background:rgba(255,255,255,.06)}
+.pill.work i{background:#4C8DFF}
+#ticker{display:none;position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:6;max-width:min(86%,520px);align-items:center;gap:8px;padding:8px 14px;border-radius:16px;background:rgba(14,18,28,.72);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(76,141,255,.45);font-size:12.5px;cursor:pointer}
+#ticker.on{display:flex}
+#ticker i{width:8px;height:8px;border-radius:50%;background:#4C8DFF;flex:none;animation:recb 1.2s infinite}
+#ticker span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.quick{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.quick button{border-radius:14px;font-size:12.5px;padding:6px 11px}
+#mClock{white-space:nowrap}
+body.m #mtools{gap:6px;padding:10px 12px 4px}body.m #mtools .ic{width:42px;height:42px;border-radius:13px}body.m #mClock{font-size:16px}
+#gestHint{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;font-size:34px;color:#fff;opacity:0;transition:opacity .25s;z-index:4;text-shadow:0 2px 12px rgba(0,0,0,.6)}
+#gestHint.on{opacity:.9}
 </style>
 </head>
 <body>
 <div id="app">
   <div id="top">
-    <span class="name">Hojas Studio</span><span class="proj" id="proj"></span>
+    <button class="ic" id="bBack" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button><span class="name">Hojas Studio</span><span class="proj" id="proj" dir="auto"></span><span class="pill" id="pill"><i></i><span></span></span>
     <span id="busy"><i></i><span id="busyTx"></span></span>
     <span class="sp"></span>
     <span id="saved"></span>
     <button class="sm ghost" id="bLang">EN</button>
     <button class="sm ghost hide-m" id="bUndo" data-t="undo"></button>
+    <button class="sm mic" id="bMic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span data-t="micBtn"></span></button>
     <button class="sm" id="bNote"><span data-t="note"></span> <kbd>M</kbd></button>
     <button class="sm" id="bQR" data-t="phone"></button>
     <button class="sm pri" id="bExport" data-t="export"></button>
@@ -355,6 +481,8 @@ body.m #live .in,body.m .ngrid,body.m .cmp{grid-template-columns:1fr}
         <div id="safe"></div>
         <div id="giz"></div>
       </div>
+      <div id="ticker"><i></i><span id="tickTx"></span></div><div id="gestHint"></div>
+      <div id="sideTools"><button class="ic" id="bFull"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button><button class="ic" id="bPen"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-1L19 8l-3-3L5 16z"/></svg></button></div>
       <div id="stageBtns"><button class="sm" id="bSafe" data-t="safeZones"></button><button class="sm" id="bCover" data-t="coverShot"></button></div>
       <div id="live"><div class="in">
         <div><h2 data-t="liveTitle"></h2><p class="hint" data-t="liveSub" style="font-size:13px;margin-bottom:16px"></p><div class="stages" id="liveStages"></div><div class="feed" id="liveFeed"></div></div>
@@ -366,6 +494,7 @@ body.m #live .in,body.m .ngrid,body.m .cmp{grid-template-columns:1fr}
       <div class="body" id="body"></div>
     </div>
   </div>
+  <div id="mtools"><button class="ic" id="mMark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 4h12v17l-6-4-6 4z"/></svg></button><button class="ic" id="mUndo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button><button class="ic" id="mRedo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button><button class="ic" id="mCut"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.5 7.5L20 18M8.5 16.5L20 6"/></svg></button><span class="sp"></span><span id="mClock"><span id="mDur"></span> <b id="mNow"></b></span><button class="ic" id="mPlay2"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg></button></div>
   <div id="mbar"><div class="r"><button id="mBack">-2</button><button id="mPlay" class="pri"></button><button id="mFwd">+2</button><span id="mTime">00:00.00</span></div><input type="range" dir="ltr" id="mScrub" min="0" max="1" step="0.01" value="0"></div>
   <div id="mnav"></div>
   <div id="tl">
@@ -394,7 +523,11 @@ body.m #live .in,body.m .ngrid,body.m .cmp{grid-template-columns:1fr}
       <div id="sk"></div><div id="ph"></div>
     </div></div>
   </div>
+  <p id="mhint" data-t="micHint"></p>
+  <div id="mdock"><button class="ic" id="mList"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button><button id="mMic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><button class="ic" id="mKb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6 10h1M9.5 10h1M13 10h1M16.5 10h1M7 14h10" stroke-linecap="round"/></svg></button></div>
 </div>
+<div id="msh"><div class="in"><div class="grab" id="mshClose"></div><div id="mshHead"><div id="mtabs"></div><button class="sm pri" id="mExport"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 9l5-5 5 5M5 20h14"/></svg><span data-t="export"></span></button></div><div id="mshBody"></div></div></div>
+<div id="rec"><i></i><span id="recTx"></span></div>
 <video id="au" playsinline preload="auto" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none"></video>
 <div id="brief"></div>
 <div id="modal"><div id="mbox"></div></div>

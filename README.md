@@ -12,7 +12,7 @@
 
 <p align="center">
   <img alt="Claude Code skill" src="docs/assets/badge-skill.svg">
-  <img alt="Version 4.2" src="docs/assets/badge-version.svg">
+  <img alt="Version 4.3" src="docs/assets/badge-version.svg">
   <img alt="Runs on Windows, macOS, Linux" src="docs/assets/badge-platforms.svg">
   <img alt="License: PolyForm Noncommercial" src="docs/assets/badge-license.svg">
 </p>
@@ -74,6 +74,16 @@ Hojas Studio turns that into a conversation. Claude does the heavy edit, and you
 **Dahih desk:** a title header, a paper desk behind you, clipped cards, circled numbers and short orange captions.
 
 Pick one on the questions page, or ask Claude: "edit it in the paper style".
+
+<p align="center"><img src="docs/assets/style-podcast.jpg" alt="Translated podcast clips" width="80%"></p>
+
+**Translated podcast clips:** turn a long episode into short vertical clips with a title, the source, clean Arabic subtitles and the original line under them.
+
+## Library and phone
+
+<p align="center"><img src="docs/assets/ui-mobile.jpg" alt="Library and studio on the phone" width="100%"></p>
+
+`python hs.py hub` opens the Library: every clip and its status, everything you sent Claude with a one-tap revert, and your computer's status. From your phone you open any clip, hold the mic to leave a voice note at that moment, or upload a new video and Claude starts on it.
 
 ## The studio
 
