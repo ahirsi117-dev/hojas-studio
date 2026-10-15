@@ -44,7 +44,7 @@
   python hs.py doctor [--engine …]
   python hs.py selftest [<work>]      فحص ذاتي: صياغة الملفات · النصوص العربية سليمة · كل مفاتيح الواجهة موجودة · الخادم يرد
 """
-import sys, os, json, time, re, shutil, subprocess, threading, secrets, base64, array, glob, zipfile, difflib, hashlib
+import sys, os, json, time, re, shutil, subprocess, threading, secrets, base64, array, glob, zipfile, difflib, hashlib, tempfile
 import importlib.util, urllib.parse, urllib.request, urllib.error, socket
 
 # ويندوز: الخادم يشتغل بلا نافذة، فأي برنامج يشغّله (ffmpeg · node · bash) كان يفتح نافذة تيرمنال تومض.
@@ -793,7 +793,7 @@ def brief_apply(work):
     cd = a.get("cards") or "some"; tot_ = float((rj(J(work, "caps.json"), {}) or {}).get("total") or 30)
     if cd == "none": todo.append("كروت الشرح: ما يبيها. لا تضف أي كرت شاشة مقسومة")
     else:
-        per = {"few": 22, "some": 12, "many": 7}.get(cd, 12); n_ = max(1, int(round(tot_ / per)))
+        n_ = cards_hint(tot_, cd)
         todo.append("كروت الشرح (%s): حط تقريباً %d كرت بهذا المقطع، ونوّع أشكالها ولا تكرر نفس الشكل مرتين ورا بعض. لكل فكرة اختر الشكل اللي يشرحها: خطوات ← style=steps · مراحل تتحول ← flow · مقارنة ← versus · رقم ← stat · صح وغلط ← check · تواريخ ← timeline · تناقص ← funnel · جملة قوية ← quote · علاقة أو فكرة مركّبة ← style=draw ترسمها أنت بعناصر (دوائر، صناديق، أسهم، أيقونات، أرقام تعد). الأمر: python hs.py layer <work> add type=split style=<الشكل> title=\"…\" \"text=سطر\\nسطر\" s=<بداية الجملة> e=<نهايتها>. التفاصيل والأمثلة في SKILL.md قسم «كروت الشرح». لا تحطها على الهوك، ومدة الكرت = مدة الكلام عنه" % ({"few": "قليل", "some": "متوسط", "many": "كثير"}.get(cd, cd), n_))
     hs.setdefault("en", {})["on"] = bool(a.get("en"))
     if a.get("en"): todo.append("اكتب الترجمة الإنجليزية: tr export ثم tr import")
@@ -811,8 +811,9 @@ def brief_apply(work):
         else: L["char"] = ch["use"]; L["color"] = ch.get("color") or "#8F73F5"
         Ls.append(L); done.append("الشخصية: " + str(ch.get("src") or ch["use"]))
     hs["layers"] = Ls
-    fx = a.get("fx") or {}; mix = hs.setdefault("mix", {})
-    if fx.get("sfx") == "none": todo.append("بلا مؤثرات صوتية: فرّغ sfx.json (خلّ outro فقط)")
+    fx = a.get("fx") or {}; mix = hs.setdefault("mix", {}); stl_ = a.get("style") or "normal"
+    if fx.get("sfx") == "none":
+        spx = J(work, "sfx.json"); sx = rj(spx, {"outro": 0}) or {"outro": 0}; wj(spx, {"outro": sx.get("outro", 0)}); done.append("بلا مؤثرات صوتية")
     elif fx.get("sfx") == "light": todo.append("مؤثرات صوتية خفيفة: 6 أحداث بالدقيقة بالكثير، من مكتبة الأصوات (hs sfx <work> list ثم hs sfx <work> add <id> <ثانية>)")
     elif fx.get("sfx") == "rich": todo.append("مؤثرات صوتية أكثر: لين 15 حدث بالدقيقة عند اللحظات اللي لها معنى، من مكتبة الأصوات (hs sfx <work> list ثم hs sfx <work> add <id> <ثانية>)")
     wj(sp, st)
@@ -821,11 +822,16 @@ def brief_apply(work):
         if a["pace"] == "calm": th["pace"] = "calm"
         else: th.pop("pace", None)
         wj(tp, th); todo.append({"calm": "إيقاع هادي: مشاهد أقل وزوم أخف", "normal": "إيقاع عادي: تغيير بصري كل 2-3 ثواني", "fast": "إيقاع سريع: تغيير بصري كل 1.5-2 ثانية"}.get(a["pace"], ""))
-    if fx.get("zoom"): todo.append("بعد ما يجهز الفيديو: python hs.py auto <work> zooms")
-    if fx.get("transitions"): todo.append("بعد ما يجهز الفيديو: python hs.py auto <work> transitions")
+    if fx.get("zoom") and stl_ != "dahih":
+        nz = auto_layers(work, "zooms", True) if (rj(J(work, "caps.json"), {}) or {}).get("cards") else 0
+        if nz: done.append("زووم عند الكلمات المميّزة (%d)" % nz)
+        else: todo.append("بعد ما يجهز الفيديو: python hs.py auto <work> zooms")
+    if fx.get("transitions") and stl_ != "dahih": todo.append("بعد القص: python hs.py auto <work> transitions")
     if fx.get("bg"): todo.append("يبي صوت بالخلفية: اطلب منه ملف bg-audio.mp3 أو اسأله من وين")
     c = a.get("cut") or {}; cmd = []
-    if c.get("drop"): cmd += ["--cards"] + [str(i + 1) for i in c["drop"]]
+    if c.get("drop"):
+        cmd += ["--cards"] + [str(i + 1) for i in c["drop"]]; cc_ = (rj(J(work, "caps.json"), {"cards": []}) or {"cards": []})["cards"]
+        bk = brief_marks(work); bk["drop"] = [card_key(cc_[i]) for i in c["drop"] if 0 <= i < len(cc_)]; wj(brief_marks_path(work), bk)
     if c.get("fillers"): cmd += ["--fillers"]
     if cmd: todo.append("القص المطلوب (نفّذه قبل تصميم المشاهد وبعد ما يجهز cutz.mp4): python hs.py remove <work> " + " ".join(cmd))
     if c.get("dupes"): todo.append("شيل الجمل المعادة: python hs.py check <work> ثم remove --cards للأولى من كل زوج")
@@ -838,7 +844,20 @@ def brief_apply(work):
         if m["mode"] in ("ai", "mix"): todo.append("صور مولّدة (%s) عن: %s ← لكل وحدة: python hs.py gen <work> request image \"وصف بالإنجليزي\" --at <وقت>%s. التوليد من حسابه الشخصي بلا مفاتيح API: افتح ChatGPT (صور) أو Gemini (مقاطع) بمتصفحه، ولّد ونزّل، ثم gen import <رقم> <ملف>. لو ما عندك متصفحه استخدم موصل التوليد المربوط بحسابه، وإلا خلّ الطلبات تنتظره بالاستوديو وقل له" % (n, t, " · ومقاطع: gen request video" if m.get("video") else ""))
         if m["mode"] == "mine": todo.append("هو بيرفع صوره ومقاطعه من «الملفات»: لا تضف صوراً من عندك")
     o = a.get("outro") or {}
-    if o.get("use"): todo.append("كرت الختام: %s%s (studio.json ← outro)" % (o.get("text") or "اكتب دعوة مناسبة", (" · الحساب " + o["handle"]) if o.get("handle") else ""))
+    if o.get("use"):
+        st = load_studio(work); ot = st.setdefault("outro", {}); txt = (o.get("text") or "").strip(); ws = txt.split()
+        if len(ws) >= 2: ot["cta"], ot["word"] = " ".join(ws[:-1]), ws[-1]
+        elif txt: ot["cta"] = txt
+        wj(J(work, "studio.json"), st)
+        if o.get("handle"):
+            tpx = J(work, "theme.json"); thx = rj(tpx, {}) or {}; thx["handle"] = o["handle"]; wj(tpx, thx)
+        spx = J(work, "sfx.json"); sx = rj(spx, {"outro": 0}) or {"outro": 0}
+        if not sx.get("outro"): sx["outro"] = 3.5; wj(spx, sx)
+        done.append("كرت الختام" + ((": " + txt) if txt else "") + ((" · " + o["handle"]) if o.get("handle") else ""))
+        if not txt: todo.append("كرت الختام: ما كتب دعوة. اكتب وحدة تناسب المقطع: hs set <work> outro.cta=\"…\" outro.word=\"…\"")
+    else:
+        spx = J(work, "sfx.json"); sx = rj(spx, {"outro": 0}) or {"outro": 0}
+        if sx.get("outro"): sx["outro"] = 0; wj(spx, sx); done.append("بلا كرت ختام")
     goal = (a.get("goalText") or "").strip() if a.get("goal") == "other" else a.get("goal")
     if goal: todo.append("نوع المقطع: " + str(goal) + ((" (كتبه بنفسه: افهم منه الأسلوب المطلوب وامش عليه)") if a.get("goal") == "other" else ""))
     if ar != "9:16":
@@ -848,6 +867,11 @@ def brief_apply(work):
     for k, v in (a.get("extra") or {}).items(): todo.append("إجابة «%s»: %s" % (k, v))
     stl = a.get("style") or "normal"
     if stl == "paper": todo.append("الأسلوب: ورق متحرك. اقرأ <engine>/references/styles.md (القسم 1) ثم: hs kinetic <work> auto --deco both، وراجع كل شاشة بنفسك")
+    elif stl == "dahih" and not (hs_of(load_studio(work)).get("dahih") or {}).get("on"):
+        ttl = ((a.get("hook") or {}).get("text") or "").strip()[:40]
+        try: cmd_dahih(work, ["on"] + (["--title", ttl] if ttl else [])); done.append("أسلوب الدحيح شغّال")
+        except SystemExit: pass
+        todo.append("الأسلوب: الدحيح شغّال. اقرأ <engine>/references/styles.md (القسم 2)، عدّل العنوان والهاشتاق، وحط كروت المكتب على كلامه وبدّل الخلفيات مع تغيّر الفكرة")
     elif stl == "dahih": todo.append("الأسلوب: الدحيح. اقرأ <engine>/references/styles.md (القسم 2) ثم: hs dahih <work> on --title \"…\" --tag \"…\"، وحط كروت المكتب على كلامه")
     if a.get("ref"): todo.append("مرجع يبي مثله: " + a["ref"])
     if a.get("notes"): todo.append("ملاحظاته الحرّة: " + a["notes"])
@@ -862,8 +886,88 @@ def brief_apply(work):
         short = [n for n in plats if n == "x"]; tot = (rj(J(work, "caps.json"), {}) or {}).get("total", 0)
         if short and tot > 140: print("  ← تنبيه: المقطع %d ثانية وإكس يقبل 140 للحساب العادي. اسأله: حسابه مشترك؟ وإلا اقترح نسخة أقصر." % tot)
     if style_prof().get("n"): print("\nأسلوبه من تعديلاته السابقة (إجاباته الحين تتقدّم عليه لو تعارضت):"); print(style_text())
+    print("\nقائمة التحقق من إجاباته (ما تسلّم لين تطلع كلها ✓):"); brief_print(work)
+    print("\nبعد ما تخلص كل شي: python hs.py brief <work> check  ← لازم يطلع «كل إجاباته مطبّقة». البنود اللي ما تنفحص لحالها: brief <work> ok <رمز> \"وش سويت\"")
     say(work, "قرأت إجاباتك وبدأت المونتاج عليها.", "step")
 
+def brief_marks_path(work): return J(work, ".hs", "brief_marks.json")
+def brief_marks(work): return rj(brief_marks_path(work), {}) or {}
+def brief_reqs(work):
+    """كل إجابة بصفحة الأسئلة تصير بند: ok=True/False يتفحص من ملفات المشروع، وman=True لو يحتاج Claude يأكّد وش سوّى."""
+    a = rj(brief_paths(work)[1])
+    if not a: return []
+    st = load_studio(work); hs = hs_of(st); caps = rj(J(work, "caps.json"), {"cards": [], "total": 0}) or {"cards": [], "total": 0}; cards = caps.get("cards") or []
+    total = float(caps.get("total") or 0); th = rj(J(work, "theme.json"), {}) or {}; sx = rj(J(work, "sfx.json"), {"outro": 0}) or {"outro": 0}
+    Ls = [L for L in hs.get("layers") or [] if not L.get("off")]; mk = brief_marks(work); man_ok = mk.get("ok") or {}; R = []
+    def req(k, label, ok=None, why="", man=False):
+        if man: ok = k in man_ok; why = man_ok.get(k) or why
+        R.append({"k": k, "label": label, "ok": bool(ok), "man": man, "why": why})
+    ar = a.get("frame") if a.get("frame") in FRAMES else "9:16"; req("frame", "المقاس " + ar, frame_of(hs)[0] == ar)
+    if a.get("cap"):
+        cp = hs.get("cap") or {}; diff = [k for k, v in a["cap"].items() if k not in ("y",) and cp.get(k) != v]
+        req("cap", "الكابشن بالإعدادات اللي اختارها", cp.get("on", True) and not diff, ("تغيّر: " + "، ".join(diff)) if diff else "")
+    plats = [x for x in (a.get("platform") or []) if x in PLATFORMS]
+    if plats:
+        sz = safe_of(plats, ar, frame_of(hs)[1]); cy = float((hs.get("cap") or {}).get("y", 76))
+        req("safe", "الكابشن داخل منطقة الأمان لـ " + "، ".join(plats), sz["capMin"] <= cy <= sz["capMax"], "الكابشن على %s%% والمسموح %s-%s" % (cy, sz["capMin"], sz["capMax"]))
+    ta = a.get("theme") or {}
+    if ta.get("mode") in ("mono", "custom"): req("colors", "الألوان اللي اختارها", (ta.get("mode") == "mono" and th.get("bg") == "#0E0E10") or (ta.get("mode") == "custom" and th.get("acc") == (ta.get("acc") or "#F2B33D")))
+    else: req("colors", "ألوان مختارة من المقطع (قال اختر لي)", man=True, why="اقرأ لقطة واكتب الألوان في theme.json")
+    if ta.get("handle") or (a.get("outro") or {}).get("handle"):
+        hd = (a.get("outro") or {}).get("handle") or ta.get("handle"); req("handle", "الحساب " + hd, th.get("handle") == hd)
+    cd = a.get("cards") or "some"; want = cards_hint(total, cd)
+    have = sum(1 for L in Ls if L.get("type") in ("split", "pip") or (L.get("type") == "viz" and L.get("kind") in ("card", "draw")) or L.get("type") in ("desk", "kinetic"))
+    if cd == "none": req("cards", "بلا كروت شرح", not any(L.get("type") in ("split", "pip") for L in Ls))
+    elif cards: req("cards", "كروت الشرح: تقريباً %d" % want, max(1, want // 2) <= have <= max(want * 2, want + 2), "الحين %d" % have)
+    if a.get("en"):
+        mp = (hs.get("en") or {}).get("map") or {}; miss = sum(1 for c in cards if not mp.get(card_key(c)))
+        req("en", "ترجمة إنجليزية لكل الجمل", (hs.get("en") or {}).get("on") and not miss, "ناقص %d جملة" % miss if miss else "")
+    hk = a.get("hook") or {}
+    if hk.get("use"): req("hook", "هوك بأول المقطع", (hs.get("hooks") or {}).get("on") and (hs.get("hooks") or {}).get("items"))
+    ch = a.get("char") or {}
+    if ch.get("use") and ch["use"] != "none": req("char", "الشخصية الكرتونية", any(L.get("type") == "char" for L in Ls))
+    fx = a.get("fx") or {}; ev = sum(len(v) for k, v in sx.items() if isinstance(v, list)); per_min = ev / max(total / 60.0, 0.25)
+    if fx.get("sfx") == "none": req("sfx", "بلا مؤثرات صوتية", ev == 0, "فيه %d مؤثر" % ev)
+    elif fx.get("sfx") == "light": req("sfx", "مؤثرات صوتية خفيفة (6 بالدقيقة بالكثير)", 1 <= ev and per_min <= 6.5, "الحين %d (%.0f بالدقيقة)" % (ev, per_min))
+    elif fx.get("sfx") == "rich": req("sfx", "مؤثرات صوتية أكثر", per_min > 6, "الحين %d (%.0f بالدقيقة)" % (ev, per_min))
+    stl = a.get("style") or "normal"
+    if fx.get("zoom") and stl != "dahih": req("zoom", "زووم عند الكلمات المهمة", any(L.get("type") == "fx" and L.get("fx") == "punch" for L in Ls))
+    if fx.get("transitions") and stl != "dahih": req("tr", "انتقالات عند تغيّر الفكرة", any(L.get("type") == "fx" and L.get("fx") not in ("punch", "shake", "flash") for L in Ls))
+    if fx.get("bg"): req("bgm", "صوت بالخلفية", any(os.path.exists(J(work, f)) for f in ("bg-audio.mp3", "bg-audio.m4a", "bg-audio.wav")) or bool((hs.get("mix") or {}).get("bg")), man=False)
+    c = a.get("cut") or {}
+    if c.get("fillers") or c.get("dupes"):
+        ck = check(work) if cards else {"fillers": [], "dupes": []}
+        if c.get("fillers"): req("fillers", "شيل الحشو (اممم، يعني…)", not ck["fillers"], "باقي %d" % len(ck["fillers"]))
+        if c.get("dupes"): req("dupes", "شيل الجمل المعادة", not ck["dupes"], "باقي %d زوج" % len(ck["dupes"]))
+    if c.get("drop"):
+        left = [k for k in (mk.get("drop") or []) if k in set(card_key(x) for x in cards)]
+        req("drop", "شيل الجمل اللي حددها (%d)" % len(c["drop"]), not left, ("باقي: " + " · ".join(x[:24] for x in left)) if left else "")
+    ln = a.get("length")
+    if ln in ("max30", "max60"): lim = 30 if ln == "max30" else 60; req("length", "المدة %d ثانية بالكثير" % lim, total <= lim + 1.5, "الحين %.0f ث" % total)
+    elif ln == "tight": req("length", "شدّ المقطع (شيل اللي ما يخدم الفكرة)", man=True)
+    m = a.get("media") or {}
+    if m.get("mode") and m["mode"] != "none":
+        if m["mode"] == "mine": req("media", "صوره هو بس (لا تضف من عندك)", man=True)
+        else:
+            lo = {"few": 2, "some": 4, "many": 7}.get(m.get("amount"), 4); nimg = sum(1 for L in Ls if L.get("type") in ("image", "bg", "behind") and L.get("src") not in (None, "", "video", "clock"))
+            req("media", "صور (%d على الأقل)" % lo, nimg >= lo, "الحين %d" % nimg)
+    o = a.get("outro") or {}
+    if o.get("use"):
+        ot = st.get("outro") or {}; txt = (o.get("text") or "").strip(); have_t = (" ".join([ot.get("cta") or "", ot.get("word") or ""])).strip()
+        req("outro", "كرت الختام" + ((": " + txt) if txt else ""), float(sx.get("outro") or 0) > 0 and (not txt or _norm(txt) == _norm(have_t) or _norm(txt) in _norm(have_t)), "" if float(sx.get("outro") or 0) > 0 else "مدة كرت الختام صفر")
+    else: req("outro", "بلا كرت ختام", not float(sx.get("outro") or 0))
+    if stl == "paper": req("style", "أسلوب الورق المتحرك", any(L.get("type") == "kinetic" for L in Ls))
+    elif stl == "dahih": req("style", "أسلوب الدحيح مع كروت مكتب", (hs.get("dahih") or {}).get("on") and any(L.get("type") == "desk" for L in Ls), "" if (hs.get("dahih") or {}).get("on") else "الأسلوب مو شغّال")
+    goal = (a.get("goalText") or "").strip() if a.get("goal") == "other" else a.get("goal")
+    if goal: req("goal", "نوع المقطع: " + str(goal), man=True)
+    if a.get("ref"): req("ref", "على نفس المرجع: " + a["ref"][:60], man=True)
+    if a.get("notes"): req("notes", "ملاحظاته: " + a["notes"][:80], man=True)
+    for i, (k, v) in enumerate((a.get("extra") or {}).items()): req("x%d" % (i + 1), "«%s»: %s" % (str(k)[:40], str(v)[:60]), man=True)
+    return R
+def brief_print(work):
+    R = brief_reqs(work)
+    for r in R: print("  %s %-8s %s%s" % ("✓" if r["ok"] else "□", r["k"], r["label"], ("  ← " + r["why"]) if r["why"] and (not r["ok"] or r["man"]) else ""))
+    return R
 # ───────────────────────── صور حقيقية برخص حرّة (ويكيميديا كومنز) ─────────────────────────
 CAP_STYLE_KEYS = ("bg", "bgColor", "bgOpacity", "stroke", "strokeColor", "shadow", "shadowColor", "hl", "chunk", "actScale", "fill", "mode", "enter", "lines")
 MEDIA_UA = {"User-Agent": "hojas-studio/%s (image search for video b-roll)" % VERSION}
@@ -1030,7 +1134,24 @@ def cmd_brief(work, args):
         print("حفظ إجاباته:\n" + brief_text(work)); print("\nالخطوة الجاية: python hs.py brief <work> apply")
     elif sub == "show": print(brief_text(work))
     elif sub == "apply": brief_apply(work)
-    else: sys.exit("brief: ask [--hooks …] [--topics …] [--note …] [--file q.json] | wait | show | apply")
+    elif sub == "check":
+        R = brief_print(work); miss = [r for r in R if not r["ok"]]
+        if not R: print("ما فيه إجابات محفوظة."); return
+        if miss: print("\nباقي %d من %d. لا تسلّم قبلها." % (len(miss), len(R))); sys.exit(4)
+        print("\nكل إجاباته مطبّقة (%d)." % len(R))
+    elif sub in ("ok", "undo"):
+        if len(args) < 2: sys.exit('brief <work> ok <رمز> "وش سويت"  ·  undo <رمز>')
+        k = args[1]; R = {r["k"]: r for r in brief_reqs(work)}
+        if k not in R: sys.exit("ما فيه بند بهالرمز. الرموز: " + " ".join(R))
+        if sub == "ok" and not R[k]["man"]: sys.exit("هذا البند يتفحص لحاله من المشروع، طبّقه فعلاً: " + R[k]["label"] + ((" (" + R[k]["why"] + ")") if R[k]["why"] else ""))
+        bk = brief_marks(work); okm = bk.setdefault("ok", {})
+        if sub == "ok":
+            why = " ".join(args[2:]).strip()
+            if len(why) < 4: sys.exit("اكتب وش سويت بالضبط عشان يشوفه بالاستوديو")
+            okm[k] = why[:300]
+        else: okm.pop(k, None)
+        wj(brief_marks_path(work), bk); print("تم:", k, "✓" if sub == "ok" else "□")
+    else: sys.exit("brief: ask [--hooks …] [--topics …] [--note …] [--file q.json] | wait | show | apply | check | ok <رمز> \"…\" | undo <رمز>")
 def cmd_media(work, args):
     sub = args[0] if args else ""
     def opt(name, d=None):
@@ -1303,6 +1424,13 @@ def cmd_selftest(work=None, engine=None):
     chk("الورق المتحرك: النص يتقسم لسطر وكلمة كبيرة", "\n* " in k0 or k0.startswith("* "), k0)
     sz = safe_of(["tiktok", "instagram"]); chk("حساب المنطقة الآمنة", sz["capMax"] == 67.0 and sz["capMin"] == 18.0, json.dumps(sz))
     chk("حساب القص 4:5", safe_of([], "4:5")["crop"] == [11.77, 82.08], json.dumps(safe_of([], "4:5")))
+    chk("رقم الملاحظة الجديدة", next_note_id([{"id": "n1"}, {"id": 4}]) == 5)
+    with tempfile.TemporaryDirectory() as tw:
+        os.makedirs(os.path.join(tw, ".hs"))
+        wj(os.path.join(tw, "caps.json"), {"total": 20, "cards": [{"s": 0, "e": 2, "w": [{"t": "هلا", "s": 0, "e": 1}]}]}); wj(os.path.join(tw, "studio.json"), {"hs": {"frame": {"ar": "9:16"}}})
+        wj(os.path.join(tw, "sfx.json"), {"outro": 0}); wj(os.path.join(tw, "brief.json"), {"frame": "9:16", "fx": {"sfx": "none"}, "outro": {"use": True, "text": "تابعني"}, "goal": "ad"})
+        r0 = {r["k"]: r["ok"] for r in brief_reqs(tw)}
+        chk("قائمة التحقق من الإجابات", r0.get("frame") is True and r0.get("sfx") is True and r0.get("outro") is False and r0.get("goal") is False, json.dumps(r0))
     if work and os.path.isdir(work):
         eng = find_engine(engine)
         if not eng: chk("المحرّك موجود لفحص الخادم", False)
@@ -1338,12 +1466,34 @@ def cmd_text(work, args):
     i = int(args[0]) - 1
     if not (0 <= i < len(caps["cards"])): sys.exit("رقم الجملة برّا المدى (1-%d)" % len(caps["cards"]))
     apply_text(work, i, " ".join(args[1:])); print("تم: الجملة %d ← %s" % (i + 1, " ".join(args[1:])))
+def next_note_id(notes):
+    return max([int(re.sub(r"\D", "", str(x.get("id"))) or 0) for x in notes] or [0]) + 1
 def cmd_notes(work, args):
     path = J(work, "notes.json"); notes = rj(path, []) or []; caps = rj(J(work, "caps.json"), {"cards": []}); sub = args[0] if args else "list"
+    if sub == "add":
+        rest = list(args[1:]); kind = "suggest"; pin = None
+        def o(nm):
+            if nm in rest: i = rest.index(nm); v = rest[i + 1]; del rest[i:i + 2]; return v
+        kind = o("--kind") or "suggest"; px, py = o("--x"), o("--y")
+        if kind not in ("suggest", "question", "info"): sys.exit("--kind لازم: suggest | question | info")
+        if len(rest) < 2: sys.exit('notes <work> add <ثانية> "النص" [--kind suggest|question|info] [--x 0-1 --y 0-1]')
+        tt = round(float(rest[0]), 2); txt = " ".join(rest[1:]).strip()[:1000]
+        ci = next((i for i, c in enumerate(caps["cards"]) if c["s"] - 0.05 <= tt <= c["e"] + 0.05), None)
+        if px is not None and py is not None: pin = {"x": float(px), "y": float(py)}
+        nid = next_note_id(notes)
+        notes.append({"id": nid, "t": tt, "card": ci, "text": txt, "pin": pin, "by": "claude", "kind": kind, "who": "Claude",
+                      "status": "done" if kind == "info" else "ask", "at": time.strftime("%Y-%m-%d %H:%M")})
+        wj(path, notes); print("انضافت ملاحظتك #%d عند %.2f ث (%s). تطلع له بالاستوديو بتبويب الملاحظات%s." % (nid, tt, kind, "" if kind == "info" else "، وينتظر رده: موافق أو لا أو رد مكتوب"))
+        try: say(work, "تركت لك ملاحظة عند %.1f ث: %s" % (tt, txt[:120]), "info")
+        except Exception: pass
+        return
     if sub == "list":
-        todo = [n for n in notes if n.get("status") != "done"]
+        todo = [n for n in notes if n.get("status") not in ("done", "ask")]; wait = [n for n in notes if n.get("status") == "ask"]
+        if wait: print("اقتراحاتك اللي ما رد عليها بعد (لا تنفّذها قبل رده): " + " · ".join("#%s عند %.1f ث" % (n["id"], n["t"]) for n in wait) + "\n")
         if not todo: print("ما فيه ملاحظات مفتوحة."); return
         for n in todo:
+            if n.get("by") == "claude":
+                print("#%s  عند %.2f ث  (اقتراحك)\n   اقترحت: %s\n   رده: %s" % (n["id"], n["t"], n["text"], n.get("answer") or "—")); continue
             ci = n.get("card"); ctx = card_key(caps["cards"][ci]) if isinstance(ci, int) and 0 <= ci < len(caps["cards"]) else ""
             pin = n.get("pin"); pin_s = (" · المؤشر على الشاشة: x=%d y=%d (من 1080×1920)" % (pin["x"] * 1080, pin["y"] * 1920)) if pin else ""
             print("#%s  عند %.2f ث%s\n   الملاحظة: %s\n   الجملة: %s%s" % (n["id"], n["t"], pin_s, n["text"], ctx or "—", ("\n   لقطة: " + J(work, n["img"])) if n.get("img") else ""))
@@ -1355,7 +1505,7 @@ def cmd_notes(work, args):
                 if sub == "done": n["reply"] = " ".join(args[2:]); n["doneAt"] = time.strftime("%Y-%m-%d %H:%M")
                 wj(path, notes); print("تم:", args[1], n["status"]); return
         sys.exit("ما لقيت ملاحظة برقم " + str(args[1]))
-    else: sys.exit("notes: list | done <id> \"…\" | reopen <id>")
+    else: sys.exit("notes: list | add <ثانية> \"…\" [--kind suggest|question|info] | done <id> \"…\" | reopen <id>")
 def cmd_tr(work, args):
     sp = J(work, "studio.json"); st = load_studio(work); hs = hs_of(st); en = hs.setdefault("en", {}); mp = en.setdefault("map", {})
     caps = rj(J(work, "caps.json")); sub = args[0] if args else "export"
@@ -1596,9 +1746,10 @@ def serve(work, port, engine):
     def notes_md(notes, caps):
         L = ["# ملاحظات الاستوديو", "", "المشروع: " + work, ""]
         for n in notes:
-            if n.get("status") == "done": continue
+            if n.get("status") in ("done", "ask"): continue
             ci = n.get("card"); ctx = card_key(caps["cards"][ci]) if isinstance(ci, int) and 0 <= ci < len(caps["cards"]) else "—"
-            L += ["## #%s عند %.2f ث" % (n["id"], n["t"]), "- الملاحظة: " + n["text"], "- الجملة وقتها: " + ctx]
+            L += ["## #%s عند %.2f ث" % (n["id"], n["t"]), ("- اقتراحك (Claude): " if n.get("by") == "claude" else "- الملاحظة: ") + n["text"], "- الجملة وقتها: " + ctx]
+            if n.get("answer"): L.append("- رده: " + n["answer"])
             if n.get("pin"): L.append("- المؤشر على الشاشة: x=%d y=%d (من 1080×1920)" % (n["pin"]["x"] * 1080, n["pin"]["y"] * 1920))
             if n.get("img"): L.append("- لقطة: " + n["img"])
             L.append("")
@@ -1736,12 +1887,16 @@ def serve(work, port, engine):
                 c = notify_cfg(); return self._json(200, {"on": bool(c.get("on")), "topic": c.get("topic", "") if role == "owner" else "", "sub": notify_sub(c) if c.get("topic") and role == "owner" else ""})
             if p == "/hs/peaks": return self._json(200, peaks())
             if p == "/hs/notes": return self._json(200, rj(P("notes.json"), []) or [])
-            if p == "/hs/check": return self._json(200, check(work))
+            if p == "/hs/check":
+                ck = check(work)
+                try: ck["reqs"] = brief_reqs(work)
+                except Exception as e: ck["reqs"] = []; print("brief_reqs:", e, file=sys.stderr)
+                return self._json(200, ck)
             if p == "/hs/brief":
                 caps = rj(P("caps.json"), {"cards": []}) or {"cards": []}; ck = check(work) if caps.get("cards") else {"fillers": [], "dupes": []}
                 return self._json(200, {"ask": rj(brief_paths(work)[0], {}), "answers": rj(brief_paths(work)[1]), "last": rj(os.path.join(HOME_CFG, "last-brief.json")), "state": brief_state(work),
                                         "cards": [card_key(c) for c in caps["cards"]], "fillers": len(ck["fillers"]), "dupes": [[d["a"], d["b"]] for d in ck["dupes"]],
-                                        "brands": sorted(os.path.splitext(f)[0] for f in os.listdir(brand_dir())), "name": os.path.basename(work.rstrip("/\\")), "platforms": {k: {"frames": v["frames"]} for k, v in PLATFORMS.items()}})
+                                        "brands": sorted(os.path.splitext(f)[0] for f in os.listdir(brand_dir())), "name": os.path.basename(work.rstrip("/\\")), "platforms": {k: {"frames": v["frames"]} for k, v in PLATFORMS.items()}, "reqs": brief_reqs(work)})
             if p == "/hs/media_search":
                 try: return self._json(200, {"ok": True, "items": (video_search if (q.get("kind") or [""])[0] == "video" else media_search)(work, (q.get("q") or [""])[0], 12)})
                 except Exception as e: return self._json(200, {"ok": False, "msg": "البحث فشل (تأكد من النت): " + str(e)[:160], "items": []})
@@ -1826,7 +1981,7 @@ def serve(work, port, engine):
                 if p == "/hs/review_promote":
                     rv = review(); c = next((x for x in rv["comments"] if x["id"] == int(data["id"])), None)
                     if not c: return self._json(404, {"ok": False})
-                    notes = rj(P("notes.json"), []) or []; nid = max([int(x["id"]) for x in notes] or [0]) + 1
+                    notes = rj(P("notes.json"), []) or []; nid = next_note_id(notes)
                     notes.append({"id": nid, "t": c["t"], "card": None, "text": c["text"], "pin": None, "status": "open", "who": c["who"], "at": time.strftime("%Y-%m-%d %H:%M")})
                     c["status"] = "promoted"; wj(P("notes.json"), notes); wj(P("review.json"), rv); return self._json(200, {"ok": True, "notes": notes, **rv})
                 if p.startswith("/api/recut") or p.startswith("/api/drop") or p.startswith("/api/undo_cut"):
@@ -1879,7 +2034,7 @@ def serve(work, port, engine):
                 if p == "/hs/text":
                     caps, hs = apply_text(work, int(data["card"]), data["text"]); return self._json(200, {"ok": True, "caps": caps, "hs": hs})
                 if p == "/hs/note":
-                    notes = rj(P("notes.json"), []) or []; nid = (max([int(x["id"]) for x in notes] or [0]) + 1)
+                    notes = rj(P("notes.json"), []) or []; nid = next_note_id(notes)
                     note = {"id": nid, "t": round(float(data.get("t", 0)), 2), "card": data.get("card"), "text": str(data.get("text", ""))[:1000],
                             "pin": data.get("pin"), "status": "open", "who": str(data.get("who") or ("أنا" if self._local() else "جوال"))[:30], "at": time.strftime("%Y-%m-%d %H:%M")}
                     img = data.get("img") or ""
@@ -1892,6 +2047,10 @@ def serve(work, port, engine):
                         if str(x["id"]) == str(data["id"]):
                             if "text" in data: x["text"] = str(data["text"])[:1000]
                             if "status" in data: x["status"] = data["status"]
+                            if data.get("answer") and x.get("by") == "claude":
+                                ans = str(data["answer"])[:600]; x["answeredAt"] = time.strftime("%Y-%m-%d %H:%M")
+                                if ans == "no": x["answer"] = "لا، خلّه مثل ما هو"; x["status"] = "done"; x["reply"] = "رفض الاقتراح"
+                                else: x["answer"] = "موافق، سوّه" if ans == "yes" else ans; x["status"] = "open"
                     if data.get("delete"): notes = [x for x in notes if str(x["id"]) != str(data["id"])]
                     wj(P("notes.json"), notes); return self._json(200, {"ok": True, "notes": notes})
                 if p == "/hs/notes_send":
@@ -2271,7 +2430,12 @@ def main():
             cards = [int(x) - 1 for x in multi("--cards")]; rngs = [[float(y) for y in x.split("-")] for x in multi("--ranges")]
             words = [(f["card"], f["idx"]) for f in check(work)["fillers"]] if flag("--fillers") else []
             print(json.dumps(remove_ranges(work, S, log, ranges=rngs, cards=cards, words=words), ensure_ascii=False))
-        else: print("الملفات:", ", ".join(export(work, S, log, kind="clean" if flag("--clean") else "final", hooks=flag("--hooks"), frame=opt("--frame"))))
+        else:
+            miss = [r for r in brief_reqs(work) if not r["ok"]]
+            if miss and not flag("--force"):
+                print("ما طبّقت كل إجاباته بصفحة الأسئلة:"); [print("  □ %s %s%s" % (r["k"], r["label"], ("  ← " + r["why"]) if r["why"] else "")) for r in miss]
+                sys.exit("طبّقها ثم صدّر. (لو هو طلب يصدّر كذا: export --force)")
+            print("الملفات:", ", ".join(export(work, S, log, kind="clean" if flag("--clean") else "final", hooks=flag("--hooks"), frame=opt("--frame"))))
         return
     rest = a[2:]
     if cmd == "patch": r = patch(work); print("انركّبت الإضافة" if r else "الإضافة مركّبة من قبل (حدّثت نسختها)")

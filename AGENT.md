@@ -28,6 +28,8 @@
 | فحص الاحتفاظ والحشو والإعادات | `check .` |
 | تقص من الفيديو والصوت | `remove . --cards 3 7` · `remove . --ranges 4.2-5.1` · `remove . --fillers` |
 | الملاحظات | `notes . list` ثم لكل وحدة `notes . done <id> "وش سويت"` |
+| ملاحظة منك له | `notes . add <ثانية> "اقتراح" [--kind question\|info]`، ولا تنفّذ قبل رده |
+| إجاباته | `brief . check` لازم يطلع كله ✓ قبل التسليم. البند اليدوي: `brief . ok <رمز> "وش سويت"` |
 | صور حقيقية برخص حرّة | `media . search "World War II"` ثم `media . add 2 --at 12.4 --dur 3 --fit card` (أو `cover` ملء الشاشة) |
 | توليد صورة أو مقطع من حسابه (بلا مفاتيح API) | `gen . request image "وصف بالإنجليزي" --at 12.4` · `gen . request video "وصف" --at 20` · `gen . list` · `gen . import <رقم> <ملف>` |
 | وش تحتاج كل منصة | `platform tiktok instagram x linkedin` (بلا مجلد) |
