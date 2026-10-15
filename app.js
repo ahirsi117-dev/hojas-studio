@@ -82,11 +82,11 @@ async function undo(){ if(!HIST.length){ toast(t('nothingUndo')); return; } FUT.
 async function refreshCheck(){ if(!READY) return; CHECK=await api('/hs/check'); drawCheck(); if(RTAB==='check') renderRight(); const b=$('#tabs [data-tab="check"]'); if(b) b.innerHTML=t('tab_check')+((CHECK.issues||(CHECK.reqs||[]).some(r=>!r.ok))?'<i class="dot"></i>':''); }
 
 /* ───── التشغيل ───── */
-function seek(x,quiet){ T=clamp(x,0,dur()); if(MOBILE) mSync(); else $('#tm').textContent=fmt(T)+' / '+fmt(dur()); $('#ph').style.left=(T*PX)+'px';
+function seek(x,quiet){ T=clamp(x,0,dur()); if(MOBILE) mSync(); else { $('#tm').textContent=fmt(T)+' / '+fmt(dur()); mSync(); } $('#ph').style.left=(T*PX)+'px';
   { const sc=$('#scroller'), px=T*PX; if(!quiet&&(px<sc.scrollLeft+10||px>sc.scrollLeft+sc.clientWidth-30)) sc.scrollLeft=Math.max(0,px-sc.clientWidth*(MOBILE?0.5:0.3)); }
   drawT(T); placeGiz(); if(!playing){ try{ AU.currentTime=Math.min(T,AU.duration||T); }catch(e){} } if(typeof posSave==='function') posSave(); }
 let _loop=0; const SFXA={};
-function stop(){ playing=false; _loop++; AU.pause(); $('#pp').textContent=t('play'); if(MOBILE) mSync(); }
+function stop(){ playing=false; _loop++; AU.pause(); $('#pp').textContent=t('play'); mSync(); }
 function sfxPreview(a,b){ const sf=ST.studio.sfx||{}, mix=hs().mix; for(const k in sf){ if(!Array.isArray(sf[k])||k==='soft') continue; for(const v of sf[k]){ const x=Array.isArray(v)?v[0]:v; if(x>a&&x<=b){ try{ const au=SFXA[k]||(SFXA[k]=new Audio('/sfx_prev/'+k+'.wav')); au.currentTime=0; au.volume=clamp(0.55*(mix.sfx[k]==null?1:mix.sfx[k]),0,1); au.play().catch(()=>{}); }catch(e){} } } } }
 async function play(){ if(playing){ stop(); return; } if(T>=dur()-0.05) T=0; playing=true; $('#pp').textContent=t('pause'); const my=++_loop;
   let clock=false; AU.volume=clamp(hs().mix.voice,0,1); try{ AU.currentTime=T; await AU.play(); }catch(e){ clock=true; } if(AU.paused||AU.error) clock=true;
@@ -812,6 +812,7 @@ if(MOBILE){ $('#mnav').innerHTML=MVIEWS.map(v=>'<button data-mv="'+v[0]+'" data-
   document.body.dataset.mv=''; setTimeout(()=>{ applyLang(); mTabs(); },0); }
 function mTabs(){ if(!MOBILE) return; $$('#mtabs button').forEach(b=>{ const k=b.dataset.mv; b.textContent=k==='notes'?t('mv_notes'):k==='text'?t('tabText'):k==='files'?t('tabFiles'):t('tab_'+k); }); }
 /* 4.3: أدوات الشريط (للجوال والكمبيوتر) */
+if(!MOBILE){ const st=$('#stage'), mt=$('#mtools'); if(st&&mt) st.insertBefore(mt,$('#stageBtns')); }
 $('#mPlay2').onclick=()=>play(); $('#mUndo').onclick=undo; $('#mRedo').onclick=redo;
 $('#mMark').onclick=async()=>{ if(!ST) return; await save(); const r=await api('/hs/ver_save',{name:t('markName',fmt(T))}); if(r.ok){ INFO.versions=r.versions; toast(t('markSaved')); } };
 $('#mCut').onclick=()=>{ buzz(10); splitAt(T); };

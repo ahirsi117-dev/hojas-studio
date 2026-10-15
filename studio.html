@@ -455,6 +455,41 @@ body.m #mtabs button.on{background:rgba(76,141,255,.22);color:#fff}
 body.m #mtools{gap:6px;padding:10px 12px 4px}body.m #mtools .ic{width:42px;height:42px;border-radius:13px}body.m #mClock{font-size:16px}
 #gestHint{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;font-size:34px;color:#fff;opacity:0;transition:opacity .25s;z-index:4;text-shadow:0 2px 12px rgba(0,0,0,.6)}
 #gestHint.on{opacity:.9}
+/* ═══ 4.3: الكمبيوتر بنفس روح الجوال ═══ */
+@media (min-width:761px){
+  body:not(.m) #app{grid-template-rows:64px minmax(0,1fr) 300px}
+  body:not(.m) #top{height:64px;padding:0 18px;gap:10px;border-bottom:1px solid var(--bd);background:rgba(10,12,17,.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+  body:not(.m) #top .name{display:none}
+  body:not(.m) #top .proj{font-family:"HS UI","IBM Plex Sans Arabic",sans-serif;font-size:22px;font-weight:700;color:var(--tx);max-width:34vw}
+  body:not(.m) #top button.sm{height:38px;padding:0 14px;border-radius:13px;font-size:13.5px;display:inline-flex;align-items:center;gap:6px}
+  body:not(.m) #top kbd{background:rgba(255,255,255,.08);border:0}
+  body:not(.m) #bExport{padding:0 20px!important;font-weight:700}
+  body:not(.m) #bBack{width:40px;height:40px}
+  body:not(.m) #mid{grid-template-columns:320px minmax(0,1fr) 390px;gap:14px;padding:14px 14px 0}
+  body:not(.m) .side{background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.02));border:1px solid var(--bd)!important;border-radius:22px;overflow:hidden;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+  body:not(.m) .tabs{border:0;padding:10px 10px 6px;gap:6px;display:flex;flex-wrap:wrap}
+  body:not(.m) .tabs button{flex:1 1 auto;border-radius:12px!important;padding:8px 10px;font-size:13px;color:var(--mut);border:1px solid transparent!important;background:rgba(255,255,255,.04)!important}
+  body:not(.m) .tabs button.on{background:rgba(76,141,255,.2)!important;color:#fff;border-color:rgba(76,141,255,.45)!important}
+  body:not(.m) .body{padding:6px 14px 16px}
+  body:not(.m) #binTabs{flex-wrap:nowrap}body:not(.m) #binTabs button{flex:1 1 0}
+  body:not(.m) #stage{flex-direction:column;gap:12px;padding:0 0 4px;justify-content:flex-start}
+  body:not(.m) #wrap{flex:1;min-height:0;height:auto;border-radius:22px}
+  body:not(.m) #sideTools{top:0;inset-inline-end:0}
+  body:not(.m) #stageBtns{position:static;order:3;display:flex;gap:8px;justify-content:center}
+  body:not(.m) #stageBtns button{border-radius:12px;height:34px}
+  body:not(.m) #mtools{display:flex;order:2;align-items:center;gap:8px;width:min(520px,100%);direction:ltr;padding:8px;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid var(--bd);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+  body:not(.m) #mtools .sp{flex:1}
+  body:not(.m) #mtools .ic{width:42px;height:42px;border-radius:13px}
+  body:not(.m) #mClock{font-size:17px;color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
+  body:not(.m) #mClock b{color:var(--tx);font-weight:600}
+  body:not(.m) #mPlay2{border-radius:50%!important;background:linear-gradient(180deg,#6aa2ff,#3f7ff0)!important;color:#fff;border-color:rgba(255,255,255,.22)!important}
+  body:not(.m) #tl{margin:12px 14px 14px;border:1px solid var(--bd)!important;border-radius:22px;overflow:hidden;background:rgba(255,255,255,.025)!important}
+  body:not(.m) #tlbar{border-bottom:1px solid var(--bd);padding:0 12px;gap:10px}
+  body:not(.m) #tlbar #pp,body:not(.m) #tlbar #tm{display:none}
+  body:not(.m) #tlbar .grp{border:0;padding:0;gap:6px}
+  body:not(.m) #tlbar .grp button{border-radius:11px;height:30px}
+  body:not(.m) .card,body:not(.m) .note,body:not(.m) .item,body:not(.m) .tog{border-radius:16px}
+}
 </style>
 </head>
 <body>
