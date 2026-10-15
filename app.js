@@ -622,7 +622,7 @@ function editCard(i){ const c=ST.caps.cards[i]; modal('<h3>'+t('editTitle')+'</h
   const x=$('#edTx'); x.focus(); $('#edNo').onclick=closeModal;
   $('#edOk').onclick=async()=>{ await save(); snap(); const r=await api('/hs/text',{card:i,text:x.value}); if(!r.ok){ toast(r.msg||t('failed')); return; } ST.caps=r.caps; ST.studio.hs=r.hs; hs(); closeModal(); await initFrame(false); buildTL(); renderAll(); drawT(T); adoptSig=true; $('#saved').textContent=t('saved'); refreshCheck(); }; }
 function askRemove(body,what){ modal('<h3>'+t('removeTitle')+'</h3><p dir="auto" style="line-height:1.9">'+esc(what)+'</p><p class="hint">'+t('removeHint')+'</p><div class="row" style="margin:12px 0 0"><button class="pri" id="dOk">'+t('removeGo')+'</button><button class="ghost" id="dNo">'+t('cancel')+'</button></div>');
-  $('#dNo').onclick=closeModal; $('#dOk').onclick=async()=>{ closeModal(); await save(); const r=await api('/hs/remove',body); if(!r.ok){ toast(r.msg||t('busyJob')); return; } MARKS=[]; SEL=null; toast(t('rebuilding')); pollJob(()=>load(true)); }; }
+  $('#dNo').onclick=closeModal; $('#dOk').onclick=async()=>{ closeModal(); await save(); const r=await api('/hs/remove',body); if(!r.ok){ toast(r.msg||t('busyJob')); return; } MARKS=[]; SEL=null; stLoader('rebuild',t('rebuildSub')); pollJob(async()=>{ try{ await load(true); } finally{ stLoaderHide(); } }); }; }
 function pollJob(done){ const tk=async()=>{ const p=await api('/api/progress'); const L=$('#log'); if(L){ L.style.display='block'; L.dir='rtl'; L.textContent=(p.log||'').split('\n').filter(Boolean).slice(-9).join('\n'); L.scrollTop=1e6; }
   $('#saved').textContent=p.running?t('working',p.elapsed):t('saved'); if(p.running){ setTimeout(tk,1200); return; } if(p.err) toast(t('failedWhy',p.err.slice(0,90))); done&&done(p); }; setTimeout(tk,600); }
 async function doExport(kind,hooks){ await save(); RTAB='proj'; markTabs(); renderRight(); const r=await api('/hs/export',{kind,hooks:!!hooks}); if(!r.ok){ toast(r.msg||t('busyJob')); return; } toast(t('exportStarted'));
@@ -928,8 +928,8 @@ async function pulse(){ let p; try{ p=await api('/hs/pulse?since='+lastAct); }ca
   if(p.aux!==undefined&&p.aux!==AUXS){ const first=AUXS===null; AUXS=p.aux; const w=F.contentWindow; if(!first&&READY&&w&&w.hsAux){ w.hsAux().then(()=>{ lastFrame=-1; drawT(T); if(RTAB==='sel') renderRight(); }).catch(()=>{}); } }
   pillSync(); tickerSync(p);
   document.body.classList.toggle('nr',!p.ready);
-  if(!p.ready){ READY=false; $('#live').classList.add('on'); renderLive(); SIG=p.sig; return; }
-  if(!READY){ READY=true; $('#live').classList.remove('on'); SIG=p.sig; await load(false); return; }
+  if(!p.ready){ READY=false; $('#live').classList.add('on'); renderLive(); SIG=p.sig; if(_ldK==='boot') stLoaderHide(); return; }
+  if(!READY){ READY=true; $('#live').classList.remove('on'); SIG=p.sig; try{ await load(false); } finally{ if(_ldK==='boot') stLoaderHide(); } return; }
   if(SIG===null||adoptSig){ SIG=p.sig; adoptSig=false; return; }
   if(p.sig!==SIG&&!dragging&&!p.job.running&&!$('#modal').classList.contains('on')&&!_saveT_pending()){ SIG=p.sig; await load(true); toast(t('externalChange')); } }
 let BR_OPENING=false, VISB=false, AUXS=null;
@@ -978,3 +978,14 @@ $('#proj').addEventListener('click',()=>{ if(!ST||document.body.classList.contai
   const fin=ok=>{ el.contentEditable='false'; const v=el.textContent.trim().slice(0,80); if(ok&&v&&v!==(INFO.title||INFO.name)){ hs().title=v; INFO.title=v; dirty(); } el.textContent=INFO.title||INFO.name; };
   el.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); el.blur(); } else if(e.key==='Escape'){ el.onblur=null; fin(false); } e.stopPropagation(); }; el.onblur=()=>fin(true); });
 $('#proj').title=t('renameP');
+
+/* ───── 4.4: شاشة التحميل بعبارات تتبدّل ───── */
+const LDS={ boot:[['أفتح الاستوديو','Opening the studio'],['أجيب الفيديو','Loading the video'],['أرسم أول فريم','Drawing the first frame'],['أرتّب الكابشن والطبقات','Placing captions and layers'],['أضبط الأصوات','Tuning the sound'],['أجهّز التايم لاين','Building the timeline'],['تقريباً جاهز','Almost there']],
+  rebuild:[['أقص الفيديو','Cutting the video'],['أعيد ترتيب اللقطات','Re-stitching the shots'],['أزحّف الكابشن مع الصوت','Shifting captions with the audio'],['أضبط الطبقات على الوقت الجديد','Re-timing the layers'],['أرسم الفريمات من جديد','Redrawing frames'],['قربنا','Nearly done']] };
+let _ldK=null, _ldI=0, _ldT0=0;
+function stLoader(k,sub){ const b=$('#boot'); if(!b) return; _ldK=k; _ldI=0; _ldT0=Date.now(); const x=LDS[k][0];
+  b.innerHTML='<div><div class="bars"><i></i><i></i><i></i></div><div class="tx">'+esc(LANG==='en'?x[1]:x[0])+'</div>'+(sub?'<div class="sub" dir="auto">'+esc(sub)+'</div>':'')+'<div class="line"><i></i></div><div class="slow"></div></div>'; b.classList.add('on'); }
+function stLoaderHide(){ const b=$('#boot'); if(b) b.classList.remove('on'); _ldK=null; }
+setInterval(()=>{ if(!_ldK) return; const b=$('#boot'), tx=b&&b.querySelector('.tx'); if(!tx) return; _ldI++; const L=LDS[_ldK], x=L[_ldI%L.length]; tx.classList.add('out'); setTimeout(()=>{ tx.textContent=LANG==='en'?x[1]:x[0]; tx.classList.remove('out'); },320);
+  const sl=b.querySelector('.slow'); if(sl&&!sl.textContent&&Date.now()-_ldT0>(_ldK==='boot'?15000:90000)) sl.textContent=t(_ldK==='boot'?'ldSlowSt':'ldSlowRb'); },2400);
+stLoader('boot');

@@ -3219,10 +3219,27 @@ def hub_projects(root):
             elif os.path.exists(os.path.join(d, "clips.json")):
                 for m in sorted(os.listdir(d)): add(os.path.join(d, m))
     return out
-def proj_port(work):
-    for p in range(HUB_PORT + 1, HUB_PORT + 40):
-        if port_alive(p, work): return p
-    return None
+_PM = {"t": 0, "m": {}}; _PML = threading.Lock()
+def port_map(fresh=False):
+    """4.4: خريطة المشاريع الشغّالة {مسار: بورت}. فحص سريع ومتوازي ومخزّن ثواني (ويندوز يتأخر ثانيتين على كل بورت مقفل)."""
+    with _PML:
+        if not fresh and time.time() - _PM["t"] < 4: return _PM["m"]
+        m = {}
+        def one(p):
+            s = socket.socket(); s.settimeout(0.25)
+            try:
+                if s.connect_ex(("127.0.0.1", p)) != 0: return
+            except Exception: return
+            finally: s.close()
+            try:
+                with urllib.request.urlopen("http://127.0.0.1:%d/hs/info" % p, timeout=2) as r: d = json.loads(r.read().decode())
+                if d.get("work"): m[os.path.normcase(os.path.abspath(d["work"]))] = p
+            except Exception: pass
+        th = [threading.Thread(target=one, args=(p,), daemon=True) for p in range(HUB_PORT + 1, HUB_PORT + 40)]
+        for t in th: t.start()
+        for t in th: t.join(3)
+        _PM.update(t=time.time(), m=m); return m
+def proj_port(work, fresh=False): return port_map(fresh).get(os.path.normcase(os.path.abspath(work)))
 def proj_live(port):
     try:
         with urllib.request.urlopen("http://127.0.0.1:%d/hs/pulse" % port, timeout=1.5) as r: return json.loads(r.read().decode())
@@ -3323,7 +3340,7 @@ def tailscale_url():
         return ts, ("https://" + dn + "/") if dn else None
     except Exception: return ts, None
 def proj_start(work, engine=None):
-    p = proj_port(work)
+    p = proj_port(work, True)
     if p: return p
     eng = find_engine(engine) or sys.exit("ما لقيت المحرّك"); use = next((p for p in range(HUB_PORT + 1, HUB_PORT + 40) if port_free(p)), None)
     if not use: raise RuntimeError("ما لقيت بورت فاضي")
@@ -3332,7 +3349,7 @@ def proj_start(work, engine=None):
     else: kw["start_new_session"] = True
     subprocess.Popen([PY, os.path.abspath(__file__), "serve", work, "--port", str(use), "--engine", eng], **kw)
     for _ in range(80):
-        if port_alive(use, work): return use
+        if port_alive(use, work): _PM["t"] = 0; return use
         time.sleep(0.25)
     raise RuntimeError("الخادم ما اشتغل: " + J(work, ".hs", "server.log"))
 def cmd_hub(args):
