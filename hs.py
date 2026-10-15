@@ -1769,10 +1769,13 @@ def serve(work, port, engine):
         src = P("cutz.mp4"); td = os.path.join(D, "th")
         if not os.path.exists(src): BG["thumbsDone"] = True; return
         stamp = os.path.join(td, ".mt"); mt = str(int(os.path.getmtime(src)))
-        if os.path.exists(stamp) and open(stamp).read() == mt: BG["thumbsDone"] = True; return
+        if os.path.exists(stamp) and open(stamp).read() == mt and glob.glob(os.path.join(td, "*.jpg")): BG["thumbsDone"] = True; return
+        if time.time() - os.path.getmtime(src) < 5: time.sleep(5)   # الفيديو لسه ينكتب
         shutil.rmtree(td, ignore_errors=True); os.makedirs(td)
-        subprocess.run(["ffmpeg", "-v", "error", "-i", src, "-vf", "fps=1,scale=-2:128", "-q:v", "6", "-y", os.path.join(td, "%04d.jpg")], capture_output=True)
-        open(stamp, "w").write(mt); BG["thumbsDone"] = True
+        r = subprocess.run(["ffmpeg", "-v", "error", "-i", src, "-vf", "fps=1,scale=-2:128", "-q:v", "6", "-y", os.path.join(td, "%04d.jpg")], capture_output=True)
+        if glob.glob(os.path.join(td, "*.jpg")): open(stamp, "w").write(mt)   # 4.4: الختم بس لو انبنت فعلاً (قبل كان يختم وهي فاضية فالتايم لاين يحمّل فريمات كاملة)
+        else: print("الصور المصغّرة ما انبنت:", (r.stderr or b"")[-300:].decode("utf-8", "replace"), flush=True)
+        BG["thumbsDone"] = True
     def refresh_bg(): BG["thumbsDone"] = False; threading.Thread(target=build_thumbs, daemon=True).start()
     def housekeeping():
         """يتابع الملفات: يركّب الإضافة أول ما يطلع compose.html، ويعيد بناء الصور المصغّرة لو تغيّر الفيديو."""
@@ -1956,7 +1959,7 @@ def serve(work, port, engine):
             ex = exports(); return ("/hs/export/" + ex[0]) if ex else ("/ad-master.mp4" if os.path.exists(P("ad-master.mp4")) else None)
         def do_GET(self):
             u = urllib.parse.urlparse(self.path); p = u.path; q = self._q(); role = self._role()
-            self._cache = bool(q.get("v")) and (p.startswith("/vfr/") or p.startswith("/hs/th/") or p.startswith("/hs/pv/") or p.startswith("/bt/"))
+            self._cache = bool(q.get("v")) and (p.startswith("/vfr/") or p.startswith("/hs/th/") or p.startswith("/hs/pv/") or p.startswith("/bt/") or p in ("/hs/qr.js", "/hs/app.js", "/hs/i18n.js"))
             if not role: return self._deny()
             ck = self.headers.get("Cookie") or ""
             for key, val, name in (("k", TOKEN, "hs_k"), ("r", RTOKEN, "hs_r")):
@@ -1978,9 +1981,13 @@ def serve(work, port, engine):
                 if p == "/ad-master.mp4" and os.path.exists(P("ad-master.mp4")): return self._ranged() if self._wants_range() else self._file(P("ad-master.mp4"), "video/mp4")
                 return self._deny()
             # ── المالك ──
-            if p in ("/", "/hs", "/hs/"): return self._file(os.path.join(HERE, "studio.html"), "text/html; charset=utf-8")
-            if p in ("/m", "/m/"):
-                b = open(os.path.join(HERE, "studio.html"), encoding="utf-8").read().replace("<body>", '<body class="m">', 1).encode("utf-8")
+            if p in ("/", "/hs", "/hs/", "/m", "/m/"):   # 4.4: السكربتات بختم نسختها فالمتصفح يخزّنها (أخف بكثير على الجوال)
+                b = open(os.path.join(HERE, "studio.html"), encoding="utf-8").read()
+                for f in ("qr.js", "i18n.js", "app.js"):
+                    try: b = b.replace('src="/hs/%s"' % f, 'src="/hs/%s?v=%d"' % (f, int(os.path.getmtime(os.path.join(HERE, f)))))
+                    except OSError: pass
+                if p.startswith("/m"): b = b.replace("<body>", '<body class="m">', 1)
+                b = b.encode("utf-8")
                 self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8"); self.send_header("Content-Length", str(len(b))); self.send_header("Cache-Control", "no-store"); self.end_headers(); self.wfile.write(b); return
             if p in ("/hs/qr.js", "/hs/app.js", "/hs/i18n.js"): return self._file(os.path.join(HERE, os.path.basename(p)), "application/javascript; charset=utf-8")
             if p == "/hs/pulse":
@@ -2036,7 +2043,9 @@ def serve(work, port, engine):
                 return self._file(f if fresh else src, "image/jpeg")
             if p.startswith("/hs/th/"):
                 n = int(re.sub(r"\D", "", p) or 1); f = os.path.join(D, "th", "%04d.jpg" % max(1, n))
-                if not os.path.exists(f): f = P("vfr", "%05d.jpg" % max(1, (n - 1) * 30 + 1))
+                if not os.path.exists(f):   # ما انبنت للحين: نعطيه فريم المعاينة المصغّر بدل الفريم الكامل
+                    fn = max(1, (n - 1) * 30 + 1); f = os.path.join(D, "pv", "%05d.jpg" % fn)
+                    if not os.path.exists(f): f = P("vfr", "%05d.jpg" % fn)
                 return self._file(f, "image/jpeg") if os.path.exists(f) else self.send_error(404)
             if p.startswith("/hs/brand/"):
                 b = rj(os.path.join(brand_dir(), os.path.basename(urllib.parse.unquote(p)) + ".json")); return self._json(200 if b else 404, b or {})
@@ -3556,7 +3565,7 @@ def hub_serve(root, port):
             return False
         def _send(self, code, body, ctype="application/json; charset=utf-8", extra=None):
             b = body if isinstance(body, bytes) else body.encode("utf-8"); self.send_response(code); self.send_header("Content-Type", ctype); self.send_header("Content-Length", str(len(b)))
-            self.send_header("Cache-Control", "no-store")
+            if "Cache-Control" not in (extra or {}): self.send_header("Cache-Control", "no-store")
             for k, v in (extra or {}).items(): self.send_header(k, v)
             self.end_headers(); self.wfile.write(b)
         def _json(self, code, o, extra=None): self._send(code, json.dumps(o, ensure_ascii=False), extra=extra)
@@ -3606,8 +3615,8 @@ def hub_serve(root, port):
                 b = open(os.path.join(HERE, "hub.html"), "rb").read(); return self._send(200, b, "text/html; charset=utf-8", {"Set-Cookie": "hs_hub=1; Path=/; SameSite=Lax"})
             if p == "/hub/ui-font.otf":
                 f = ui_font()
-                return self._send(200, open(f, "rb").read(), "font/otf") if os.path.isfile(f) else self._send(404, b"")
-            if p == "/hub/qr.js": return self._send(200, open(os.path.join(HERE, "qr.js"), "rb").read(), "application/javascript; charset=utf-8")
+                return self._send(200, open(f, "rb").read(), "font/otf", {"Cache-Control": "max-age=604800"}) if os.path.isfile(f) else self._send(404, b"")
+            if p == "/hub/qr.js": return self._send(200, open(os.path.join(HERE, "qr.js"), "rb").read(), "application/javascript; charset=utf-8", {"Cache-Control": "max-age=86400"})
             if p.startswith("/hub/api/"): return self._api(p[9:], q)
             if p in ("/hub/manifest.json", "/manifest.json"):
                 return self._send(200, json.dumps({"name": "Hojas Studio", "short_name": "Hojas", "start_url": "/library", "display": "standalone", "background_color": "#0a0c11", "theme_color": "#0a0c11", "dir": "rtl", "lang": "ar",
@@ -3639,7 +3648,15 @@ def hub_serve(root, port):
                 w = card_by(p.split("/")[3]); f = q.get("f", [""])[0]
                 if not w or not f or ".." in f: return self._send(404, b"")
                 fp = J(w, f)
-                return self._send(200, open(fp, "rb").read(), "image/jpeg", {"Cache-Control": "max-age=300"}) if os.path.isfile(fp) else self._send(404, b"")
+                if not os.path.isfile(fp): return self._send(404, b"")
+                sm = J(w, ".hs", "hub-th-" + hashlib.md5(f.encode()).hexdigest()[:8] + ".jpg")   # 4.4: صورة مصغّرة (20 كيلو بدل 250)
+                try:
+                    if not os.path.isfile(sm) or os.path.getmtime(sm) < os.path.getmtime(fp):
+                        os.makedirs(J(w, ".hs"), exist_ok=True)
+                        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", fp, "-vf", "scale=360:-2", "-q:v", "5", sm], capture_output=True, timeout=20)
+                    if os.path.isfile(sm) and os.path.getsize(sm) > 0: fp = sm
+                except Exception: pass
+                return self._send(200, open(fp, "rb").read(), "image/jpeg", {"Cache-Control": "max-age=86400"})
             pp = self._cookie("hs_p")
             if pp and pp.isdigit(): return self._proxy(int(pp))
             self.send_response(302); self.send_header("Location", "/library"); self.send_header("Content-Length", "0"); self.end_headers()
