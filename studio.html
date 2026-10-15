@@ -490,6 +490,68 @@ body.m #mtools{gap:6px;padding:10px 12px 4px}body.m #mtools .ic{width:42px;heigh
   body:not(.m) #tlbar .grp button{border-radius:11px;height:30px}
   body:not(.m) .card,body:not(.m) .note,body:not(.m) .item,body:not(.m) .tog{border-radius:16px}
 }
+
+/* ═══ 4.4: رسم حر ═══ */
+#drawCv{position:absolute;inset:0;width:100%;height:100%;z-index:7;cursor:crosshair;touch-action:none;border-radius:inherit;box-shadow:inset 0 0 0 2px rgba(76,141,255,.7)}
+#drawBar{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:9;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:18px;background:rgba(14,18,28,.88);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(76,141,255,.5);flex-wrap:wrap;max-width:calc(100% - 20px);width:max-content;direction:ltr;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+#drawBar .sp{flex:1;min-width:4px}
+.dsw{display:flex;gap:6px;align-items:center}
+.dsw i{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid rgba(255,255,255,.25);transition:transform .12s}
+.dsw i.on{border-color:#fff;transform:scale(1.18)}
+.dsw input{width:28px;height:28px;padding:0;border:0;background:none;cursor:pointer}
+.dw{display:flex;gap:4px}
+.dw button{width:34px;height:34px;padding:0;display:grid;place-items:center;border-radius:10px}
+.dw button i{display:block;border-radius:50%;background:#fff}
+.dw button.on{border-color:#4C8DFF;background:rgba(76,141,255,.28)}
+#drawBar .ic{width:34px;height:34px;border-radius:10px}
+#drawBar button.sm{height:34px}
+body.drawing #sideTools,body.drawing #giz,body.drawing #ticker,body.drawing #gestHint{display:none!important}
+.clip.draw{background:#b7792a}
+/* ═══ 4.4: الكمبيوتر — أوسع وأهدأ ═══ */
+@media (min-width:761px){
+  body:not(.m){font-family:"IBM Plex Sans Arabic",system-ui,sans-serif;font-size:14px}
+  body:not(.m) #app{grid-template-rows:60px minmax(0,1fr) 268px}
+  body:not(.m) #top{height:60px;padding:0 16px}
+  body:not(.m) #top .proj{cursor:text;border-radius:10px;padding:2px 8px;margin-inline-start:-4px}
+  body:not(.m) #top .proj:hover{background:rgba(255,255,255,.06)}
+  body:not(.m) #bBack{width:auto;padding:0 12px 0 10px;gap:4px;display:inline-flex;align-items:center;font-size:13.5px;border-radius:13px;height:38px}
+  body:not(.m) #bBack[hidden]{display:none}
+  body:not(.m) #bBack::after{content:attr(data-l)}
+  body:not(.m) #saved{font-size:12.5px;color:var(--mut);display:inline-flex;align-items:center;gap:6px}
+  body:not(.m) #saved::before{content:"";width:7px;height:7px;border-radius:50%;background:#36c58a}
+  body:not(.m) #saved:empty::before{display:none}
+  body:not(.m) #mid{grid-template-columns:330px minmax(0,1fr) 400px;gap:16px;padding:14px 16px 0}
+  body:not(.m) #stage{background:radial-gradient(60% 55% at 50% 42%,rgba(76,141,255,.10),transparent 72%);border-radius:24px}
+  body:not(.m) #wrap{box-shadow:0 0 0 1px rgba(255,255,255,.1),0 24px 60px rgba(0,0,0,.55)}
+  body:not(.m) #sideTools{gap:8px}
+  body:not(.m) #sideTools .ic{width:42px;height:42px;border-radius:14px}
+  /* اللوحة اليسار: تبويبات عمودية بأيقونات */
+  body:not(.m) #panel{display:grid;grid-template-columns:minmax(0,1fr) 78px;grid-template-rows:minmax(0,1fr)}
+  body:not(.m) #panel #tabs{grid-column:2;grid-row:1;flex-direction:column;flex-wrap:nowrap;padding:10px 8px;gap:4px;border-inline-start:1px solid var(--bd)!important;overflow-y:auto;scrollbar-width:none}
+  body:not(.m) #panel #body{grid-column:1;grid-row:1;overflow:auto;min-height:0}
+  body:not(.m) #tabs button,body:not(.m) #binTabs button{display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 2px!important;font-size:11.5px!important;line-height:1.25;flex:none!important;text-align:center;white-space:normal}
+  body:not(.m) #tabs button::before,body:not(.m) #binTabs button::before{content:"";width:21px;height:21px;background:currentColor;-webkit-mask:var(--ico) center/contain no-repeat;mask:var(--ico) center/contain no-repeat;opacity:.9}
+  body:not(.m) #binTabs{display:grid!important;grid-template-columns:1fr 1fr;padding:10px 10px 4px}
+  body:not(.m) #binTabs button{flex-direction:row!important;justify-content:center;gap:8px!important;font-size:13.5px!important;padding:9px!important}
+  body:not(.m) #binTabs button::before{width:18px;height:18px}
+  body:not(.m) .side .body h4{font-size:13px;letter-spacing:.1px}
+  /* التايم لاين */
+  body:not(.m) #tl{margin:12px 16px 14px}
+  body:not(.m) .clip{border-radius:8px;box-shadow:inset 0 1px 0 rgba(255,255,255,.18),inset 0 -1px 0 rgba(0,0,0,.25)}
+  body:not(.m) .clip.cap{background:linear-gradient(180deg,#7d66e6,#6550cf)}
+  body:not(.m) .clip.image,body:not(.m) .clip.viz,body:not(.m) .clip.split,body:not(.m) .clip.pip,body:not(.m) .clip.bg{background:linear-gradient(180deg,#4a73c4,#3a5fa8)}
+  body:not(.m) .clip.draw{background:linear-gradient(180deg,#c98a33,#a86e22)}
+  body:not(.m) #tabs button[data-tab="sel"]{--ico:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M5%203l14%207-6%202-2%206z%22/%3E%3C/svg%3E")}
+  body:not(.m) #tabs button[data-tab="cap"]{--ico:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%223%22%20y%3D%225%22%20width%3D%2218%22%20height%3D%2214%22%20rx%3D%223%22/%3E%3Cpath%20d%3D%22M10%2010.5a2%202%200%201%200%200%203M16%2010.5a2%202%200%201%200%200%203%22/%3E%3C/svg%3E")}
+  body:not(.m) #tabs button[data-tab="tr"]{--ico:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%229%22/%3E%3Cpath%20d%3D%22M3%2012h18M12%203c3%203%203%2015%200%2018M12%203c-3%203-3%2015%200%2018%22/%3E%3C/svg%3E")}
+  body:not(.m) #tabs button[data-tab="audio"]{--ico:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%2010v4M8%207v10M12%204v16M16%208v8M20%2011v2%22/%3E%3C/svg%3E")}
+  body:not(.m) #tabs button[data-tab="check"]{--ico:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%229%22/%3E%3Cpath%20d%3D%22M8%2012.5l3%203%205-6%22/%3E%3C/svg%3E")}
+  body:not(.m) #tabs button[data-tab="notes"]{--ico:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%205h16v11H10l-5%204v-4H4z%22/%3E%3C/svg%3E")}
+  body:not(.m) #tabs button[data-tab="claude"]{--ico:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203l2%206%206%202-6%202-2%206-2-6-6-2%206-2z%22/%3E%3C/svg%3E")}
+  body:not(.m) #tabs button[data-tab="proj"]{--ico:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%207a2%202%200%200%201%202-2h4l2%202h8a2%202%200%200%201%202%202v8a2%202%200%200%201-2%202H5a2%202%200%200%201-2-2z%22/%3E%3C/svg%3E")}
+  body:not(.m) #binTabs button[data-ltab="text"]{--ico:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M5%206h14M12%206v13M9%2019h6%22/%3E%3C/svg%3E")}
+  body:not(.m) #binTabs button[data-ltab="files"]{--ico:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%224%22%20y%3D%224%22%20width%3D%227%22%20height%3D%227%22%20rx%3D%222%22/%3E%3Crect%20x%3D%2213%22%20y%3D%224%22%20width%3D%227%22%20height%3D%227%22%20rx%3D%222%22/%3E%3Crect%20x%3D%224%22%20y%3D%2213%22%20width%3D%227%22%20height%3D%227%22%20rx%3D%222%22/%3E%3Cpath%20d%3D%22M16.5%2013v7M13%2016.5h7%22/%3E%3C/svg%3E")}
+}
 </style>
 </head>
 <body>
@@ -517,7 +579,7 @@ body.m #mtools{gap:6px;padding:10px 12px 4px}body.m #mtools .ic{width:42px;heigh
         <div id="giz"></div>
       </div>
       <div id="ticker"><i></i><span id="tickTx"></span></div><div id="gestHint"></div>
-      <div id="sideTools"><button class="ic" id="bFull"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button><button class="ic" id="bPen"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-1L19 8l-3-3L5 16z"/></svg></button></div>
+      <div id="sideTools"><button class="ic" id="bFull"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button><button class="ic" id="bDraw" data-tt="drawTool"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 4-2 5-4s2-3 4-3 3 2 5 2 4-2 4-2"/><path d="M14 4l6 6-8 8-6-6z"/></svg></button><button class="ic" id="bPen"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-1L19 8l-3-3L5 16z"/></svg></button></div>
       <div id="stageBtns"><button class="sm" id="bSafe" data-t="safeZones"></button><button class="sm" id="bCover" data-t="coverShot"></button></div>
       <div id="live"><div class="in">
         <div><h2 data-t="liveTitle"></h2><p class="hint" data-t="liveSub" style="font-size:13px;margin-bottom:16px"></p><div class="stages" id="liveStages"></div><div class="feed" id="liveFeed"></div></div>

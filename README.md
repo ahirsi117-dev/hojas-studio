@@ -12,7 +12,7 @@
 
 <p align="center">
   <img alt="Claude Code skill" src="docs/assets/badge-skill.svg">
-  <img alt="Version 4.3" src="docs/assets/badge-version.svg">
+  <img alt="Version 4.4" src="docs/assets/badge-version.svg">
   <img alt="Runs on Windows, macOS, Linux" src="docs/assets/badge-platforms.svg">
   <img alt="License: PolyForm Noncommercial" src="docs/assets/badge-license.svg">
 </p>
@@ -84,6 +84,12 @@ Pick one on the questions page, or ask Claude: "edit it in the paper style".
 <p align="center"><img src="docs/assets/ui-mobile.jpg" alt="Library and studio on the phone" width="100%"></p>
 
 `python hs.py hub` opens the Library: every clip and its status, everything you sent Claude with a one-tap revert, and your computer's status. From your phone you open any clip, hold the mic to leave a voice note at that moment, or upload a new video and Claude starts on it.
+
+## From a link, into clips, or by hand
+
+- **Any link:** paste a TikTok, YouTube, Instagram or X link in the Library and it pulls the video (free yt-dlp tool, one-tap install).
+- **Clips from a long video:** it transcribes the whole thing and ranks the strongest moments by how likely they are to hit (hook, numbers, energy, a complete thought, your request). Let Claude pick and edit them, or pick yourself: preview each moment, nudge the start and end, or tap two sentences to make your own.
+- **Edit it yourself:** "I edit it myself" cuts the silences, writes the captions and opens the timeline for you. Add text, explainer cards, number animations, marks, characters, and freehand drawing that draws itself on. Everything saves as you go.
 
 ## The studio
 
@@ -172,6 +178,8 @@ python hs.py selftest            # self-check of the studio files
 python hs.py notify setup        # phone notifications (ntfy, no account)
 python hs.py style show          # what it learned about your style
 python hs.py publish <project> tiktok   # prepare a post (Claude finishes it in your browser)
+python hs.py grab <link> --mode clips   # pull a video from a link and find the best clips
+python hs.py prep <project>      # prepare a video for editing by hand
 python hs.py update              # update the skill (git installs)
 ```
 

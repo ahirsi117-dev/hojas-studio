@@ -356,7 +356,7 @@
   function layers(t,under){ const Ls=(HSX.layers||[]).filter(L=>L.type!=='fx'&&L.type!=='split'&&L.type!=='viz'&&L.type!=='cover'&&L.type!=='bg'&&L.type!=='behind'&&L.type!=='pip'&&L.type!=='collage'&&L.type!=='kinetic'&&L.type!=='desk'&&!L.off&&t>=L.s&&t<L.e&&isUnder(L)===!!under&&(L.overKin||!kinAt(t))).sort((a,b)=>(b.track||0)-(a.track||0));
     for(const L of Ls){ const K=enterK(L,t); X.save(); try{
         if(L.type==='text') textBlock(L,t,K); else if(L.type==='char') charLayer(L,t,K); else if(L.type==='image') imageLayer(L,t,K);
-        else if(L.type==='mark') markLayer(L,t,K); else if(L.type==='cursor') cursorLayer(L,t); else if(L.type==='lt') ltLayer(L,t,K);
+        else if(L.type==='mark') markLayer(L,t,K); else if(L.type==='draw') drawLayer(L,t,K); else if(L.type==='cursor') cursorLayer(L,t); else if(L.type==='lt') ltLayer(L,t,K);
       }catch(e){ if(!window.__hsLE){window.__hsLE=1;console.error('hs layer '+L.id+': '+e.message);} } X.restore(); } }
   /* ═══════════ 3.8: كروت الشرح بالموشن ═══════════
      الكرت يملأ المساحة اللي فوق الفيديو بالضبط فيتحرك معه دخولاً وخروجاً. style يحدد شكل الشرح:
@@ -710,6 +710,13 @@
     X.strokeStyle=col; X.lineWidth=lw; const done=strokePart(M.P,k);
     if(M.k==='arrow'&&done){ const n=M.P.length, b=M.P[n-1], a=M.P[n-4], an=Math.atan2(b[1]-a[1],b[0]-a[0]), hs=lw*4.2, g=cl((lt-dur)/0.12,0,1); X.beginPath(); X.moveTo(b[0]-Math.cos(an-0.5)*hs*g,b[1]-Math.sin(an-0.5)*hs*g); X.lineTo(b[0],b[1]); X.lineTo(b[0]-Math.cos(an+0.5)*hs*g,b[1]-Math.sin(an+0.5)*hs*g); X.stroke(); }
     X.restore(); }
+
+  /* ── 4.4: رسم حر بيد المستخدم: الخطوط ترتسم بالترتيب كأنها تنكتب الحين ── */
+  function drawLayer(L,t,K){ const P=L.pts||[]; if(P.length<2) return; const lt=t-L.s, rv=L.reveal==null?0.9:+L.reveal, k=rv>0?p3o(cl(lt/rv,0,1)):1, ox=((L.x==null?0.5:L.x)-0.5)*1080, oy=((L.y==null?0.5:L.y)-0.5)*1920, sc=L.sc||1;
+    const Q=P.map(q=>q?[(q[0]-0.5)*1080*sc+540+ox,(q[1]-0.5)*1920*sc+960+oy]:null);
+    X.save(); X.globalAlpha=K.a*(L.opacity==null?1:L.opacity); X.lineCap='round'; X.lineJoin='round'; X.strokeStyle=L.color||'#FFD21F'; X.lineWidth=(L.lw||12)*sc;
+    if(L.glow==='neon'){ X.shadowColor=L.color||'#FFD21F'; X.shadowBlur=34; } else if(L.glow!=='none'){ X.shadowColor='rgba(0,0,0,0.35)'; X.shadowBlur=10; }
+    strokePart(Q,k); X.restore(); }
 
   /* ── مؤشر ماوس كبير: يدخل من تحت، يضغط، والضغطة تشغّل اللي بعدها ── */
   const CUR=[[0,0],[0,34],[9,26],[15,40],[21,37],[15,24],[27,24]];

@@ -1,12 +1,12 @@
 /* Hojas Studio — نصوص الواجهة: [عربي, English] */
 const I18N={
-undo:['تراجع','Undo'], note:['ملاحظة','Note'], phone:['الجوال','Phone'], export:['تصدير','Export'], safeZones:['مناطق الأمان','Safe zones'],
+undo:['تراجع','Undo'], type_draw:['رسم حر','Drawing'], done:['تم','Done'], drawAgain:['ارسمه من جديد','Redraw'], drawSpeed:['سرعة الرسم (ث)','Draw-on time (s)'], drawGlow:['الظل','Glow'], drawShadow:['ظل','Shadow'], drawNeon:['نيون','Neon'], drawHint:['السرعة 0 = يطلع كامل مرة وحدة. حرّكه من المربع على الفيديو.','Speed 0 shows it at once. Drag it on the video.'], drawClear:['امسح','Clear'], drawEmpty:['ما رسمت شي','Nothing drawn'], drawAdded:['انضاف رسمك. طوّل مدته من التايم لاين.','Drawing added. Stretch it on the timeline.'], binDraw:['رسم حر','Freehand'], drawStartBtn:['ارسم على الفيديو','Draw on the video'], binDrawHint:['ارسم بالماوس أو بإصبعك: دائرة على شي، سهم، توقيع. يرتسم بالفيديو كأنه ينكتب الحين.','Draw with your mouse or finger. It draws itself on in the video.'], backLib:['المكتبة (ينحفظ تلقائياً)','Library (auto-saved)'], back_lib:['المكتبة','Library'], drawTool:['ارسم','Draw'], renameP:['اسم المشروع','Project name'], note:['ملاحظة','Note'], phone:['الجوال','Phone'], export:['تصدير','Export'], safeZones:['مناطق الأمان','Safe zones'],
 play:['تشغيل','Play'], pause:['إيقاف','Pause'], save:['حفظ','Save'], cancel:['إلغاء','Cancel'], close:['إغلاق','Close'], delete:['حذف','Delete'], edit:['عدّل','Edit'],
 copy:['نسخ','Copy'], copied:['انتسخ','Copied'], apply:['طبّق','Apply'], upload:['ارفع','Upload'], yes:['نعم','Yes'], no:['لا','No'], stop:['وقّف','Stop'],
 saving:['يحفظ…','Saving…'], saved:['محفوظ','Saved'], failed:['ما تمّ','Failed'], failedWhy:['فشل: {0}','Failed: {0}'], working:['يشتغل… {0}ث','Working… {0}s'],
 busyJob:['فيه عملية شغالة، انتظرها','Another job is running'], uploading:['يرفع ويجهّز المقطع…','Uploading and preparing…'], rebuilding:['يعيد بناء الفيديو…','Rebuilding the video…'],
 nothingUndo:['ما فيه شي أرجع له','Nothing to undo'], externalChange:['Claude عدّل المشروع، حدّثت العرض','Claude changed the project, view refreshed'],
-tabText:['النص','Text'], tabFiles:['الملفات','Files'],
+tabText:['النص','Text'], tabFiles:['العناصر','Elements'],
 tab_sel:['العنصر','Selected'], tab_cap:['الكابشن','Captions'], tab_tr:['الترجمة','Translation'], tab_audio:['الصوت','Audio'], tab_check:['الفحص','Check'], tab_notes:['الملاحظات','Notes'], tab_claude:['Claude','Claude'], tab_proj:['المشروع','Project'],
 toolSelect:['تحديد','Select'], toolBlade:['تقسيم','Blade'], toolMagnet:['مغناطيس','Magnet'], toolSkim:['معاينة بالمرور','Skim'],
 trkLayers:['الطبقات','Layers'], trkCaps:['الكابشن','Captions'], trkFx:['مشاهد ومؤثرات','Scenes and SFX'], trkVideo:['الفيديو','Video'], trkAudio:['الصوت','Audio'], trkCheck:['الفحص','Check'], trkNotes:['ملاحظات','Notes'],
