@@ -40,7 +40,7 @@
   python hs.py update                                يحدّث السكل (لو مثبّت بـ git)
   python hs.py kinetic <work> auto [--from ث --to ث] [--deco flowers|badges|both|none] | clear | set mark=… avatar=…   أسلوب «ورق متحرك»
   python hs.py dahih  <work> on [--title …] [--tag …] [--avatar …] [--layout window|full] | bg <mode> --at ث | off      أسلوب «الدحيح»
-  python hs.py hub   [--root <مجلد المشاريع>] [--tailscale] [--no-browser]   المكتبة: كل مقاطعك + أوامرك لـClaude + حالة جهازك (جوال وكمبيوتر)
+  python hs.py hub   [--root <مجلد المشاريع>] [--tailscale] [--no-browser] [--autostart [off]]   المكتبة: كل مقاطعك + أوامرك لـClaude + حالة جهازك (جوال وكمبيوتر)
   python hs.py clips scan <حلقة.mp4> <مجلد> | make <مجلد> --from 12:30 --to 13:45 --title "…" --credit "…" | list <مجلد>   مقاطع مترجمة من حلقة طويلة
   python hs.py tools                                 وش الأدوات اللي يحتاجها السكل وليش (اعرضها على المستخدم قبل أي تثبيت)
   python hs.py doctor [--engine …]
@@ -2666,7 +2666,7 @@ def proj_card(work, live=False):
     for f in ("vfr/00045.jpg", "vfr/00001.jpg", ".hs/th/2.jpg", ".hs/th/1.jpg"):
         if os.path.exists(J(work, f)): th = f; break
     return {"work": work, "id": hashlib.md5(os.path.normcase(work).encode()).hexdigest()[:10], "name": os.path.basename(work.rstrip("/\\")), "title": title, "dur": round(dur, 1),
-            "state": state, "sub": sub, "lanes": lanes, "thumb": th, "last": (activity(work, 0, 400) or [{}])[-1].get("text", "")[:160] if agent else "", "mt": int(max(smt, os.path.getmtime(work))), "notes": openn, "ask": ask, "port": port, "agent": agent, "job": job}
+            "state": state, "sub": sub, "lanes": lanes, "thumb": th, "final": os.path.relpath(exps[-1], work).replace("\\", "/") if exps else None, "last": (activity(work, 0, 400) or [{}])[-1].get("text", "")[:160] if agent else "", "mt": int(max(smt, os.path.getmtime(work))), "notes": openn, "ask": ask, "port": port, "agent": agent, "job": job}
 def battery():
     try:
         if os.name == "nt":
@@ -2740,6 +2740,16 @@ def cmd_hub(args):
     cfg = hub_cfg(); root = os.path.abspath(o("--root") or cfg.get("root") or os.path.join(os.path.expanduser("~"), "Documents", "hojas-studio-projects"))
     port = int(o("--port", cfg.get("port") or HUB_PORT)); os.makedirs(root, exist_ok=True); cfg.update(root=root, port=port); os.makedirs(HOME_CFG, exist_ok=True); wj(hub_cfg_path(), cfg)
     if "--serve" in rest: return hub_serve(root, port)
+    if "--autostart" in rest:
+        i = rest.index("--autostart"); off = len(rest) > i + 1 and rest[i + 1] == "off"
+        if os.name != "nt": sys.exit("التشغيل التلقائي مجهّز لويندوز. بالماك: أضف الأمر لـ Login Items")
+        sd = os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "Start Menu", "Programs", "Startup"); vb = os.path.join(sd, "Hojas Library.vbs")
+        if off:
+            if os.path.exists(vb): os.remove(vb)
+            print("انطفى التشغيل التلقائي للمكتبة."); return
+        pyw = PY[:-10] + "pythonw.exe" if PY.lower().endswith("python.exe") and os.path.exists(PY[:-10] + "pythonw.exe") else PY
+        open(vb, "w", encoding="utf-8").write('CreateObject("WScript.Shell").Run """%s"" ""%s"" hub --no-browser", 0, False\r\n' % (pyw, os.path.abspath(__file__)))
+        print("المكتبة بتشتغل لحالها كل ما يشتغل الجهاز (بدون نافذة). للإطفاء: python hs.py hub --autostart off"); return
     alive = False
     try:
         with urllib.request.urlopen("http://127.0.0.1:%d/hub/api/ping" % port, timeout=1.2) as r: alive = b"hub" in r.read()
@@ -2858,6 +2868,32 @@ def hub_serve(root, port):
                 return self._send(200, open(f, "rb").read(), "font/otf") if os.path.isfile(f) else self._send(404, b"")
             if p == "/hub/qr.js": return self._send(200, open(os.path.join(HERE, "qr.js"), "rb").read(), "application/javascript; charset=utf-8")
             if p.startswith("/hub/api/"): return self._api(p[9:], q)
+            if p in ("/hub/manifest.json", "/manifest.json"):
+                return self._send(200, json.dumps({"name": "Hojas Studio", "short_name": "Hojas", "start_url": "/library", "display": "standalone", "background_color": "#0a0c11", "theme_color": "#0a0c11", "dir": "rtl", "lang": "ar",
+                                                   "icons": [{"src": "/hub/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}]}, ensure_ascii=False), "application/manifest+json")
+            if p == "/hub/icon.png":
+                f = os.path.join(HERE, "hub-icon.png")
+                return self._send(200, open(f, "rb").read(), "image/png", {"Cache-Control": "max-age=86400"}) if os.path.isfile(f) else self._send(404, b"")
+            if p.startswith("/hub/video/"):
+                w = card_by(p.split("/")[3]); f = q.get("f", [""])[0]
+                if not w or not f or ".." in f or not f.endswith(".mp4"): return self._send(404, b"")
+                fp = J(w, f)
+                if not os.path.isfile(fp): return self._send(404, b"")
+                size = os.path.getsize(fp); rg = re.match(r"bytes=(\d*)-(\d*)", self.headers.get("Range") or ""); a, b = 0, size - 1
+                if rg:
+                    if rg.group(1): a = int(rg.group(1))
+                    if rg.group(2): b = min(size - 1, int(rg.group(2)))
+                    if not rg.group(1) and rg.group(2): a, b = max(0, size - int(rg.group(2))), size - 1
+                self.send_response(206 if rg else 200); self.send_header("Content-Type", "video/mp4"); self.send_header("Accept-Ranges", "bytes"); self.send_header("Content-Length", str(b - a + 1))
+                if rg: self.send_header("Content-Range", "bytes %d-%d/%d" % (a, b, size))
+                self.end_headers()
+                with open(fp, "rb") as fh:
+                    fh.seek(a); left = b - a + 1
+                    while left > 0:
+                        ch = fh.read(min(1 << 20, left))
+                        if not ch: break
+                        self.wfile.write(ch); left -= len(ch)
+                return
             if p.startswith("/hub/thumb/"):
                 w = card_by(p.split("/")[3]); f = q.get("f", [""])[0]
                 if not w or not f or ".." in f: return self._send(404, b"")

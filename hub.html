@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0a0c11">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hojas">
+<link rel="manifest" href="/hub/manifest.json">
+<link rel="apple-touch-icon" href="/hub/icon.png">
 <title>Hojas Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -166,7 +170,7 @@ const TX={
  lib:['المكتبة','Library'], search:['دوّر بمقاطعك','Search your clips'], resume:['وقفت عند {0}','You stopped at {0}'], liveNow:['Claude يشتغل على «{0}»','Claude is working on “{0}”'], cmds:['الأوامر','Commands'], dev:['جهازك','Computer'],
  all:['الكل','All'], wait:['ينتظرك','Waiting'], work:['شغّال','In progress'], ready:['جاهز','Ready'],
  awakeOn:['الجهاز صاحي','Computer is awake'], on:['الجهاز شغّال','Computer is on'], charging:['وعلى الشاحن','and charging'], onBat:['على البطارية','on battery'],
- open:['افتحه','Open'], montage:['مونتاج','edit'], noProj:['ما فيه مشاريع للحين. اضغط + وارفع مقطع، أو قل لـClaude يمنتج لك فيديو.','No projects yet. Tap + to upload a clip.'],
+ open:['افتحه','Open'], watch:['شاهد النهائي','Watch final'], montage:['مونتاج','edit'], noProj:['ما فيه مشاريع للحين. اضغط + وارفع مقطع، أو قل لـClaude يمنتج لك فيديو.','No projects yet. Tap + to upload a clip.'],
  cmdsSub:['كل اللي أرسلته لـClaude، من كل المقاطع','Everything you sent Claude, from every clip'], now:['الحين','Now'], before:['قبل','Earlier'],
  revert:['رجّعه','Revert'], openClip:['افتح المقطع','Open clip'], noCmds:['ما أرسلت شي لـClaude للحين. أرسل ملاحظاتك من داخل أي مقطع.','Nothing sent yet.'],
  battery:['البطارية','Battery'], onAC:['على الشاحن','Plugged in'], storage:['المساحة','Storage'], freeOf:['باقي {0} من {1}','{0} free of {1}'], lowDisk:['قربت تمتلي. فضّ شوي قبل التصدير.','Almost full. Free some space before exporting.'],
@@ -247,10 +251,11 @@ function render(){ $('#h1').textContent=t(TAB); $('#status').innerHTML=TAB==='cm
   if(TAB==='lib') renderLib(); else if(TAB==='cmds') renderCmds(); else renderDev(); document.documentElement.lang=LANG; document.documentElement.dir=LANG==='ar'?'rtl':'ltr'; }
 async function load(){ try{ if(TAB==='lib') DATA=await api('projects'); else if(TAB==='cmds') CMDS=await api('commands'); else DEV=await api('device'); if(!DATA&&TAB!=='lib') DATA=await api('projects'); }catch(e){} render(); }
 function sheet(html){ $('#sheetIn').innerHTML='<div class="grab"></div>'+html; $('#sheet').classList.add('on'); }
-function closeSheet(){ $('#sheet').classList.remove('on'); }
+function closeSheet(){ const v=$('#fin'); if(v) v.pause(); $('#sheet').classList.remove('on'); }
 $('#sheet').addEventListener('click',e=>{ if(e.target.id==='sheet') closeSheet(); });
 function openSheet(id){ const p=(DATA&&DATA.projects||[]).find(x=>x.id===id); if(!p) return go(id);
-  sheet('<div class="ph"><div><h2 dir="auto">'+esc(p.title)+' - '+t('montage')+'</h2>'+subHtml(p)+'<div class="lbl" style="margin-top:6px;direction:ltr;text-align:end">'+fmt(p.dur)+'</div></div>'+(p.thumb?'<img src="'+thumb(p)+'">':'')+'</div><button class="btn y wide" id="goOpen">'+t('open')+'</button>');
+  sheet('<div class="ph"><div><h2 dir="auto">'+esc(p.title)+' - '+t('montage')+'</h2>'+subHtml(p)+'<div class="lbl" style="margin-top:6px;direction:ltr;text-align:end">'+fmt(p.dur)+'</div></div>'+(p.thumb?'<img src="'+thumb(p)+'">':'')+'</div>'+(p.final?'<video id="fin" controls playsinline preload="metadata" src="/hub/video/'+p.id+'?f='+encodeURIComponent(p.final)+'" style="width:100%;max-height:52vh;border-radius:18px;background:#000;margin-bottom:12px;display:none"></video><button class="btn wide" id="goWatch" style="margin-bottom:10px">'+t('watch')+'</button>':'')+'<button class="btn y wide" id="goOpen">'+t('open')+'</button>');
+  const gw=$('#goWatch'); if(gw) gw.onclick=()=>{ const v=$('#fin'); v.style.display='block'; gw.remove(); v.play().catch(()=>{}); };
   $('#goOpen').onclick=()=>go(id); }
 async function go(id){ const r=await api('open',{id,mobile:innerWidth<760}); if(r.ok) location.href=r.url; else toast(r.msg||t('failed')); }
 function newSheet(){ sheet('<h2 style="margin-bottom:14px">'+t('newTitle')+'</h2><button class="opt" data-kind="edit">'+IC.film+'<div><b>'+t('newEdit')+'</b><small>'+t('newEditSub')+'</small></div></button><button class="opt" data-kind="long">'+IC.mic+'<div><b>'+t('newLong')+'</b><small>'+t('newLongSub')+'</small></div></button><textarea id="nNote" dir="auto" placeholder="'+esc(t('notePh'))+'"></textarea><div class="prog" id="nProg" style="display:none"><i></i></div><input type="file" id="nFile" accept="video/*" hidden>');
