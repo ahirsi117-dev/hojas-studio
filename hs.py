@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Hojas Studio 4.3 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
+"""Hojas Studio 4.7 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
 
   python hs.py open   <work> [--engine <مجلد المحرّك>] [--port 8800] [--no-browser]
         يشغّل الخادم بالخلفية ويفتح المتصفح. شغّله أول ما تبدأ المونتاج، حتى قبل ما يجهز أي ملف.
@@ -34,6 +34,7 @@
   python hs.py face   <work>                         يحدد مكان الوجه (يشتغل لحاله، هذا للإعادة)
   python hs.py mask   <work> <ث-ث> …                 يجهّز قص الشخص لمدى معيّن (يشتغل لحاله مع type=bg|behind)
   python hs.py sfx    <work> list | add <id> <ث> … | import <ملف أو مجلد> [--name "…"] [--note "…"]   مكتبة الأصوات + أصوات المستخدم
+  python hs.py bleep  <work> list | word <كلمة> … | at <ث> | add <من> <إلى> | rm <رقم|all> | mode beep|mute | cap stars|hide|keep | tone <هيرتز>   كتم كلمة (4.6)
   python hs.py notify setup | test | off | status | send "نص" [--file ملف]    إشعارات وملفات لجوالك (ntfy، بلا حساب)
   python hs.py style  show | snap <work> | learn <work> | apply <work> | reset   يتعلّم أسلوب المستخدم من تعديلاته
   python hs.py publish <work> list | <tiktok> [--at "وقت"] | done <المنصة> <الرابط>   يجهّز النشر من متصفح المستخدم
@@ -65,7 +66,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.6"
+VERSION = "4.7"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -403,6 +404,8 @@ def remove_ranges(work, S, log, ranges=(), cards=(), words=(), rebuild=True):
     for k in ("stickers", "brollClips"):
         if st.get(k): st[k] = mv(st[k])
     if hs.get("layers"): hs["layers"] = mv(hs["layers"])
+    if (hs.get("bleep") or {}).get("items"):   # 4.6: الكلمات المكتومة تزحف مع القص
+        hs["bleep"]["items"] = [{**x, "s": shift(float(x["s"])), "e": shift(float(x["e"]))} for x in hs["bleep"]["items"] if shift(float(x["e"])) - shift(float(x["s"])) >= 0.04]
     st["behindOff"] = []; wj(J(work, "studio.json"), st)
     log("انشال %.2f ثانية: المدة %.2f ← %.2f" % (gone, total, new_total))
     if rebuild: rebuild_video(work, S, log)
@@ -616,7 +619,7 @@ def tools_text():
 # ───────────────────────── مكتبة المؤثرات الصوتية (3.6) ─────────────────────────
 # 30 صوت من Mixkit. رخصتها تسمح باستخدامها داخل الفيديو، وما تسمح بإعادة توزيع الملفات نفسها،
 # فالسكل ما يحملها معه: كل جهاز ينزّلها من المصدر مرة وحدة وتنحفظ في ~/.hojas-studio/sfx
-# 4.6: + 128 صوت وموسيقى CC0 (أرقامها cc-…) من agent-video-editor، مثبّتة على نسخة محددة من المستودع
+# 4.7: + 128 صوت وموسيقى CC0 (أرقامها cc-…) من agent-video-editor، مثبّتة على نسخة محددة من المستودع
 # عشان ما تتغير. الموسيقى mp3 فتتحول لـ wav أول ما تنزل.
 def sfx_lib():
     return rj(os.path.join(HERE, "sfxlib.json"), []) or []
@@ -723,13 +726,106 @@ def bg_fades(mix):
         except (TypeError, ValueError): v = d
         return str(round(min(max(v, 0.0), 6.0), 2))
     return f("bgIn", 1.0), f("bgOut", 1.4)
+# ── 4.6: كتم الكلمات (بيب). studio.json ← hs.bleep = {mode: beep|mute, cap: stars|hide|keep, tone: هيرتز, items: [{s, e, t}]} بزمن الإخراج ──
+BLEEP_MODES = ("beep", "mute"); BLEEP_CAPS = ("stars", "hide", "keep")
+BLEEP_PRE = ("وال", "بال", "فال", "كال", "لل", "ال", "و", "ف", "ب", "ل", "ك")
+def bleep_of(hs):
+    b = (hs or {}).get("bleep") or {}; out = []
+    for x in b.get("items") or []:
+        try: s0, e0 = float(x["s"]), float(x["e"])
+        except (KeyError, TypeError, ValueError): continue
+        if e0 - s0 >= 0.04: out.append({**x, "s": round(max(0.0, s0), 3), "e": round(e0, 3)})
+    out.sort(key=lambda x: x["s"])
+    try: tone = int(min(max(float(b.get("tone", 1000)), 300), 3000))
+    except (TypeError, ValueError): tone = 1000
+    return {"items": out, "mode": b.get("mode") if b.get("mode") in BLEEP_MODES else "beep",
+            "cap": b.get("cap") if b.get("cap") in BLEEP_CAPS else "stars", "tone": tone}
+def bleep_filters(B):
+    """(قطعة تنحط بسلسلة صوت الكلام وتكتمه، فلتر صوت البيب أو None). بلا كلمات = ("", None) والصوت نفسه بالضبط."""
+    if not B["items"]: return "", None
+    ex = "+".join("between(t,%.3f,%.3f)" % (x["s"], x["e"]) for x in B["items"])
+    mute = "volume=0:enable='%s'," % ex
+    if B["mode"] != "beep": return mute, None
+    end = round(B["items"][-1]["e"] + 0.5, 3)
+    return mute, "sine=frequency=%d:sample_rate=48000:duration=%.3f,volume=1.5,volume=0:enable='not(%s)',aformat=sample_rates=48000:channel_layouts=stereo" % (B["tone"], end, ex)
+def _bnorm(w): return re.sub(r"[^\w]", "", norm_txt(w))
+def bleep_hit(w, items):
+    m = (float(w["s"]) + float(w["e"])) / 2
+    return any(x["s"] - 1e-6 <= m <= x["e"] + 1e-6 for x in items)
+def bleep_star(t):
+    a = list(str(t)); return "*" if len(a) < 2 else a[0] + "*" * min(5, len(a) - 1)
+def bleep_card_text(c, B):
+    """نص الجملة للترجمة والنص المكتوب: الكلمة المكتومة نجوم (إلا لو اختار «كما هي»)."""
+    if not B["items"] or B["cap"] == "keep": return card_key(c)
+    return " ".join(bleep_star(w["t"]) if bleep_hit(w, B["items"]) else w["t"] for w in c["w"])
+def bleep_match(word, targets):
+    n = _bnorm(word)
+    if not n: return False
+    if n in targets: return True
+    return any(n.startswith(p) and n[len(p):] in targets and len(n) - len(p) >= 2 for p in BLEEP_PRE)
+def bleep_find(caps, words):
+    """كل مرة انقالت فيها الكلمة (بدون همزات وتاء مربوطة، ومع و ب ل ال قبلها). يرجّع [{s, e, t}]."""
+    targets = {_bnorm(w) for w in words if _bnorm(w)}; out = []
+    if not targets: return out
+    for c in (caps or {}).get("cards") or []:
+        for w in c.get("w") or []:
+            if bleep_match(w["t"], targets): out.append({"s": round(max(0.0, w["s"] - 0.03), 3), "e": round(w["e"] + 0.03, 3), "t": w["t"]})
+    return out
+def bleep_add(hs, new):
+    """يضيف بدون تكرار (نفس الكلمة بنفس الوقت). يرجّع كم انضاف."""
+    b = hs.setdefault("bleep", {}); items = b.setdefault("items", []); n = 0
+    for x in new:
+        if any(abs(float(y.get("s", 0)) - x["s"]) < 0.08 and abs(float(y.get("e", 0)) - x["e"]) < 0.08 for y in items): continue
+        items.append(x); n += 1
+    items.sort(key=lambda x: float(x.get("s", 0))); return n
+def cmd_bleep(work, args):
+    sub = args[0] if args else "list"; st = load_studio(work); hs = hs_of(st); caps = rj(J(work, "caps.json"), {}) or {}
+    if sub == "list":
+        B = bleep_of(hs); print("الصوت: %s · الكابشن: %s · النغمة %d هيرتز" % ({"beep": "بيب", "mute": "صمت"}[B["mode"]], {"stars": "نجوم", "hide": "مربع", "keep": "كما هي"}[B["cap"]], B["tone"]))
+        if not B["items"]: print("ما فيه كلمات مكتومة. مثال: hs bleep <work> word فلان"); return
+        for i, x in enumerate(B["items"]): print("%2d) %6.2f-%6.2f  %s" % (i + 1, x["s"], x["e"], x.get("t", "")))
+        return
+    if sub == "word":
+        if len(args) < 2: sys.exit("bleep <work> word <كلمة> [كلمة …]")
+        hits = bleep_find(caps, args[1:]); n = bleep_add(hs, hits); wj(J(work, "studio.json"), st)
+        print("لقيتها %d مرة، وانكتم %d جديد." % (len(hits), n) if hits else "ما لقيت الكلمة بالكلام. شوف النص: hs text <work>"); return
+    if sub == "at":
+        if len(args) < 2: sys.exit("bleep <work> at <ثانية>")
+        t0 = float(args[1]); hit = None
+        for c in caps.get("cards") or []:
+            for w in c["w"]:
+                if w["s"] - 0.05 <= t0 <= w["e"] + 0.05: hit = w
+        if not hit: sys.exit("ما فيه كلمة عند %s" % args[1])
+        n = bleep_add(hs, [{"s": round(max(0.0, hit["s"] - 0.03), 3), "e": round(hit["e"] + 0.03, 3), "t": hit["t"]}]); wj(J(work, "studio.json"), st); print("انكتمت: %s" % hit["t"] if n else "مكتومة من قبل"); return
+    if sub == "add":
+        if len(args) < 3: sys.exit("bleep <work> add <من> <إلى>")
+        a, b = float(args[1]), float(args[2])
+        if b - a < 0.04: sys.exit("المدة قصيرة")
+        bleep_add(hs, [{"s": round(a, 3), "e": round(b, 3), "t": ""}]); wj(J(work, "studio.json"), st); print("تم"); return
+    if sub == "rm":
+        if len(args) < 2: sys.exit("bleep <work> rm <رقم|all>")
+        b = hs.setdefault("bleep", {}); items = sorted(b.get("items") or [], key=lambda x: float(x.get("s", 0)))
+        if args[1] == "all": items = []
+        else:
+            k = int(args[1]) - 1
+            if not 0 <= k < len(items): sys.exit("ما فيه رقم %s" % args[1])
+            items.pop(k)
+        b["items"] = items; wj(J(work, "studio.json"), st); print("باقي %d" % len(items)); return
+    if sub in ("mode", "cap", "tone"):
+        if len(args) < 2: sys.exit("bleep <work> mode beep|mute · cap stars|hide|keep · tone <هيرتز>")
+        v = args[1]; ok = {"mode": BLEEP_MODES, "cap": BLEEP_CAPS}.get(sub)
+        if ok and v not in ok: sys.exit("القيم: " + " | ".join(ok))
+        hs.setdefault("bleep", {})[sub] = int(float(v)) if sub == "tone" else v; wj(J(work, "studio.json"), st); print("تم"); return
+    sys.exit("bleep: list | word <كلمة> … | at <ث> | add <من> <إلى> | rm <رقم|all> | mode beep|mute | cap stars|hide|keep | tone <هيرتز>")
 def encode(work, S, log, out_final, out_master, mix):
     caps = rj(J(work, "caps.json")); sfx = rj(J(work, "sfx.json"), {"outro": 0}) or {}
     dur = round(caps["total"] + sfx.get("outro", 0), 3); fade = round(dur - 0.6, 3)
     voice = float(mix.get("voice", 1)); chain = (CLEAN_AF if mix.get("clean") else "") + VOICE_FX.get(mix.get("voiceFx") or "", "") + "volume=%.3f," % voice
     has_sfx = os.path.exists(J(work, "sfx.wav")); ins = ["-framerate", "30", "-i", J(work, "out", "%05d.jpg"), "-i", J(work, "cutz.mp4")] + (["-i", J(work, "sfx.wav")] if has_sfx else [])
-    fc = "[0:v]scale=in_range=pc:out_range=tv:out_color_matrix=bt709,format=yuv420p[vo];[1:a]%sapad=pad_dur=8[a0];" % chain
-    fc += ("[a0][2:a]amix=inputs=2:duration=first:normalize=0[am];" if has_sfx else "[a0]anull[am];")
+    bm, bp = bleep_filters(bleep_of(hs_of(load_studio(work)))); a0 = "a0"
+    fc = "[0:v]scale=in_range=pc:out_range=tv:out_color_matrix=bt709,format=yuv420p[vo];[1:a]%s%sapad=pad_dur=8[a0];" % (chain, bm)
+    if bp: fc += "%s[bp];[a0][bp]amix=inputs=2:duration=first:normalize=0[a0b];" % bp; a0 = "a0b"
+    fc += ("[%s][2:a]amix=inputs=2:duration=first:normalize=0[am];" % a0 if has_sfx else "[%s]anull[am];" % a0)
     fc += "[am]atrim=0:%s,asetpts=PTS-STARTPTS,afade=t=out:st=%s:d=0.6[ao]" % (dur, fade)
     for f in (out_final, out_master):
         try: os.remove(f)
@@ -785,9 +881,9 @@ def srt_ts(t):
     if ms == 1000: s += 1; ms = 0
     return "%02d:%02d:%02d,%03d" % (h, m, s, ms)
 def make_srt(work, lang):
-    caps = rj(J(work, "caps.json")); cs = caps["cards"]; mp = ((load_studio(work).get("hs") or {}).get("en") or {}).get("map") or {}; out = []; n = 0
+    caps = rj(J(work, "caps.json")); cs = caps["cards"]; hs0 = load_studio(work).get("hs") or {}; mp = (hs0.get("en") or {}).get("map") or {}; out = []; n = 0; B = bleep_of(hs0)
     for i, c in enumerate(cs):
-        txt = card_key(c) if lang == "ar" else mp.get(card_key(c), "")
+        txt = bleep_card_text(c, B) if lang == "ar" else mp.get(card_key(c), "")
         if not txt: continue
         end = min(c["e"], cs[i + 1]["s"] - 0.02) if i + 1 < len(cs) else c["e"]
         if end <= c["s"]: end = c["s"] + 0.4
@@ -801,7 +897,7 @@ def pack(work):
     for lang in ("ar", "en"):
         s, n = make_srt(work, lang)
         if n: p = os.path.join(pk, "captions.%s.srt" % lang); open(p, "w", encoding="utf-8").write(s); files.append(p)
-    caps = rj(J(work, "caps.json")); p = os.path.join(pk, "transcript.txt"); open(p, "w", encoding="utf-8").write("\n".join(card_key(c) for c in caps["cards"]) + "\n"); files.append(p)
+    caps = rj(J(work, "caps.json")); B = bleep_of(load_studio(work).get("hs") or {}); p = os.path.join(pk, "transcript.txt"); open(p, "w", encoding="utf-8").write("\n".join(bleep_card_text(c, B) for c in caps["cards"]) + "\n"); files.append(p)
     if os.path.exists(J(work, "post.txt")): files.append(J(work, "post.txt"))
     cr = rj(J(work, "assets", "credits.json"), []) or []; used = set(l.get("src", "").split("/")[-1] for l in (load_studio(work).get("hs") or {}).get("layers") or [])
     cr = [c for c in cr if c["file"] in used]
@@ -1432,7 +1528,7 @@ def flow_tips(work, ev, total, hs):
     trs = [L for L in hs.get("layers") or [] if L.get("type") == "fx" and L.get("fx") in ("curve", "push", "pull", "rack", "whip", "spin", "iris")]
     if len(set(L.get("fx") for L in trs)) > 3: tips.append({"t": 0, "k": "trmix", "msg": "فيه أكثر من 3 أنواع انتقال. خلّها نوعين أو ثلاثة بالكثير."})
     if len(set(L.get("dir") or hs.get("trDir") or "right" for L in trs if L.get("fx") in ("curve", "whip"))) > 1: tips.append({"t": 0, "k": "trdir", "msg": "الانتقالات تمشي باتجاهات مختلفة. خلّها اتجاه واحد بكل المقطع."})
-    ev_s = []   # 4.6: نفس الصوت أكثر من 3 مرات ورا بعض يتعب الأذن (قواعد المونتاج)
+    ev_s = []   # 4.7: نفس الصوت أكثر من 3 مرات ورا بعض يتعب الأذن (قواعد المونتاج)
     for k, v in (rj(J(work, "sfx.json"), {}) or {}).items():
         if isinstance(v, list): ev_s += [(float(x[0] if isinstance(x, list) else x), k) for x in v]
     ev_s.sort(); run_k = None; run_n = 0
@@ -1557,11 +1653,18 @@ def cmd_selftest(work=None, engine=None):
     except Exception as e: chk("البلقن: النسخة ونسخة السكل محدّثة", False, str(e)[:120])
     try:
         L = sfx_lib(); cc = [x for x in L if x["id"].startswith("cc-")]; er = os.path.join(HERE, "engine", "references", "editing-rules.md")
-        chk("4.6: مكتبة CC0 (128 صوت بأسماء وأقسام وروابط) وقواعد المونتاج", len(cc) == 128 and len({x["id"] for x in L}) == len(L)
+        chk("4.7: مكتبة CC0 (128 صوت بأسماء وأقسام وروابط) وقواعد المونتاج", len(cc) == 128 and len({x["id"] for x in L}) == len(L)
             and all(x.get("ar") and x.get("use") and x.get("cat") in SFX_CAT and str(x.get("url", "")).startswith("https://raw.githubusercontent.com/kmilo93sd/agent-video-editor/8e32c0a") for x in cc)
             and os.path.isfile(er) and "cc-pop-1" in open(er, encoding="utf-8").read(), "%d صوت cc" % len(cc))
-    except Exception as e: chk("4.6: مكتبة CC0 وقواعد المونتاج", False, str(e)[:120])
+    except Exception as e: chk("4.7: مكتبة CC0 وقواعد المونتاج", False, str(e)[:120])
     chk("الرسم الحر بالمحرّك والاستوديو", "function drawLayer" in txt.get("ext.js", "") and "function drawStart" in txt.get("app.js", ""))
+    try:   # 4.6: كتم الكلمات
+        m0, p0 = bleep_filters(bleep_of({})); ct = {"cards": [{"s": 0, "e": 2, "w": [{"t": "شركة", "s": 0.1, "e": 0.4}, {"t": "والشركه", "s": 0.5, "e": 0.9}, {"t": "شركات", "s": 1.0, "e": 1.3}]}]}
+        hits = bleep_find(ct, ["شركة"]); B1 = bleep_of({"bleep": {"items": hits}}); m1, p1 = bleep_filters(B1); _, p2 = bleep_filters(bleep_of({"bleep": {"items": hits, "mode": "mute"}}))
+        tx = bleep_card_text(ct["cards"][0], B1); hh = {}; n1 = bleep_add(hh, hits); n2 = bleep_add(hh, hits)
+        chk("4.6: كتم الكلمات (يلقى الكلمة، يكتم الصوت، نجوم بالنص، وبدونها ما يتغيّر شي)", m0 == "" and p0 is None and len(hits) == 2 and "between(t,0.070,0.430)" in m1 and p1 and "sine=frequency=1000" in p1 and p2 is None
+            and tx.split()[0] == "ش***" and tx.split()[2] == "شركات" and n1 == 2 and n2 == 0 and "function blMask" in txt.get("ext.js", "") and "function bleepPreview" in txt.get("app.js", "") and "blTitle:" in open(os.path.join(HERE, "i18n.js"), encoding="utf-8").read())
+    except Exception as e: chk("4.6: كتم الكلمات", False, str(e)[:120])
     if work and os.path.isdir(work):
         eng = find_engine(engine)
         if not eng: chk("المحرّك موجود لفحص الخادم", False)
@@ -4787,6 +4890,7 @@ def main():
     elif cmd == "brief": cmd_brief(work, rest)
     elif cmd == "media": cmd_media(work, rest)
     elif cmd == "sfx": cmd_sfx(work, rest)
+    elif cmd == "bleep": cmd_bleep(work, rest)
     elif cmd == "face":
         try: os.remove(J(work, "face.json"))
         except OSError: pass

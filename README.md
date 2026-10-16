@@ -12,7 +12,7 @@
 
 <p align="center">
   <img alt="Claude Code skill" src="docs/assets/badge-skill.svg">
-  <img alt="Version 4.6" src="docs/assets/badge-version.svg">
+  <img alt="Version 4.7" src="docs/assets/badge-version.svg">
   <img alt="Runs on Windows, macOS, Linux" src="docs/assets/badge-platforms.svg">
   <img alt="License: PolyForm Noncommercial" src="docs/assets/badge-license.svg">
 </p>
@@ -92,7 +92,7 @@ Pick one on the questions page, or ask Claude: "edit it in the paper style".
 - **Search everything you said:** every clip and every line you spoke, with timestamps, lives in a small database file on your computer only. Search from the Library and it opens the clip at that second.
 - **Edit it yourself:** "I edit it myself" cuts the silences, writes the captions and opens the timeline for you. Add text, explainer cards, number animations, marks, characters, and freehand drawing that draws itself on. Everything saves as you go.
 
-## Editing taste and a CC0 sound library (4.6)
+## Editing taste and a CC0 sound library (4.7)
 - **128 free sounds and music tracks:** transitions, clicks, pop-ins, alerts, success and error, typing, impacts, stingers, money and paper, ambience, and 15 music beds. All CC0, so you can use them in commercial and monetized videos with no credit. Arabic names, a note on when to use each, downloaded on first use.
 - **Library by category, with search:** pick a category or search (whoosh, coins, success) in the studio. Music runs to the end of the clip and ducks under your voice on its own.
 - **Editing rules with numbers:** Claude follows written rules for cuts, the first 3 seconds, pauses, zooms, on-screen text timing, card timing, music and sound-effect levels, and which sound fits which moment (`engine/references/editing-rules.md`, adapted from agent-video-editor, MIT).

@@ -80,7 +80,7 @@ for k,arr in _s.items():
     sig=_load(k)
     if sig is None: continue
     base=0.10 if len(sig)>8*SR else 0.20        # الخلفيات الطويلة أهدأ من الضربات
-    if k.startswith("cc-ambience"): base=0.035  # 4.6: صوت الغرفة والأجواء ينحس ما ينسمع (30 dB تحت الكلام)
+    if k.startswith("cc-ambience"): base=0.035  # 4.7: صوت الغرفة والأجواء ينحس ما ينسمع (30 dB تحت الكلام)
     for v in arr:
         vv=list(v) if isinstance(v,list) else [v]; t0=vv[0]; g=vv[1] if len(vv)>1 else 1; d=vv[2] if len(vv)>2 else None
         L=len(sig) if not d else min(len(sig),int(float(d)*SR)); L=max(0,min(L,int((VEND-float(t0))*SR)))
