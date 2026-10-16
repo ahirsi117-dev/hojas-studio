@@ -12,7 +12,7 @@
 
 <p align="center">
   <img alt="Claude Code skill" src="docs/assets/badge-skill.svg">
-  <img alt="Version 4.4" src="docs/assets/badge-version.svg">
+  <img alt="Version 4.5" src="docs/assets/badge-version.svg">
   <img alt="Runs on Windows, macOS, Linux" src="docs/assets/badge-platforms.svg">
   <img alt="License: PolyForm Noncommercial" src="docs/assets/badge-license.svg">
 </p>
@@ -91,6 +91,17 @@ Pick one on the questions page, or ask Claude: "edit it in the paper style".
 - **Clips from a long video:** it transcribes the whole thing and ranks the strongest moments by how likely they are to hit (hook, numbers, energy, a complete thought, your request). Let Claude pick and edit them, or pick yourself: preview each moment, nudge the start and end, or tap two sentences to make your own.
 - **Search everything you said:** every clip and every line you spoke, with timestamps, lives in a small database file on your computer only. Search from the Library and it opens the clip at that second.
 - **Edit it yourself:** "I edit it myself" cuts the silences, writes the captions and opens the timeline for you. Add text, explainer cards, number animations, marks, characters, and freehand drawing that draws itself on. Everything saves as you go.
+
+## Before and after you post (4.5)
+Everything here runs on your computer and never touches your Claude limit. Anything that would use Claude is a button that asks first and tells you roughly how much it uses.
+
+- **Pre-publish check:** a 0 to 100 score across six things (first 3 seconds, pace, visual change, clarity, ending, length), an estimated watch-through curve, weak spots marked red on the timeline, and a one-click fix for each (`hs retention`).
+- **Best take:** when you say a line several times, it keeps the clearest one. Listen to each take and switch with one tap.
+- **Your numbers:** type your views or import a CSV from TikTok Studio or Metricool. After 5 clips it tells you what works for your audience, and clip suggestions lean that way.
+- **Teleprompter:** read your script as it scrolls over the camera; the recording lands in the Library ready to edit.
+- **Night factory:** drop videos into the `_inbox` folder and they get prepared one by one in light mode, with a phone notification when done.
+- **Covers, carousel, thread, YouTube:** three expressive cover frames with a big title, plus an Instagram carousel, an X thread and a YouTube title and description pulled from your own words.
+- **Wide video follows the speaker:** 16:9 podcasts and interviews get a vertical crop that cuts to whoever is talking.
 
 ## The studio
 

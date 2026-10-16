@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0c11">
+<title>الملقّن · Hojas Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0c11;--s1:rgba(255,255,255,.045);--s2:rgba(255,255,255,.08);--bd:rgba(255,255,255,.1);--tx:#f1f4fa;--mut:#8b93a7;--ok:#36c58a;--bad:#ef6a5a;--warn:#f2b33d;--pri:linear-gradient(180deg,#6aa2ff,#3f7ff0);--blue:#4C8DFF}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+@font-face{font-family:"HS UI";src:url("/hub/ui-font.otf") format("opentype");font-display:swap;size-adjust:118%;unicode-range:U+0600-06FF,U+0750-077F,U+FB50-FDFF,U+FE70-FEFF}
+html,body{margin:0;background:var(--bg);color:var(--tx);font-family:"IBM Plex Sans Arabic",system-ui,sans-serif;font-size:15px;min-height:100%}
+button,input,textarea,select{font:inherit;color:inherit}
+button{border:0;background:none;cursor:pointer;padding:0}
+.wrap{max-width:640px;margin:0 auto;padding:16px 16px calc(40px + env(safe-area-inset-bottom))}
+header{display:flex;align-items:center;gap:12px;padding:8px 0 14px}
+header h1{font-family:"HS UI","IBM Plex Sans Arabic",sans-serif;font-size:38px;margin:0;line-height:1.1;flex:1}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--mut);text-decoration:none;font-size:14px;padding:8px 12px;border:1px solid var(--bd);border-radius:12px}
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:20px;padding:16px;margin-bottom:12px}
+.lbl{color:var(--mut);font-size:13.5px;line-height:1.8}
+input[type=text],textarea,select{width:100%;background:rgba(0,0,0,.25);border:1px solid var(--bd);border-radius:14px;padding:12px 14px;outline:none}
+textarea{min-height:220px;line-height:1.9;resize:vertical}
+input:focus,textarea:focus{border-color:rgba(76,141,255,.6)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 16px;border-radius:14px;background:var(--s2);border:1px solid var(--bd);font-weight:600;font-size:14.5px}
+.btn.y{background:var(--pri);color:#fff;border-color:rgba(255,255,255,.2)}
+.btn.sm{padding:7px 12px;font-size:13px;border-radius:11px}
+.btn:disabled{opacity:.45}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.it{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid transparent;cursor:pointer}
+.it.on{border-color:rgba(76,141,255,.55);background:rgba(76,141,255,.08)}
+.it b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.it small{color:var(--mut)}
+.tkb{font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:999px;background:rgba(242,179,61,.16);color:var(--warn);border:1px solid rgba(242,179,61,.35)}
+.box{border:1px solid rgba(242,179,61,.4);background:rgba(242,179,61,.08);border-radius:14px;padding:12px;font-size:13.5px;line-height:1.8;margin:10px 0}
+.meta{color:var(--mut);font-size:13px;margin-top:6px}
+#toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(30,34,44,.96);border:1px solid var(--bd);padding:10px 16px;border-radius:14px;font-size:14px;display:none;z-index:90;max-width:90%}
+/* وضع التصوير */
+#stage{position:fixed;inset:0;background:#000;z-index:50;display:none}
+#stage.on{display:block}
+#cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#cam.nomirror{transform:none}
+#pr{position:absolute;left:0;right:0;top:0;height:46%;overflow:hidden;background:linear-gradient(180deg,rgba(0,0,0,.78),rgba(0,0,0,.55) 70%,transparent);-webkit-mask:linear-gradient(180deg,transparent 0,#000 14%,#000 80%,transparent);mask:linear-gradient(180deg,transparent 0,#000 14%,#000 80%,transparent)}
+#prIn{position:absolute;left:6%;right:6%;top:32%;font-family:"HS UI","IBM Plex Sans Arabic",sans-serif;font-weight:700;line-height:1.55;text-align:center;color:#fff;white-space:pre-wrap;will-change:transform}
+#prIn.flip{transform:scaleX(-1)}
+#guide{position:absolute;left:0;right:0;top:20%;height:2px;background:rgba(76,141,255,.55)}
+#ctl{position:absolute;left:0;right:0;bottom:0;padding:14px 16px calc(18px + env(safe-area-inset-bottom));background:linear-gradient(0deg,rgba(0,0,0,.8),transparent);display:flex;flex-direction:column;gap:10px}
+#ctl .row{justify-content:center}
+#rec{width:72px;height:72px;border-radius:50%;border:4px solid #fff;display:grid;place-items:center}
+#rec i{width:52px;height:52px;border-radius:50%;background:var(--bad);transition:all .2s}
+#rec.on i{width:28px;height:28px;border-radius:8px}
+.ctl-s{display:flex;align-items:center;gap:10px;color:#ddd;font-size:13px}
+.ctl-s input{flex:1}
+#cd{position:absolute;inset:0;display:none;place-items:center;font-size:140px;font-weight:700;color:#fff;text-shadow:0 6px 30px rgba(0,0,0,.6)}
+#cd.on{display:grid}
+#tm{position:absolute;top:calc(12px + env(safe-area-inset-top));left:16px;background:rgba(0,0,0,.55);border-radius:10px;padding:4px 10px;font-size:14px;direction:ltr;display:none}
+#tm.on{display:block}
+#tm.on::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bad);margin-inline-end:6px}
+#xBtn{position:absolute;top:calc(12px + env(safe-area-inset-top));right:16px;background:rgba(0,0,0,.55);border-radius:12px;padding:8px 12px;font-size:14px}
+#done{position:fixed;inset:0;z-index:60;background:rgba(5,7,10,.96);display:none;overflow:auto}
+#done.on{display:block}
+#done video{width:100%;max-height:52vh;border-radius:18px;background:#000;display:block}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:14px;border:1px solid var(--bd);margin-top:8px;cursor:pointer;text-align:start;width:100%}
+.opt.on{border-color:rgba(76,141,255,.6);background:rgba(76,141,255,.08)}
+.opt small{display:block;color:var(--mut);margin-top:2px;line-height:1.6}
+.prog{height:6px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:10px;display:none}
+.prog i{display:block;height:100%;width:0;background:var(--blue)}
+#tok{position:fixed;inset:0;z-index:95;background:rgba(0,0,0,.6);display:grid;place-items:center;padding:16px}
+#tok .in{background:#141821;border:1px solid var(--bd);border-radius:20px;padding:20px;max-width:420px;width:100%;line-height:1.8}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div id="stage">
+  <video id="cam" playsinline muted autoplay></video>
+  <div id="pr"><div id="prIn"></div></div><div id="guide"></div>
+  <div id="cd"></div><div id="tm">00:00</div>
+  <button id="xBtn">رجوع</button>
+  <div id="ctl">
+    <div class="ctl-s"><span>السرعة</span><input type="range" id="spd" min="0.4" max="3" step="0.1" value="1.2"><span>الخط</span><input type="range" id="fsz" min="24" max="64" step="2" value="38"></div>
+    <div class="row"><button class="btn sm" id="pause">وقّف التمرير</button><button id="rec"><i></i></button><button class="btn sm" id="flip">اعكس النص</button></div>
+  </div>
+</div>
+<div id="done"><div class="wrap" id="doneIn"></div></div>
+<div id="toast"></div>
+<script>
+const $=s=>document.querySelector(s), esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(m){ const e=$('#toast'); e.textContent=m; e.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(()=>e.style.display='none',2800); }
+async function api(p,b){ const r=await fetch('/hub/api/'+p,b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{}); return r.json(); }
+let L=[], CUR=null, HAS_CL=false, TOKASK=true, STREAM=null, MR=null, CHUNKS=[], BLOB=null, MODE='manual';
+const CAN_CAM=!!(window.isSecureContext&&navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.MediaRecorder);
+function words(s){ return (s||'').trim().split(/\s+/).filter(Boolean).length; }
+function render(){ const c=CUR||{title:'',text:''};
+  let o='<header><h1>الملقّن</h1><a class="back" href="/library">المكتبة</a></header>';
+  o+='<div class="card"><input type="text" id="ti" placeholder="عنوان السكربت" value="'+esc(c.title)+'"><textarea id="tx" dir="auto" style="margin-top:10px" placeholder="اكتب أو الصق السكربت هنا. كل سطر يطلع لحاله على الشاشة.">'+esc(c.text)+'</textarea>'
+    +'<div class="meta" id="mt"></div><div class="row" style="margin-top:12px"><button class="btn y" id="go">ابدأ التصوير</button><button class="btn" id="sv">احفظ</button>'+(CUR&&CUR.id?'<button class="btn sm" id="del">احذف</button>':'')+'</div>'
+    +(CAN_CAM?'':'<div class="box">المتصفح ما يسمح بالكاميرا من هذا الرابط (يحتاج رابط آمن). افتح الملقّن من الكمبيوتر نفسه، أو من رابط Tailscale. وتقدر الحين تتمرّن على النص، وبعدها تصوّر بكاميرا جوالك وترفع المقطع من تحت.</div>')+'</div>';
+  if(HAS_CL) o+='<div class="card"><div class="row" style="justify-content:space-between"><b>خلّ Claude يكتبه</b><span class="tkb">يستهلك</span></div><input type="text" id="topic" style="margin-top:10px" placeholder="عن وش المقطع؟"><div class="row" style="margin-top:10px"><select id="secs" style="width:auto">'+[30,45,60,90].map(s=>'<option value="'+s+'"'+(s===45?' selected':'')+'>'+s+' ثانية</option>').join('')+'</select><button class="btn" id="ai">اكتبه</button></div></div>';
+  if(!CAN_CAM) o+='<div class="card"><b>صوّرت بكاميرا جوالك؟</b><p class="lbl">ارفعه من هنا ويروح للمكتبة يتجهّز.</p><label class="btn">اختر الفيديو<input type="file" id="pick" accept="video/*" capture="user" hidden></label></div>';
+  if(L.length) o+='<div class="card"><b>سكربتاتك</b><div class="list">'+L.map(x=>'<div class="it'+(CUR&&CUR.id===x.id?' on':'')+'" data-id="'+x.id+'"><b dir="auto">'+esc(x.title||x.text.slice(0,40))+'</b><small>'+words(x.text)+' كلمة</small></div>').join('')+'</div></div>';
+  $('#app').innerHTML=o; meta();
+  $('#tx').oninput=meta; $('#go').onclick=start; $('#sv').onclick=save; if($('#del')) $('#del').onclick=del; if($('#ai')) $('#ai').onclick=ai;
+  if($('#pick')) $('#pick').onchange=e=>{ const f=e.target.files[0]; if(f){ BLOB=f; showDone(true); } };
+  document.querySelectorAll('.it').forEach(x=>x.onclick=()=>{ CUR=L.find(y=>y.id===x.dataset.id); render(); }); }
+function meta(){ const n=words($('#tx').value); $('#mt').textContent=n?(n+' كلمة · تقريباً '+Math.round(n/2.3)+' ثانية'):''; }
+async function save(){ const r=await api('script_save',{id:CUR&&CUR.id,title:$('#ti').value,text:$('#tx').value}); L=r.items; CUR=L.find(x=>x.id===r.id); toast('انحفظ'); render(); }
+async function del(){ const r=await api('script_del',{id:CUR.id}); L=r.items; CUR=null; render(); }
+function tokenGo(kind,msg,size){ kind=kind||'script'; return new Promise(res=>{ if(!TOKASK) return res(true); try{ if(localStorage.getItem('hsTok_'+kind)==='1') return res(true); }catch(e){}
+  const w=document.createElement('div'); w.id='tok'; w.innerHTML='<div class="in"><h3 style="margin:0 0 6px">هذا يستهلك من حدّك في Claude</h3><p>'+(msg||'Claude بيكتب لك السكربت.')+'</p><div class="box">الاستهلاك: '+(size||'قليل')+'</div><label style="display:flex;gap:8px;align-items:center;color:var(--mut);font-size:13.5px"><input type="checkbox" id="tkS">لا تسألني مرة ثانية</label><div class="row" style="margin-top:14px"><button class="btn y" id="tkY">كمّل</button><button class="btn" id="tkN">لا، خلّه</button></div></div>';
+  document.body.appendChild(w); const d=v=>{ try{ if(v&&$('#tkS').checked) localStorage.setItem('hsTok_'+kind,'1'); }catch(e){} w.remove(); res(v); }; $('#tkY').onclick=()=>d(true); $('#tkN').onclick=()=>d(false); }); }
+async function ai(){ const tp=$('#topic').value.trim(); if(!tp){ toast('اكتب عن وش المقطع'); return; } if(!(await tokenGo())) return; const b=$('#ai'); b.disabled=true; b.textContent='يكتب…';
+  try{ const r=await api('script_ai',{topic:tp,secs:+$('#secs').value}); if(r.ok){ $('#tx').value=r.text; if(!$('#ti').value) $('#ti').value=tp.slice(0,60); meta(); toast('جاهز، راجعه واحفظه'); } else toast(r.msg||'ما زبط'); } finally{ b.disabled=false; b.textContent='اكتبه'; } }
+/* التصوير */
+let Y=0, RUN=false, last=0, T0=0, TICK=null;
+async function start(){ const tx=$('#tx').value.trim(); if(!tx){ toast('اكتب السكربت أول'); return; } if(CUR&&tx!==CUR.text||!CUR) { try{ await save(); }catch(e){} }
+  $('#prIn').textContent=tx; $('#prIn').style.fontSize=$('#fsz').value+'px'; $('#stage').classList.add('on'); Y=0; place(); document.documentElement.style.overflow='hidden';
+  if(CAN_CAM){ try{ STREAM=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1080},height:{ideal:1920}},audio:{echoCancellation:false,noiseSuppression:true,autoGainControl:true}}); $('#cam').srcObject=STREAM; }catch(e){ toast('ما قدرت أفتح الكاميرا'); $('#rec').style.display='none'; } }
+  else $('#rec').style.display='none';
+  RUN=true; last=performance.now(); requestAnimationFrame(scroll); }
+function place(){ $('#prIn').style.transform='translateY('+(-Y)+'px)'+($('#prIn').classList.contains('flip')?' scaleX(-1)':''); }
+function scroll(now){ if(!$('#stage').classList.contains('on')) return; const dt=(now-last)/1000; last=now; if(RUN) { Y+=dt*(+$('#spd').value)*($('#prIn').offsetHeight>0?28:0)*(+$('#fsz').value/38); place(); } requestAnimationFrame(scroll); }
+$('#spd').oninput=()=>{}; $('#fsz').oninput=e=>{ $('#prIn').style.fontSize=e.target.value+'px'; };
+$('#pause').onclick=()=>{ RUN=!RUN; $('#pause').textContent=RUN?'وقّف التمرير':'كمّل التمرير'; };
+$('#flip').onclick=()=>{ $('#prIn').classList.toggle('flip'); place(); };
+$('#pr').onclick=()=>{ RUN=!RUN; $('#pause').textContent=RUN?'وقّف التمرير':'كمّل التمرير'; };
+$('#xBtn').onclick=()=>{ if(MR&&MR.state==='recording') return; stopCam(); $('#stage').classList.remove('on'); document.documentElement.style.overflow=''; };
+function stopCam(){ if(STREAM){ STREAM.getTracks().forEach(t=>t.stop()); STREAM=null; } }
+function mime(){ for(const m of ['video/mp4;codecs=avc1,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm']) if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m)) return m; return ''; }
+$('#rec').onclick=async()=>{ if(!STREAM) return;
+  if(MR&&MR.state==='recording'){ MR.stop(); return; }
+  RUN=false; Y=0; place(); const cd=$('#cd'); cd.classList.add('on'); for(const n of [3,2,1]){ cd.textContent=n; await new Promise(r=>setTimeout(r,800)); } cd.classList.remove('on');
+  CHUNKS=[]; const m=mime(); MR=new MediaRecorder(STREAM,m?{mimeType:m,videoBitsPerSecond:8e6}:{}); MR.ondataavailable=e=>{ if(e.data&&e.data.size) CHUNKS.push(e.data); };
+  MR.onstop=()=>{ clearInterval(TICK); $('#tm').classList.remove('on'); $('#rec').classList.remove('on'); BLOB=new Blob(CHUNKS,{type:MR.mimeType||'video/webm'}); stopCam(); $('#stage').classList.remove('on'); document.documentElement.style.overflow=''; showDone(false); };
+  MR.start(1000); $('#rec').classList.add('on'); RUN=true; last=performance.now(); T0=Date.now(); $('#tm').classList.add('on'); TICK=setInterval(()=>{ const s=Math.floor((Date.now()-T0)/1000); $('#tm').textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); },500); };
+function showDone(picked){ const url=URL.createObjectURL(BLOB);
+  $('#doneIn').innerHTML='<header><h1 style="font-size:30px">'+(picked?'المقطع':'تمام، صوّرت')+'</h1></header><video src="'+url+'" controls playsinline></video>'
+    +'<div class="card" style="margin-top:12px"><b>وش أسوي فيه؟</b>'
+    +'<button class="opt on" data-m="manual"><div><b>أجهّزه وأمنتجه أنا</b><small>يقص السكتات ويكتب الكابشن ويفتح لك التايم لاين. ما يستهلك من Claude.</small></div></button>'
+    +'<button class="opt" data-m="auto"><div><b>Claude يمنتجه <span class="tkb">يستهلك</span></b><small>مونتاج كامل. هذا أكثر شي يستهلك من حدّك.</small></div></button>'
+    +'<input type="text" id="nm" style="margin-top:10px" placeholder="اسم المقطع (اختياري)" value="'+esc((CUR&&CUR.title)||'')+'">'
+    +'<div class="prog" id="pg"><i></i></div><div class="row" style="margin-top:12px"><button class="btn y" id="up">ارفعه للمكتبة</button>'+(picked?'':'<button class="btn" id="again">صوّر مرة ثانية</button>')+'<a class="btn" download="tele-'+Date.now()+(BLOB.type.includes('mp4')?'.mp4':'.webm')+'" href="'+url+'">نزّله</a></div></div>';
+  $('#done').classList.add('on'); MODE='manual';
+  document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ MODE=b.dataset.m; document.querySelectorAll('[data-m]').forEach(x=>x.classList.toggle('on',x===b)); });
+  $('#up').onclick=upload; if($('#again')) $('#again').onclick=()=>{ $('#done').classList.remove('on'); start(); }; }
+async function upload(){ if(MODE==='auto'&&!(await tokenGo('auto','Claude بيمنتج المقطع كامل من البداية. هذا أكثر شي يستهلك.','كثير'))) return;
+  const ext=BLOB.name?(BLOB.name.split('.').pop()||'mp4'):(BLOB.type.includes('mp4')?'mp4':'webm'); const nm=($('#nm').value||'').trim()||('tele-'+new Date().toISOString().slice(5,16).replace(/[-:T]/g,''));
+  const q='name='+encodeURIComponent(nm)+'&file=rec.'+ext+'&mode='+MODE+'&pick=me'; const x=new XMLHttpRequest(); $('#pg').style.display='block'; $('#up').disabled=true;
+  x.upload.onprogress=e=>{ if(e.lengthComputable) $('#pg i').style.width=(e.loaded/e.total*100)+'%'; };
+  x.onload=()=>{ let r={}; try{ r=JSON.parse(x.responseText); }catch(e){} if(r.ok){ toast('وصل، يتجهّز الحين بالمكتبة'); setTimeout(()=>location.href='/library',1200); } else { $('#up').disabled=false; toast(r.msg||'ما وصل'); } };
+  x.onerror=()=>{ $('#up').disabled=false; toast('انقطع الاتصال'); }; x.open('POST','/hub/api/upload?'+q); x.send(BLOB); }
+(async()=>{ try{ const r=await api('scripts'); L=r.items||[]; HAS_CL=!!r.claude; TOKASK=r.tokenAsk!==false; CUR=L[0]||null; }catch(e){} render(); })();
+</script>
+</body>
+</html>

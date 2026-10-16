@@ -65,7 +65,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.4.1"
+VERSION = "4.5.0"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -276,11 +276,10 @@ def check(work):
     gap = float(cfg.get("gap", 2.5)); maxw = int(cfg.get("maxWords", 10)); extra = [_norm(x) for x in (cfg.get("fillers") or [])]
     fl = set(_norm(x) for x in FILLERS) | set(extra)
     fillers = [{"card": i, "idx": j, "t": w["t"], "s": w["s"], "e": w["e"]} for i, c in enumerate(cards) for j, w in enumerate(c["w"]) if _norm(w["t"]) in fl and len(c["w"]) > 1]
-    dupes = []
-    for i in range(len(cards) - 1):
-        for j in range(i + 1, min(i + 3, len(cards))):
-            r = _sim([_norm(w["t"]) for w in cards[i]["w"]], [_norm(w["t"]) for w in cards[j]["w"]])
-            if r >= 0.60: dupes.append({"a": i, "b": j, "r": round(r, 2)}); break
+    dupes = []   # 4.5: كل مجموعة إعادات نخلي فيها الأحسن (مو دايم الأخيرة)
+    for g in takes(work):
+        for i in g["cards"]:
+            if i != g["keep"]: dupes.append({"a": i, "b": g["keep"], "r": round(_sim([_norm(w["t"]) for w in cards[i]["w"]], [_norm(w["t"]) for w in cards[g["keep"]]["w"]]), 2), "why": g["why"], "group": g["cards"]})
     ev = [0.0] + keep_seams(work)                                   # كل لحمة قص = تغيّر زوم
     for s in st.get("scenes") or []: ev += [s.get("s", 0)]
     for k in ("brollClips", "stickers"):
@@ -1428,7 +1427,7 @@ def cmd_selftest(work=None, engine=None):
         if good: n_ok += 1
         else: bad.append(name + ((": " + detail) if detail else ""))
         print(("OK   " if good else "خطأ  ") + name + ((" ← " + detail) if (detail and not good) else ""))
-    files = ["hs.py", "ext.js", "app.js", "i18n.js", "qr.js", "studio.html", "hub.html", "review.html", "AGENT.md", "README.md", "SKILL.md"]; txt = {}
+    files = ["hs.py", "ext.js", "app.js", "i18n.js", "qr.js", "studio.html", "hub.html", "review.html", "tele.html", "AGENT.md", "README.md", "SKILL.md"]; txt = {}
     for f in files:
         fp = os.path.join(HERE, f)
         if not os.path.isfile(fp): chk("موجود: " + f, False); continue
@@ -1514,6 +1513,13 @@ def cmd_selftest(work=None, engine=None):
             for k, v in old_e.items():
                 if v is None: os.environ.pop(k, None)
                 else: os.environ[k] = v
+        try:
+            td = tempfile.mkdtemp(); mk = lambda s0, ws: {"s": s0, "e": s0 + len(ws) * 0.3, "w": [{"t": w, "s": s0 + i * 0.3, "e": s0 + i * 0.3 + 0.25} for i, w in enumerate(ws.split())]}
+            wj(J(td, "caps.json"), {"total": 12, "cards": [mk(0.1, "اليوم بقولكم عن"), mk(1.5, "اليوم بقولكم عن أكبر غلط"), mk(3.5, "اليوم بقولكم عن أكبر غلط يسويه الناس"), mk(6, "تابعني للجزء الثاني")]})
+            tk = takes(td); R = retention(td); RP = repurpose(td, True)
+            chk("4.5: الإعادات تختار الأكمل · فحص قبل النشر · نصوص النشر", len(tk) == 1 and tk[0]["keep"] == 2 and R.get("ok") and 0 <= R["score"] <= 100 and len(R["curve"]) == 12 and RP.get("ok") and _unconj("وراح يوصلك") == "راح يوصلك" and _unconj("وقتها") == "وقتها")
+            shutil.rmtree(td, ignore_errors=True)
+        except Exception as e: chk("4.5: الإعادات وفحص قبل النشر", False, str(e)[:120])
         chk("البلقن: النسخة ونسخة السكل محدّثة", pj.get("version") == VERSION and os.path.isfile(sk) and open(sk, encoding="utf-8").read() == plugin_skill_text(), "شغّل: hs release")
     except Exception as e: chk("البلقن: النسخة ونسخة السكل محدّثة", False, str(e)[:120])
     chk("الرسم الحر بالمحرّك والاستوديو", "function drawLayer" in txt.get("ext.js", "") and "function drawStart" in txt.get("app.js", ""))
@@ -2036,7 +2042,7 @@ def serve(work, port, engine):
             if p == "/hs/info":
                 return self._json(200, {"version": VERSION, "vsig": vsig(work), "token": TOKEN, "lan": "http://%s:%d/?k=%s" % (LAN, port, TOKEN), "lanM": "http://%s:%d/m?k=%s" % (LAN, port, TOKEN), "review": "http://%s:%d/review?r=%s" % (LAN, port, RTOKEN),
                                         "work": work, "name": os.path.basename(work.rstrip("/\\")), "thumbsDone": BG["thumbsDone"], "versions": versions(), "exports": exports(), "exportMt": export_mt(), "hub": hub_url(), "title": (hs_of(load_studio(work)).get("title") or (hs_of(load_studio(work)).get("pod") or {}).get("title") or (hs_of(load_studio(work)).get("dahih") or {}).get("title") or ""),
-                                        "brands": sorted(os.path.splitext(f)[0] for f in os.listdir(brand_dir())), "local": self._local(), "claude": bool(find_claude() or shutil.which("opencode")), "agent": "claude" if find_claude() else ("opencode" if shutil.which("opencode") else ""), "notify": bool(notify_cfg().get("on")), "gen": gen_view(gen_list(work)), "safe": safe_of((load_studio(work).get("hs") or {}).get("platforms"), *frame_of(load_studio(work).get("hs") or {})), "platforms": {k: {"safe": v["safe"], "frames": v["frames"], "best": v["best"], "max": v["max"]} for k, v in PLATFORMS.items()},
+                                        "brands": sorted(os.path.splitext(f)[0] for f in os.listdir(brand_dir())), "local": self._local(), "claude": bool(find_claude() or shutil.which("opencode")), "agent": "claude" if find_claude() else ("opencode" if shutil.which("opencode") else ""), "notify": bool(notify_cfg().get("on")), "tokenAsk": token_ask(), "gen": gen_view(gen_list(work)), "safe": safe_of((load_studio(work).get("hs") or {}).get("platforms"), *frame_of(load_studio(work).get("hs") or {})), "platforms": {k: {"safe": v["safe"], "frames": v["frames"], "best": v["best"], "max": v["max"]} for k, v in PLATFORMS.items()},
                                         "assets": sorted(f for f in os.listdir(P("assets")) if os.path.splitext(f)[1].lower() in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg")) if os.path.isdir(P("assets")) else [], "seams": keep_seams(work), "looks": looks_all(), "beats": rj(P("beats.json")),
                                         "post": open(P("post.txt"), encoding="utf-8").read() if os.path.exists(P("post.txt")) else "", "ready": ready(work),
                                         "finals": [f for f in sorted(os.listdir(work)) if re.match(r"ad-(master|clean|hook-\d+|\d+x\d+)\.mp4$", f)]})
@@ -2057,6 +2063,17 @@ def serve(work, port, engine):
             if p == "/hs/media_search":
                 try: return self._json(200, {"ok": True, "items": (video_search if (q.get("kind") or [""])[0] == "video" else media_search)(work, (q.get("q") or [""])[0], 12)})
                 except Exception as e: return self._json(200, {"ok": False, "msg": "البحث فشل (تأكد من النت): " + str(e)[:160], "items": []})
+            if p == "/hs/retention": return self._json(200, retention(work))
+            if p == "/hs/covers": return self._json(200, covers(work))
+            if p == "/hs/repurpose": return self._json(200, repurpose(work))
+            if p == "/hs/perf": return self._json(200, {"rows": perf_get(item_id(work)), "tokenAsk": token_ask()})
+            if p == "/hs/carousel.zip":
+                cd = P("carousel"); zp = os.path.join(D, "carousel.zip")
+                with zipfile.ZipFile(zp, "w") as z:
+                    for f in sorted(glob.glob(os.path.join(cd, "*.png"))): z.write(f, os.path.basename(f))
+                    rp = rj(P("repurpose.json"), {}) or {}
+                    if rp: z.writestr("thread.txt", "\n\n".join(rp.get("thread") or [])); z.writestr("youtube.txt", (rp.get("yt") or {}).get("title", "") + "\n\n" + (rp.get("yt") or {}).get("desc", ""))
+                return self._file(zp, "application/zip", dl=os.path.basename(work.rstrip("/\\")) + "-carousel.zip")
             if p == "/hs/pack.zip" and os.path.exists(os.path.join(D, "pack.zip")): return self._file(os.path.join(D, "pack.zip"), "application/zip", dl=os.path.basename(work.rstrip("/\\")) + "-publish.zip")
             if p.startswith("/sfx_prev/"):
                 k = os.path.splitext(os.path.basename(p))[0]
@@ -2167,6 +2184,32 @@ def serve(work, port, engine):
                 if p == "/hs/sfx_fetch":
                     d = json.loads(raw or b"{}"); ok, bad = sfx_fetch(d.get("ids") or None)
                     return self._json(200, {"ok": not bad, "got": ok, "bad": bad, "msg": ("ما قدرت أنزّل %d صوت. تأكد من النت." % len(bad)) if bad else ""})
+                if p in ("/hs/cover_save", "/hs/carousel_save"):   # 4.5: الصورة ترتسم بالمتصفح بخط المقطع وتنحفظ هنا
+                    m = re.match(r"data:image/(png|jpeg);base64,(.+)$", str(data.get("data") or ""), re.S)
+                    if not m: return self._json(400, {"ok": False})
+                    i = max(1, min(20, int(data.get("i") or 1)))
+                    if p == "/hs/cover_save": out = P("cover-%d.jpg" % i)
+                    else:
+                        os.makedirs(P("carousel"), exist_ok=True)
+                        if data.get("clear"):
+                            for f in glob.glob(os.path.join(P("carousel"), "*.png")): os.remove(f)
+                        out = os.path.join(P("carousel"), "slide-%02d.png" % i)
+                    open(out, "wb").write(base64.b64decode(m.group(2))); return self._json(200, {"ok": True, "file": os.path.relpath(out, work).replace("\\", "/")})
+                if p == "/hs/repurpose":
+                    if data.get("save"):
+                        R = rj(P("repurpose.json"), {}) or {}; R.update({k: v for k, v in data["save"].items() if k in ("title", "points", "cta", "thread", "yt", "tags")}); wj(P("repurpose.json"), R); return self._json(200, R)
+                    return self._json(200, repurpose(work, fresh=True))
+                if p == "/hs/perf":
+                    perf_set(item_id(work), str(data.get("plat") or "all")[:20], **{k: data.get(k) for k in ("views", "likes", "comments", "shares", "saves", "watch", "ret", "posted", "url")})
+                    return self._json(200, {"ok": True, "rows": perf_get(item_id(work))})
+                if p == "/hs/claude_fix":   # 4.5: اختياري ويستهلك من حدّك (الواجهة تنبّهه قبلها)
+                    what = str(data.get("what") or "retention"); items = [str(x)[:300] for x in (data.get("items") or [])][:12]
+                    if what == "repurpose":
+                        task = ("حسّن نصوص النشر بملف repurpose.json بمجلد المشروع بلهجة صاحب المقطع: عنوان يشد، 4 إلى 5 نقاط للكاروسيل (كل وحدة جملة قصيرة)، ثريد X، وعنوان ووصف يوتيوب. "
+                                "لا تغيّر شكل الملف ولا تلمس أي ملف ثاني. خلّ by = claude.")
+                    else: task = "صلّح هالمشاكل بالمقطع (فحص الاحتفاظ). أقل تعديل يكفي، وبعدها قل وش سويت بسطرين:\n- " + "\n- ".join(items)
+                    ok, msg = agent_run(task, "تحسين بـClaude: " + ("نصوص النشر" if what == "repurpose" else "فحص الاحتفاظ"))
+                    return self._json(200, {"ok": ok, "msg": msg})
                 if p == "/hs/remove":
                     def go(): remove_ranges(work, S, base.log, ranges=data.get("ranges") or [], cards=data.get("cards") or [], words=data.get("words") or []); base.JOB["reload"] = True
                     ok = base.job("remove", go); return self._json(200 if ok else 409, {"ok": ok, "msg": "" if ok else "فيه عملية شغالة"})
@@ -2691,6 +2734,7 @@ def clips_suggest(d, n=None, ln=None, note=None):
     except ValueError: mn, mx = 25.0, 75.0
     mid = (mn + mx) / 2; topic = [w for w in _tok(want.get("note") or "") if len(w) > 2 and w not in STOP_W]
     rms = audio_rms(J(d, "long.wav")); med = sorted(rms)[len(rms) // 2] if rms else 0
+    LP = learned() if (learned().get("n") or 0) >= 5 else {}
     wps = sorted(len(_tok(s["text"])) / max(0.3, s["end"] - s["start"]) for s in segs); wmed = wps[len(wps) // 2] or 2.5
     def hook_of(text):
         tk = _tok(text); low = " " + " ".join(tk) + " "; why = []; h = 0.0
@@ -2723,6 +2767,11 @@ def clips_suggest(d, n=None, ln=None, note=None):
             hit = sum(1 for w in set(topic) if any(w in x or x in w for x in tk if len(x) > 2))
             if hit: sc += 1.5 * hit / len(set(topic)); why.append("قريبة من طلبك")
         sc -= abs(dur - mid) / max(10, mx - mn) * 0.8
+        if LP:   # 4.5: من أرقام مقاطعك المنشورة
+            hw0 = hook_score(first)[1]; b0 = sum(LP.get(k, 0) for k, nm in (("q", "سؤال"), ("num", "رقم"), ("hookw", "كلمة تشد")) if nm in hw0)
+            if LP.get("len") and LP["len"][0] <= dur <= LP["len"][1]: b0 += 0.5
+            if b0 > 0.2: why.append("يشبه مقاطعك اللي ضربت")
+            sc += b0
         return sc, why
     C = []
     for i in range(len(segs)):
@@ -3054,6 +3103,399 @@ hs claude test         يجرّب يرد بكلمة (يتأكد من الدخو�
         if r.returncode == 0 and "ok" in out.lower() and claude_why(out)["why"] == "other": print("شغّال ويرد.")
         else: sys.exit(claude_why(out, r.returncode)["msg"])
 
+# ══════════ 4.5: ثمان ميزات. كلها تشتغل على جهازك بدون Claude، وأي شي يحتاج Claude زر اختياري ينبّهك إنه يستهلك ══════════
+def token_ask(): return hub_cfg().get("tokenAsk", True) is not False
+CTA_W = set("تابع تابعني تابعونا تابعوني اشترك اشتركوا احفظ احفظه احفظوه شارك شاركه شاركوه رابط الرابط البايو علق علّق علقوا كومنت follow subscribe save share link comment bio".split())
+WEAK_END = set("و ف بس لكن يعني اللي عشان علشان and but so because the a to of".split())
+CONJ_REST = set("من إذا اذا راح هذا هذي هذه انا أنا انت أنت بعدين بعدها كمان لو إن ان أن ما لا كل تبي يعني اللي هو هي هم في على عشان لما حتى".split())
+def _conj(w):
+    """هل أول حرف واو/فاء عطف؟ «ومن» «وتشوف» «والله» لا، «وقت» لا."""
+    if len(w) < 3 or w[0] not in "وف" or w in ("والله", "وش", "وين"): return False
+    r = w[1:]
+    return r in CONJ_REST or r.startswith("ال") or (len(r) >= 4 and r[0] in "تينأا")
+def _weak0(w): return w in WEAK_START or _conj(w)
+def _unconj(t):
+    """يشيل واو العطف من أول كلمة: «وراح يوصلك» ← «راح يوصلك»."""
+    w = t.split()
+    if w and _conj(w[0]): w[0] = w[0][1:]
+    return " ".join(w)
+def hook_score(text):
+    """كم الجملة تشد (0 إلى 3) وليش."""
+    tk = _tok(text); low = " " + " ".join(tk) + " "; why = []; h = 0.0
+    if re.search(r"[?؟]", text) or (tk and tk[0] in ("ليش", "ليه", "كيف", "شلون", "وش", "ايش", "إيش", "هل", "why", "how", "what")): h += 1; why.append("سؤال")
+    hw = sum(1 for w in tk if w in HOOK_W or _bare(w) in HOOK_W) + sum(1 for p in HOOK_P if p in low)
+    if hw: h += min(2, hw) * 0.7; why.append("كلمة تشد")
+    if re.search(r"\d|مليون|ألف|الف|million|thousand|percent|٪|%", text): h += 0.6; why.append("رقم")
+    if tk and _weak0(tk[0]): h -= 0.6; why.append("بداية ضعيفة")
+    return max(0.0, min(3.0, h)), why
+def _sentences(cards, gap=0.5, maxw=22):
+    """يجمع جمل الكابشن القصيرة لجمل كاملة حسب الوقفات."""
+    out = []; cur = None
+    for i, c in enumerate(cards):
+        if not c.get("w"): continue
+        tx = " ".join(w["t"] for w in c["w"])
+        if cur and c["w"][0]["s"] - cur["e"] <= gap and len(cur["text"].split()) + len(c["w"]) <= maxw: cur["text"] += " " + tx; cur["e"] = c["w"][-1]["e"]; cur["cards"].append(i)
+        else:
+            cur = {"s": c["w"][0]["s"], "e": c["w"][-1]["e"], "text": tx, "cards": [i]}; out.append(cur)
+    return out
+
+# ── (4) أحسن إعادة: لو قلت الجملة كذا مرة نخلي الأوضح ──
+def takes(work):
+    caps = rj(J(work, "caps.json"), {"cards": []}) or {"cards": []}; cards = caps.get("cards") or []
+    if len(cards) < 2: return []
+    probs = []
+    for s in (rj(J(work, "a.json"), {}) or {}).get("segments") or []:
+        for w in s.get("words") or []:
+            if w.get("probability") is not None: probs.append((float(w["start"]), float(w["probability"])))
+    probs.sort(); fl = set(_norm(x) for x in FILLERS)
+    N = [[_norm(w["t"]) for w in c["w"]] for c in cards]
+    par = list(range(len(cards)))
+    def root(x):
+        while par[x] != x: par[x] = par[par[x]]; x = par[x]
+        return x
+    for i in range(len(cards)):
+        for j in range(i + 1, min(i + 5, len(cards))):
+            a, b = N[i], N[j]
+            if not a or not b: continue
+            r = _sim(a, b); k = min(len(a), len(b))
+            pre = k >= 3 and a[:k] == b[:k] and k >= 0.6 * min(len(a), len(b))   # بدأ الجملة وقطعها ثم أعادها
+            if r >= 0.6 or pre: par[root(j)] = root(i)
+    G = {}
+    for i in range(len(cards)): G.setdefault(root(i), []).append(i)
+    out = []
+    for g in G.values():
+        if len(g) < 2: continue
+        g.sort(); mx = max(len(N[i]) for i in g); q = {}; why = {}
+        for i in g:
+            ws = cards[i]["w"]; n = len(ws); pauses = sum(1 for a, b in zip(ws, ws[1:]) if b["s"] - a["e"] > 0.45); fil = sum(1 for w in ws if _norm(w["t"]) in fl)
+            pr = [p for t, p in probs if ws[0]["s"] - 0.3 <= t <= ws[-1]["e"] + 0.3]   # تقريبي: وقت التفريغ قبل القص
+            pv = sum(pr) / len(pr) if pr else 0.8
+            sc = 45 * n / mx + 25 * pv - 9 * pauses - 6 * fil + (6 if i == g[-1] else 0)
+            q[i] = round(sc, 1); why[i] = [x for x, ok in (("الأكمل", n == mx), ("بدون وقفات", pauses == 0), ("بدون حشو", fil == 0), ("آخر محاولة", i == g[-1])) if ok]
+        keep = max(g, key=lambda i: q[i])
+        out.append({"cards": g, "keep": keep, "q": q, "why": why[keep]})
+    return out
+
+# ── (1) فحص الاحتفاظ قبل النشر (تقدير من المقطع نفسه، مو أرقام مشاهدين حقيقية) ──
+def retention(work):
+    caps = rj(J(work, "caps.json"), {"cards": [], "total": 0}) or {}; cards = [c for c in caps.get("cards") or [] if c.get("w")]; total = float(caps.get("total") or 0)
+    if not cards or total < 3: return {"ok": False, "msg": "المقطع ما تجهّز للحين"}
+    ck = check(work); hs = hs_of(load_studio(work)); n = max(1, int(total + 0.999))
+    W = [w for c in cards for w in c["w"]]; speak = [0.0] * n; wc = [0] * n; fil = [0] * n; fl = set(_norm(x) for x in FILLERS)
+    for w in W:
+        a, b = float(w["s"]), float(w["e"]); i = int(a)
+        if i < n: wc[i] += 1
+        if _norm(w["t"]) in fl and i < n: fil[i] += 1
+        while i < n and i < b:
+            speak[i] += max(0.0, min(b, i + 1) - max(a, i)); i += 1
+    silent = [1.0 if speak[i] < 0.25 else (0.5 if speak[i] < 0.5 else 0.0) for i in range(n)]
+    med = sorted(x for x in wc if x)[len([x for x in wc if x]) // 2] if any(wc) else 2
+    slow = []
+    for i in range(n):
+        lo, hi = max(0, i - 2), min(n, i + 2); r = sum(wc[lo:hi]) / max(1, hi - lo)
+        slow.append(1.0 if r < max(1.1, med * 0.55) and speak[i] > 0.3 else 0.0)
+    static = [0.0] * n; gap = ck.get("gap", 2.5)
+    for g in ck.get("gaps") or []:
+        for i in range(int(g["s"]), min(n, int(g["e"]) + 1)):
+            k = (i - g["s"]) / max(0.5, gap)
+            if k > 0.6: static[i] = max(static[i], min(1.0, (k - 0.6) / 1.2))
+    rep = [0.0] * n; tk = takes(work)
+    for gr in tk:
+        for ci in gr["cards"]:
+            if ci == gr["keep"]: continue
+            c = caps["cards"][ci]
+            for i in range(int(c["w"][0]["s"]), min(n, int(c["w"][-1]["e"]) + 1)): rep[i] = 1.0
+    risk = [min(1.0, 0.45 * silent[i] + 0.35 * static[i] + 0.3 * slow[i] + 0.55 * rep[i] + 0.15 * min(1, fil[i])) for i in range(n)]
+    # الأبعاد
+    S = _sentences(cards); first = S[0]["text"] if S else ""; h0, hwhy = hook_score(first); op = ck.get("open") or {}; miss = op.get("miss") or []
+    fw = float(cards[0]["w"][0]["s"])
+    hook = 100 - (25 if fw > 0.7 else 0) - 15 * len([m for m in miss if m != "voice"]) - (30 if h0 < 0.5 else 12 if h0 < 1.2 else 0)
+    if (hs.get("hooks") or {}).get("on") and (hs.get("hooks") or {}).get("items"): hook += 10
+    pace = 100 - 140 * sum(silent) / n - 70 * sum(slow) / n
+    visual = 100 - 150 * sum(1 for x in static if x > 0.3) / n
+    fpm = len(ck.get("fillers") or []) / max(0.25, total / 60)
+    clarity = 100 - 7 * fpm - 12 * sum(len(g["cards"]) - 1 for g in tk) - 4 * len(ck.get("longCaps") or [])
+    lastS = S[-1] if S else {"text": "", "e": total}; ltk = _tok(lastS["text"]); tail = total - float(cards[-1]["w"][-1]["e"])
+    cta = any(w in CTA_W or _bare(w) in CTA_W for s in S[-2:] for w in _tok(s["text"]))
+    payoff = 100 - (30 if ltk and ltk[-1] in WEAK_END else 0) - (25 if tail > 1.4 else 0) - (0 if cta else 15)
+    plats = hs.get("platforms") or []; ln = len_check(total, plats)
+    length = 100 - (40 if any(x["k"] == "over" for x in ln) else 20 if ln else 0) - (0 if plats or 12 <= total <= 75 else 20)
+    dims = {k: int(max(0, min(100, v))) for k, v in (("hook", hook), ("pace", pace), ("visual", visual), ("clarity", clarity), ("payoff", payoff), ("length", length))}
+    score = int(round(dims["hook"] * 0.3 + dims["pace"] * 0.2 + dims["visual"] * 0.2 + dims["clarity"] * 0.15 + dims["payoff"] * 0.1 + dims["length"] * 0.05))
+    # منحنى تقديري: كم يكمل من المشاهدين لكل ثانية
+    ret = 100.0; curve = []; drop3 = max(8.0, 34 - dims["hook"] * 0.22)
+    for i in range(n):
+        if i < 3: ret -= drop3 / 3
+        ret *= 1 - (0.004 + 0.028 * risk[i]); curve.append(round(max(0.0, ret), 1))
+    zones = []; i = 0
+    while i < n:
+        lv = 2 if risk[i] >= 0.55 else 1 if risk[i] >= 0.3 else 0
+        if not lv: i += 1; continue
+        j = i
+        while j + 1 < n and (2 if risk[j + 1] >= 0.55 else 1 if risk[j + 1] >= 0.3 else 0) == lv: j += 1
+        zones.append({"s": i, "e": min(total, j + 1), "lvl": "red" if lv == 2 else "yellow"}); i = j + 1
+    # التصليحات مرتّبة بالأهم
+    fixes = []
+    if dims["hook"] < 75:
+        S2 = [x for x in _sentences(cards, 0.45, 12) if 4 <= len(x["text"].split()) <= 12 and _tok(x["text"])[:1] and not _weak0(_tok(x["text"])[0])]
+        best = max(S2, key=lambda s: hook_score(s["text"])[0]) if S2 else None
+        if best and hook_score(best["text"])[0] >= 0.7 and hook_score(best["text"])[0] > h0 + 0.4:
+            fixes.append({"k": "hook", "t": 0, "imp": 3, "fix": "hook", "arg": best["text"][:70], "msg": "أول 3 ثواني ما تشد كفاية. أقوى جملة عندك: «%s». حطها عنوان فوق أول المقطع." % best["text"][:60]})
+        else: fixes.append({"k": "hook", "t": 0, "imp": 3, "fix": "claude", "msg": "أول 3 ثواني ما تشد كفاية (" + ("، ".join(hwhy) or "ما فيها سؤال أو رقم أو كلمة تشد") + ")."})
+    if fw > 0.7: fixes.append({"k": "start", "t": 0, "imp": 3, "fix": "cut", "arg": [[0, round(fw - 0.12, 2)]], "msg": "أول كلمة تبدأ بعد %.1f ث. الناس تسحب قبلها." % fw})
+    pauses = []
+    for z in zones:
+        for a, b in zip(W, W[1:]):
+            if z["s"] <= a["e"] < z["e"] and b["s"] - a["e"] > 0.45: pauses.append([round(a["e"] + 0.12, 2), round(b["s"] - 0.08, 2)])
+    pauses = [p for p in pauses if p[1] - p[0] > 0.2]
+    if pauses: fixes.append({"k": "pace", "t": pauses[0][0], "imp": 2, "fix": "cut", "arg": pauses, "msg": "فيه %d وقفة بين الكلام بالمناطق الحمراء (%.1f ث كلها). أشيلها وأخلي الكلام متصل." % (len(pauses), sum(b - a for a, b in pauses))})
+    for g in (ck.get("gaps") or [])[:6]:
+        if g["d"] >= gap + 0.8: fixes.append({"k": "visual", "t": g["s"], "imp": 2, "fix": "zoom", "arg": [round(g["s"] + gap * 0.6, 2), round(min(g["e"], g["s"] + gap * 0.6 + 2.6), 2)], "msg": "%.1f ث بدون أي تغيير بالصورة من %s. أحط زوم بطيء يحركها." % (g["d"], tfmt(g["s"]))})
+    if tk: fixes.append({"k": "takes", "t": caps["cards"][tk[0]["cards"][0]]["s"], "imp": 2, "fix": "takes", "msg": "قلت %d جملة أكثر من مرة. خليت لك الأحسن بكل وحدة تحت «الإعادات»." % len(tk)})
+    if fpm > 3: fixes.append({"k": "clarity", "t": 0, "imp": 1, "fix": "fillers", "msg": "%d كلمة حشو بالدقيقة. شيلها من «كلمات الحشو»." % round(fpm)})
+    if tail > 1.4: fixes.append({"k": "payoff", "t": round(total - tail, 2), "imp": 2, "fix": "cut", "arg": [[round(total - tail + 0.35, 2), round(total, 2)]], "msg": "بعد آخر كلمة %.1f ث فاضية. الناس تطلع قبل النهاية ويحسب عليك." % tail})
+    if not cta: fixes.append({"k": "payoff", "t": round(lastS["s"], 2), "imp": 1, "fix": "claude", "msg": "النهاية ما تطلب شي (تابع، احفظ، علّق). جملة وحدة ترفع التفاعل."})
+    for x in ln: fixes.append({"k": "length", "t": 0, "imp": 2 if x["k"] == "over" else 1, "fix": None, "msg": ("أطول من حد %s (%d ث)." % (x["p"], x["max"])) if x["k"] == "over" else ("الأنسب لـ%s بين %d و%d ث، ومقطعك %d ث." % (x["p"], x["lo"], x["hi"], round(total)))})
+    fixes.sort(key=lambda f: -f["imp"])
+    return {"ok": True, "score": score, "dims": dims, "curve": curve, "zones": zones, "fixes": fixes, "end": curve[-1] if curve else 0, "total": total, "takes": tk}
+
+# ── (2) يتعلّم من أرقامك: أداء كل مقطع (تدخله بيدك أو تستورده CSV) ──
+PERF_COLS = {"views": ("views", "plays", "video views", "total views", "view count", "المشاهدات", "مشاهدات", "عدد المشاهدات", "reach"),
+             "likes": ("likes", "like count", "الإعجابات", "اعجابات", "إعجابات", "reactions"), "comments": ("comments", "التعليقات", "تعليقات"),
+             "shares": ("shares", "المشاركات", "مشاركات", "reposts"), "saves": ("saves", "saved", "bookmarks", "favorites", "المحفوظات", "حفظ"),
+             "watch": ("average watch time", "avg. watch time", "avg watch time", "average view duration", "متوسط وقت المشاهدة", "متوسط المشاهدة"),
+             "ret": ("watched full video", "completion rate", "retention", "average percentage viewed", "نسبة المشاهدة الكاملة", "نسبة الاحتفاظ"),
+             "date": ("date", "post time", "posted", "published", "publish time", "created", "time", "التاريخ", "تاريخ النشر"),
+             "title": ("title", "caption", "description", "text", "video title", "content", "النص", "الوصف", "العنوان"), "url": ("link", "url", "permalink", "الرابط")}
+def perf_conn():
+    c, _ = db_conn()
+    c.execute("CREATE TABLE IF NOT EXISTS perf (item TEXT, plat TEXT, views INTEGER, likes INTEGER, comments INTEGER, shares INTEGER, saves INTEGER, watch REAL, ret REAL, posted TEXT, url TEXT, src TEXT, at REAL, PRIMARY KEY (item, plat))")
+    return c
+def _num(v):
+    s = str(v or "").strip().replace(",", "").replace("٬", "").replace(" ", "")
+    s = s.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")); m = re.match(r"^([\d.]+)\s*([kKmMبألف]*)", s)
+    if not m: return None
+    try: x = float(m.group(1))
+    except ValueError: return None
+    u = m.group(2).lower()
+    return x * (1e3 if u in ("k", "ألف", "الف") else 1e6 if u == "m" else 1)
+def _secs(v):
+    s = str(v or "").strip()
+    if re.match(r"^\d+:\d+(:\d+)?$", s):
+        p = [float(x) for x in s.split(":")]; return p[0] * 60 + p[1] if len(p) == 2 else p[0] * 3600 + p[1] * 60 + p[2]
+    return _num(s.rstrip("sث "))
+def perf_set(item, plat="all", **v):
+    c = perf_conn()
+    try:
+        old = c.execute("SELECT views, likes, comments, shares, saves, watch, ret, posted, url FROM perf WHERE item=? AND plat=?", (item, plat)).fetchone()
+        keys = ("views", "likes", "comments", "shares", "saves", "watch", "ret", "posted", "url"); row = dict(zip(keys, old or [None] * 9))
+        for k in keys:
+            if v.get(k) not in (None, ""): row[k] = v[k] if k in ("posted", "url") else (_secs(v[k]) if k == "watch" else _num(v[k]))
+        with _DBL:
+            c.execute("INSERT OR REPLACE INTO perf VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", (item, plat, *(row[k] for k in keys[:7]), row["posted"], row["url"], v.get("src") or "manual", time.time())); c.commit()
+    finally: c.close()
+    try: learn_prefs()
+    except Exception: pass
+def perf_get(item):
+    c = perf_conn()
+    try: return [dict(zip(("plat", "views", "likes", "comments", "shares", "saves", "watch", "ret", "posted", "url"), r)) for r in c.execute("SELECT plat, views, likes, comments, shares, saves, watch, ret, posted, url FROM perf WHERE item=?", (item,)).fetchall()]
+    finally: c.close()
+def perf_all():
+    c = perf_conn()
+    try:
+        R = {}
+        for item, views, likes, sh, sv, ret in c.execute("SELECT item, views, likes, shares, saves, ret FROM perf").fetchall():
+            x = R.setdefault(item, {"views": 0, "likes": 0, "shares": 0, "saves": 0, "ret": None})
+            x["views"] += views or 0; x["likes"] += likes or 0; x["shares"] += sh or 0; x["saves"] += sv or 0
+            if ret is not None: x["ret"] = ret
+        items = {r[0]: {"work": r[1], "title": r[2], "dur": r[3]} for r in c.execute("SELECT id, work, title, dur FROM items").fetchall()}
+        return {k: {**v, **items.get(k, {})} for k, v in R.items() if k in items}
+    finally: c.close()
+def perf_import(text, plat="", name=""):
+    """يستورد CSV من تيك توك أو انستقرام أو Metricool ويربط كل صف بمقطعه (بالنص والتاريخ)."""
+    import csv, io
+    rows = list(csv.reader(io.StringIO(text.lstrip("﻿"))))
+    if len(rows) < 2: return {"ok": False, "msg": "الملف فاضي أو مو CSV"}
+    hi = next((i for i, r in enumerate(rows[:6]) if sum(1 for x in r if x.strip()) >= 2), 0); head = [h.strip().lower() for h in rows[hi]]
+    col = {}
+    for k, names in PERF_COLS.items():
+        for i, h in enumerate(head):
+            if any(h == n or (len(n) > 4 and n in h) for n in names) and i not in col.values(): col[k] = i; break
+    if "views" not in col: return {"ok": False, "msg": "ما لقيت عمود المشاهدات بالملف (views / plays / المشاهدات)"}
+    pl = plat or ("tiktok" if "tiktok" in name.lower() else "instagram" if re.search(r"insta|reel", name, re.I) else "youtube" if "youtube" in name.lower() else "all")
+    db_sync(hub_cfg().get("root"))
+    c, _ = db_conn()
+    try: items = c.execute("SELECT id, work, title, made FROM items WHERE kind='proj'").fetchall()
+    finally: c.close()
+    docs = {}
+    for iid, w, title, made in items:
+        tx = " ".join(x for x in (title, open(J(w, "post.txt"), encoding="utf-8", errors="replace").read()[:600] if os.path.exists(J(w, "post.txt")) else "",
+                                  " ".join(card_key(cc) for cc in ((rj(J(w, "caps.json"), {}) or {}).get("cards") or [])[:4])) if x)
+        docs[iid] = (set(t for t in _tok(norm_txt(tx)) if len(t) > 2 and t not in STOP_W), made or 0)
+    ok, miss = 0, []
+    for r in rows[hi + 1:]:
+        if not any(x.strip() for x in r): continue
+        g = lambda k: r[col[k]] if k in col and col[k] < len(r) else ""
+        cap = g("title"); toks = set(t for t in _tok(norm_txt(cap)) if len(t) > 2 and t not in STOP_W); best = None
+        for iid, (dt, made) in docs.items():
+            if not toks or not dt: continue
+            s = len(toks & dt) / max(3, min(len(toks), len(dt)))
+            if not best or s > best[0]: best = (s, iid)
+        row = {k: g(k) for k in ("views", "likes", "comments", "shares", "saves", "watch", "ret", "url")}; row["posted"] = g("date")
+        if best and best[0] >= 0.3: perf_set(best[1], pl, src="csv", **row); ok += 1
+        else: miss.append({"title": cap[:120], "views": _num(row["views"]), "row": row})
+    return {"ok": True, "matched": ok, "unmatched": miss[:60], "plat": pl}
+def item_feats(work):
+    caps = rj(J(work, "caps.json"), {}) or {}; cards = [c for c in caps.get("cards") or [] if c.get("w")]; hs = hs_of(load_studio(work)); total = float(caps.get("total") or 0)
+    S = _sentences(cards); first = S[0]["text"] if S else ""; h, why = hook_score(first)
+    nw = sum(len(c["w"]) for c in cards)
+    return {"dur": total, "q": "سؤال" in why, "num": "رقم" in why, "hookw": "كلمة تشد" in why, "rate": nw / max(1, total), "start": float(cards[0]["w"][0]["s"]) if cards else 0,
+            "layers": len([L for L in hs.get("layers") or [] if not L.get("off")]) / max(0.25, total / 60), "hookOn": bool((hs.get("hooks") or {}).get("on")), "style": (hs.get("cap") or {}).get("preset") or (hs.get("cap") or {}).get("style") or ""}
+def insights():
+    P = perf_all(); rows = []
+    for iid, p in P.items():
+        if not p.get("views") or not p.get("work") or not os.path.isdir(p["work"]): continue
+        try: rows.append((p["views"], item_feats(p["work"]), p))
+        except Exception: pass
+    out = {"n": len(rows), "tips": [], "top": [], "need": max(0, 5 - len(rows))}
+    if not rows: return out
+    rows.sort(key=lambda r: -r[0]); out["top"] = [{"title": r[2].get("title"), "views": r[0], "work": r[2]["work"]} for r in rows[:5]]
+    if len(rows) < 5: return out
+    med = lambda L: sorted(L)[len(L) // 2] if L else 0
+    def cmp(name, yes, no_msg=None):
+        a = [v for v, f, _ in rows if yes(f)]; b = [v for v, f, _ in rows if not yes(f)]
+        if len(a) >= 2 and len(b) >= 2 and med(b):
+            r = med(a) / med(b)
+            if r >= 1.4: out["tips"].append({"k": name, "r": round(r, 1), "up": True, "msg": TIPS_AR[name][0] % r})
+            elif r <= 0.7 and med(a): out["tips"].append({"k": name, "r": round(1 / r, 1), "up": False, "msg": TIPS_AR[name][1] % (1 / r)})
+    cmp("q", lambda f: f["q"]); cmp("num", lambda f: f["num"]); cmp("hookw", lambda f: f["hookw"]); cmp("hookOn", lambda f: f["hookOn"])
+    cmp("fast", lambda f: f["rate"] >= med([x["rate"] for _, x, _ in rows])); cmp("busy", lambda f: f["layers"] >= med([x["layers"] for _, x, _ in rows]))
+    cmp("early", lambda f: f["start"] <= 0.4)
+    B = ((0, 20), (20, 35), (35, 60), (60, 999)); bm = []
+    for lo, hi in B:
+        vs = [v for v, f, _ in rows if lo <= f["dur"] < hi]
+        if len(vs) >= 2: bm.append((med(vs), lo, hi, len(vs)))
+    if len(bm) >= 2:
+        bm.sort(reverse=True); allm = med([v for v, _, _ in rows])
+        if allm and bm[0][0] / allm >= 1.25: out["tips"].append({"k": "len", "r": round(bm[0][0] / allm, 1), "lo": bm[0][1], "hi": min(bm[0][2], 120), "msg": "مقاطعك بين %d و%d ثانية تجيب %.1f ضعف متوسطك." % (bm[0][1], min(bm[0][2], 120), bm[0][0] / allm)})
+    out["tips"].sort(key=lambda x: -x["r"]); return out
+TIPS_AR = {"q": ("المقاطع اللي تبدأ بسؤال تجيب %.1f ضعف غيرها. ابدأ بسؤال.", "البداية بسؤال تجيب أقل بـ %.1f مرة عند جمهورك."),
+           "num": ("لما تذكر رقم بأول جملة تجيب %.1f ضعف.", "الأرقام بأول جملة ما تنفع جمهورك (أقل %.1f مرة)."),
+           "hookw": ("الكلمات اللي تشد بالبداية (سر، غلط، أكبر…) ترفع مشاهداتك %.1f ضعف.", "الكلمات القوية بالبداية ما فرقت معك (أقل %.1f مرة)."),
+           "hookOn": ("العنوان فوق أول المقطع يجيب %.1f ضعف. خله دايم.", "العنوان فوق أول المقطع ما يفرق (أقل %.1f مرة)."),
+           "fast": ("كلامك السريع يجيب %.1f ضعف الهادي.", "مقاطعك الهادية تجيب %.1f ضعف السريعة."),
+           "busy": ("المقاطع اللي فيها عناصر وحركة أكثر تجيب %.1f ضعف.", "المقاطع البسيطة تجيب عندك %.1f ضعف المليانة."),
+           "early": ("لما تبدأ الكلام من أول لحظة تجيب %.1f ضعف.", "البداية الهادية ما ضرتك (أعلى %.1f مرة).")}
+def learned():
+    return rj(os.path.join(HOME_CFG, "learned.json"), {}) or {}
+def learn_prefs():
+    I = insights(); L = {"n": I["n"], "at": int(time.time())}
+    for tp in I["tips"]:
+        if tp["k"] == "len": L["len"] = [tp["lo"], tp["hi"]]
+        elif tp["k"] in ("q", "num", "hookw"): L[tp["k"]] = round(min(1.2, 0.35 * (tp["r"] - 1)), 2) if tp.get("up") else -round(min(0.8, 0.25 * (tp["r"] - 1)), 2)
+    os.makedirs(HOME_CFG, exist_ok=True); wj(os.path.join(HOME_CFG, "learned.json"), L); return L
+
+# ── (6) مصنع الليل: مجلد ترمي فيه مقاطعك وتتجهّز لحالها ──
+VID_EXTS = (".mp4", ".mov", ".m4v", ".mkv", ".webm", ".avi", ".3gp")
+FAC = {"sizes": {}, "doing": None, "done": 0, "batch": 0, "last": None, "err": None}
+def scripts_path(): return os.path.join(HOME_CFG, "scripts.json")
+def factory_cfg():
+    f = hub_cfg().get("factory") or {}; root = FAC.get("root") or hub_cfg().get("root") or os.path.join(os.path.expanduser("~"), "Documents", "hojas-studio-projects")
+    return {"on": bool(f.get("on")), "dir": f.get("dir") or os.path.join(root, "_inbox"), "mode": f.get("mode") if f.get("mode") in ("manual", "auto") else "manual", "night": bool(f.get("night")), "root": root}
+def factory_state():
+    c = factory_cfg(); q = []
+    if os.path.isdir(c["dir"]): q = sorted(f for f in os.listdir(c["dir"]) if f.lower().endswith(VID_EXTS))
+    return {**c, "queue": len(q), "files": q[:20], "doing": FAC["doing"], "done": FAC["done"], "last": FAC["last"], "err": FAC["err"], "now": factory_window(c)}
+def factory_window(c=None):
+    c = c or factory_cfg(); h = time.localtime().tm_hour
+    return FAC.get("force") or (not c["night"]) or h < 7
+def factory_tick():
+    c = factory_cfg()
+    if not (c["on"] or FAC.get("force")) or FAC["doing"] or not factory_window(c): return
+    os.makedirs(c["dir"], exist_ok=True)
+    for f in sorted(os.listdir(c["dir"])):
+        p = os.path.join(c["dir"], f)
+        if not f.lower().endswith(VID_EXTS) or not os.path.isfile(p): continue
+        sz = os.path.getsize(p)
+        if FAC["sizes"].get(p) != sz or time.time() - os.path.getmtime(p) < 20: FAC["sizes"][p] = sz; continue   # لسه ينسخ
+        FAC["sizes"].pop(p, None); base = re.sub(r"[^\w\-]+", "-", os.path.splitext(f)[0]).strip("-")[:40] or time.strftime("clip-%m%d-%H%M")
+        d = os.path.join(c["root"], base); k = 1
+        while os.path.exists(d): d = os.path.join(c["root"], "%s-%d" % (base, k)); k += 1
+        os.makedirs(d); dst = os.path.join(d, "upload" + os.path.splitext(f)[1].lower())
+        try: shutil.move(p, dst)
+        except Exception as e: FAC["err"] = str(e)[:200]; continue
+        FAC["doing"] = os.path.basename(d); FAC["batch"] += 1
+        def go(d=d, dst=dst, mode=c["mode"]):
+            try: job_run(d, dst, mode, "me", 5, None, "", None); FAC["done"] += 1; FAC["last"] = os.path.basename(d); FAC["err"] = None
+            except Exception as e: FAC["err"] = "%s: %s" % (os.path.basename(d), str(e)[:200])
+            finally:
+                FAC["doing"] = None
+                left = [x for x in os.listdir(c["dir"]) if x.lower().endswith(VID_EXTS)] if os.path.isdir(c["dir"]) else []
+                if not left: FAC["force"] = False
+                if not left and FAC["batch"]:
+                    n = FAC["batch"]; FAC["batch"] = 0
+                    try: notify_send("جهّزت %d مقطع من مجلد الوارد، وهي بالمكتبة تنتظرك." % n, title="مصنع الليل")
+                    except Exception: pass
+        threading.Thread(target=go, daemon=True).start(); return
+
+# ── (7) 3 أغلفة: لقطات وجهك فيها واضح ومعبّر ──
+def covers(work, k=3):
+    vf = J(work, "vfr"); fr = sorted(f for f in os.listdir(vf) if f.endswith(".jpg")) if os.path.isdir(vf) else []
+    if not fr: return {"ok": False, "msg": "المقطع ما تجهّز"}
+    n = len(fr); total = n / 30.0; face = rj(J(work, "face.json"), {}) or {}; pts = face.get("pts") or []
+    au = J(work, ".hs", "au8.wav")
+    if not os.path.exists(au) or os.path.getmtime(au) < os.path.getmtime(J(work, "cutz.mp4")):
+        os.makedirs(J(work, ".hs"), exist_ok=True); subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", J(work, "cutz.mp4"), "-vn", "-ac", "1", "-ar", "8000", au])
+    rms = audio_rms(au, 0.5); rmed = sorted(rms)[len(rms) // 2] if rms else 1
+    seams = keep_seams(work); C = []
+    t = 0.6
+    while t < total - 0.5:
+        i = min(n - 1, int(t * 30)); f = os.path.join(vf, fr[i]); sz = os.path.getsize(f)
+        fc = min(pts, key=lambda p: abs(p[0] - t)) if pts else None
+        fs = (fc[3] if fc and abs(fc[0] - t) < 1.5 else 0)
+        a = rms[int(t / 0.5)] / rmed if rms and int(t / 0.5) < len(rms) and rmed else 1
+        near = min([abs(t - s) for s in seams] or [9])
+        C.append({"t": round(t, 2), "f": i + 1, "sz": sz, "face": fs, "au": a, "near": near}); t += 0.5
+    if not C: return {"ok": False, "msg": "المقطع قصير"}
+    smax = max(c["sz"] for c in C) or 1
+    for c in C: c["sc"] = c["sz"] / smax * 1.0 + min(1.6, c["au"]) * 0.9 + (min(0.6, c["face"]) * 2.2 if face.get("found") else 0) - (0.8 if c["near"] < 0.25 else 0)
+    C.sort(key=lambda c: -c["sc"]); pick = []
+    for c in C:
+        if all(abs(c["t"] - p["t"]) > max(2.0, total * 0.15) for p in pick): pick.append(c)
+        if len(pick) >= k: break
+    hs = hs_of(load_studio(work)); S = _sentences((rj(J(work, "caps.json"), {}) or {}).get("cards") or [])
+    title = hs.get("title") or next((x.get("text") for x in (hs.get("hooks") or {}).get("items") or [] if x.get("text")), None)
+    if not title:
+        try: title = repurpose(work).get("title") or ""
+        except Exception: title = S[0]["text"] if S else ""
+    have = sorted(os.path.basename(f) for f in glob.glob(J(work, "cover-*.jpg")))
+    return {"ok": True, "frames": [{"t": p["t"], "f": p["f"]} for p in sorted(pick, key=lambda p: p["t"])], "title": title[:60], "have": have}
+
+# ── (8) مقطع واحد يطلع منه: كاروسيل + ثريد X + عنوان ووصف يوتيوب ──
+def keywords(text, k=6):
+    cnt = {}
+    for w in _tok(text):
+        b = _bare(w)
+        if len(b) < 3 or w in STOP_W or b in STOP_W or w.isdigit(): continue
+        cnt[b] = cnt.get(b, 0) + 1
+    return [w for w, _ in sorted(cnt.items(), key=lambda x: -x[1])[:k]]
+def repurpose(work, fresh=False):
+    p = J(work, "repurpose.json")
+    if os.path.exists(p) and not fresh: return rj(p, {})
+    caps = rj(J(work, "caps.json"), {}) or {}; S = _sentences(caps.get("cards") or [], 0.45, 13); hs = hs_of(load_studio(work))
+    if not S: return {"ok": False, "msg": "ما فيه كلام بالمقطع"}
+    full = " ".join(s["text"] for s in S); title = (hs.get("title") or "").strip()
+    sc = sorted(((hook_score(s["text"])[0] + min(1.0, len(s["text"].split()) / 9) - (0.6 if _weak0((_tok(s["text"]) or [""])[0]) else 0), i) for i, s in enumerate(S) if len(s["text"].split()) >= 4), reverse=True)
+    if not title: title = S[sc[0][1]]["text"] if sc else S[0]["text"]
+    title = _unconj(" ".join(title.split()[:12]))
+    pts = sorted(i for _, i in sc[:6]); points = [_unconj(S[i]["text"]) for i in pts if _unconj(S[i]["text"]) != title][:5]
+    kw = keywords(full); tags = ["#" + w.replace(" ", "_") for w in kw[:5]]
+    thread = [title + "\n\nثريد:"] + ["%d. %s" % (i + 1, x) for i, x in enumerate(points)] + ["لو فادك، رتوِت أول تغريدة وتابعني لأكثر."]
+    yt_title = (title if len(title) <= 90 else title[:88] + "…")
+    desc = "\n".join([title, "", "بهالمقطع:"] + ["• " + x for x in points[:4]] + ["", " ".join(tags)])
+    R = {"ok": True, "title": title, "points": points, "cta": "احفظه عشان ترجع له، وتابعني للجاي", "thread": thread, "yt": {"title": yt_title, "desc": desc}, "tags": tags, "by": "local", "at": int(time.time())}
+    wj(p, R); return R
+
 # ── سحب فيديو من رابط (تيك توك · يوتيوب · انستقرام · X · سناب …) بأداة yt-dlp المجانية ──
 LONG_SEC = 360
 def job_path(d): return J(d, ".hs", "job.json")
@@ -3104,6 +3546,12 @@ def job_run(d, src, mode="auto", pick="claude", n=5, ln=None, note="", lang=None
         else:
             f = os.path.abspath(src)
             if not os.path.isfile(f): raise RuntimeError("ما لقيت الملف: " + f)
+            if not f.lower().endswith((".mp4", ".mov", ".m4v")):   # 4.5: تسجيل الملقّن (webm) أو mkv: نحوّله mp4 بسرعة ثابتة
+                job_set(d, stage="grab", pct=None); out = os.path.splitext(f)[0] + "-fixed.mp4"
+                subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", f, "-vf", "fps=30", "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", out], check=True)
+                try: os.remove(f)
+                except OSError: pass
+                f = out
         dur = probe_dur(f); info["dur"] = round(dur, 1); wj(J(d, "source.json"), {**info, "src": src if re.match(r"https?://", src) else os.path.basename(f), "at": int(time.time())})
         if mode in ("auto", "manual") and dur > LONG_SEC: mode = "clips"; job_set(d, mode="clips", switched=True, pick=pick if pick in ("claude", "me") else "me")
         if mode == "clips":
@@ -3129,7 +3577,7 @@ def job_run(d, src, mode="auto", pick="claude", n=5, ln=None, note="", lang=None
                 task = ("حلقة طويلة بمجلد %s والمستخدم بيختار اللقطات بنفسه من المكتبة. لا تقص ولا تمنتج شي.\n"
                         "اقرأ transcript.txt والمرشّحات (hs clips cand %s list) وقيّم كل وحدة كم يتوقع تضرب (0-100) مع سبب قصير وعنوان، وعدّل البداية والنهاية عشان تبدأ بهوك وتنتهي بفكرة كاملة (cand set)، وأضف أقوى لحظات فاتت (cand add)." % (d, d))
                 if note: task += "\nطلب المستخدم: " + note
-                ok, _ = claude_spawn(d, task, "تقييم اللقطات") if hub_cfg().get("rankWithClaude", True) and have_claude() else (False, "")
+                ok, _ = claude_spawn(d, task, "تقييم اللقطات") if hub_cfg().get("rankWithClaude", False) and have_claude() else (False, "")
                 job_set(d, stage="pick", ranking=ok, done=True)
             return d
         sm = J(d, "src.mov")
@@ -3864,6 +4312,8 @@ def hub_serve(root, port):
             if not self._ok(): return self._deny()
             if (q.get("k") or [""])[0] == TOKEN and not self._local() and ("hs_k=" + TOKEN) not in (self.headers.get("Cookie") or ""):
                 self.send_response(302); self.send_header("Set-Cookie", "hs_k=%s; Path=/; Max-Age=2592000; SameSite=Lax" % TOKEN); self.send_header("Location", p or "/library"); self.send_header("Content-Length", "0"); self.end_headers(); return
+            if p in ("/tele", "/tele/"):   # 4.5: الملقّن
+                b = open(os.path.join(HERE, "tele.html"), "rb").read(); return self._send(200, b, "text/html; charset=utf-8")
             if p in ("/library", "/library/"):
                 b = open(os.path.join(HERE, "hub.html"), "rb").read(); return self._send(200, b, "text/html; charset=utf-8", {"Set-Cookie": "hs_hub=1; Path=/; SameSite=Lax"})
             if p == "/hub/ui-font.otf":
@@ -3928,7 +4378,7 @@ def hub_serve(root, port):
             if a == "projects":
                 cards = [proj_card(w, live=True) for w in hub_projects(root)]; cards.sort(key=lambda c: -c["mt"])
                 eps = hub_eps(root); eps.sort(key=lambda c: -c["mt"])
-                return self._json(200, {"root": root, "projects": cards, "eps": eps, "awake": AWAKE["on"], "battery": battery(), "ytdlp": bool(ytdlp_cmd()), "claude": have_claude(), "claudeErr": claude_last_err()})
+                return self._json(200, {"root": root, "projects": cards, "eps": eps, "awake": AWAKE["on"], "battery": battery(), "ytdlp": bool(ytdlp_cmd()), "claude": have_claude(), "claudeErr": claude_last_err(), "tokenAsk": token_ask(), "factory": factory_state()})
             if a == "search":
                 qq = (q.get("q") or [""])[0].strip()
                 if len(qq) < 2: return self._json(200, {"q": qq, "items": []})
@@ -3953,6 +4403,55 @@ def hub_serve(root, port):
                 if not ytdlp_cmd(): return self._json(200, {"ok": False, "need": "ytdlp", "msg": "أداة السحب yt-dlp مو مثبّتة"})
                 w = new_dir(data.get("name"), "long-" if data.get("mode") == "clips" else "clip-"); grab_bg(m.group(0), w, data)
                 return self._json(200, {"ok": True, "work": w})
+            if a == "tokens":   # 4.5: اسألني قبل أي شي يستهلك من حدّي في Claude
+                c = hub_cfg(); c["tokenAsk"] = bool(data.get("ask", True)); wj(hub_cfg_path(), c); return self._json(200, {"ok": True, "tokenAsk": token_ask()})
+            if a == "insights": return self._json(200, {**insights(), "learned": learned(), "perf": {k: {"views": v.get("views"), "likes": v.get("likes")} for k, v in perf_all().items()}})
+            if a == "perf":
+                w = card_by((q.get("id") or [data.get("id") or ""])[0])
+                if not w: return self._json(404, {"ok": False})
+                if self.command == "POST": perf_set(item_id(w), str(data.get("plat") or "all")[:20], **{k: data.get(k) for k in ("views", "likes", "comments", "shares", "saves", "watch", "ret", "posted", "url")})
+                return self._json(200, {"ok": True, "rows": perf_get(item_id(w))})
+            if a == "perf_import": return self._json(200, perf_import(str(data.get("text") or ""), str(data.get("plat") or ""), str(data.get("name") or "")))
+            if a == "factory":
+                if self.command == "POST":
+                    if data.get("open"):
+                        fd = factory_cfg()["dir"]; os.makedirs(fd, exist_ok=True)
+                        if self._local():
+                            try:
+                                if os.name == "nt": os.startfile(fd)
+                                else: subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", fd])
+                            except Exception: pass
+                    elif data.get("now"): FAC["force"] = True; factory_tick()
+                    else:
+                        c = hub_cfg(); f = c.get("factory") or {}
+                        for k in ("on", "night"):
+                            if k in data: f[k] = bool(data[k])
+                        if data.get("mode") in ("manual", "auto"): f["mode"] = data["mode"]
+                        if data.get("dir"): f["dir"] = os.path.abspath(os.path.expanduser(str(data["dir"])))
+                        c["factory"] = f; wj(hub_cfg_path(), c)
+                        if f.get("on"): os.makedirs(factory_cfg()["dir"], exist_ok=True)
+                return self._json(200, factory_state())
+            if a == "scripts": return self._json(200, {"items": rj(scripts_path(), []) or [], "claude": have_claude(), "tokenAsk": token_ask()})
+            if a == "script_save":
+                L = rj(scripts_path(), []) or []; sid = str(data.get("id") or "") or "s%d" % int(time.time() * 1000)
+                it = next((x for x in L if x["id"] == sid), None) or {"id": sid}
+                if it not in L: L.insert(0, it)
+                it.update(title=str(data.get("title") or "")[:120], text=str(data.get("text") or "")[:20000], at=int(time.time())); wj(scripts_path(), L[:200]); return self._json(200, {"ok": True, "id": sid, "items": L})
+            if a == "script_del":
+                L = [x for x in rj(scripts_path(), []) or [] if x["id"] != data.get("id")]; wj(scripts_path(), L); return self._json(200, {"ok": True, "items": L})
+            if a == "script_ai":   # اختياري ويستهلك: Claude يكتب السكربت
+                v = find_claude()
+                if not v: return self._json(200, {"ok": False, "msg": "ما لقيت Claude Code على الجهاز"})
+                topic = str(data.get("topic") or "")[:800]; secs = int(data.get("secs") or 45)
+                pr = ("اكتب سكربت مقطع قصير (talking head) بلهجة سعودية بيضاء عن: %s. مدته تقريباً %d ثانية (حوالي %d كلمة). أول جملة هوك قوي (سؤال أو رقم أو جملة صادمة)، "
+                      "جمل قصيرة سهلة تنقال، وآخر جملة تطلب شي (تابع أو احفظ). اكتب السكربت فقط بدون عناوين أو شرح." % (topic, secs, int(secs * 2.3)))
+                cmd = (["cmd", "/c"] if v.lower().endswith((".cmd", ".bat")) else []) + [v, "-p", pr]
+                kw = {"creationflags": 0x08000000} if os.name == "nt" else {}
+                try: r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180, stdin=subprocess.DEVNULL, cwd=HOME_CFG, **kw)
+                except subprocess.TimeoutExpired: return self._json(200, {"ok": False, "msg": "Claude ما رد خلال 3 دقايق"})
+                out = (r.stdout or "").strip()
+                if r.returncode != 0 or not out or claude_why(out)["why"] in ("limit", "login", "credit"): return self._json(200, {"ok": False, "msg": claude_why(out + (r.stderr or ""), r.returncode)["msg"]})
+                return self._json(200, {"ok": True, "text": out})
             if a == "cpu":   # 4.4.1: خفيف على الجهاز / أقصى سرعة
                 m = data.get("mode")
                 if data.get("probe"): whisper_device()
@@ -4109,15 +4608,15 @@ def hub_serve(root, port):
                 ext = os.path.splitext((q.get("file") or ["v.mov"])[0])[1].lower() or ".mov"; kind = (q.get("kind") or ["edit"])[0]
                 w = os.path.join(root, name); n = 1
                 while os.path.exists(w): w = os.path.join(root, "%s-%d" % (name, n)); n += 1
-                mode0 = (q.get("mode") or ["clips" if kind == "long" else "auto"])[0]
+                mode0 = (q.get("mode") or ["clips" if kind == "long" else "manual"])[0]
                 os.makedirs(w); dst = J(w, ("long" + ext) if mode0 == "clips" else "upload" + ext); left = int(self.headers.get("Content-Length") or 0)
                 with open(dst, "wb") as f:
                     while left > 0:
                         ch = self.rfile.read(min(1 << 20, left))
                         if not ch: break
                         f.write(ch); left -= len(ch)
-                note = (q.get("note") or [""])[0][:1500]; mode = (q.get("mode") or ["clips" if kind == "long" else "auto"])[0]
-                grab_bg(dst, w, {"mode": mode, "pick": (q.get("pick") or ["claude"])[0], "n": (q.get("n") or ["5"])[0], "len": (q.get("len") or [""])[0], "note": note})
+                note = (q.get("note") or [""])[0][:1500]; mode = (q.get("mode") or ["clips" if kind == "long" else "manual"])[0]
+                grab_bg(dst, w, {"mode": mode, "pick": (q.get("pick") or ["me"])[0], "n": (q.get("n") or ["5"])[0], "len": (q.get("len") or [""])[0], "note": note})
                 return self._json(200, {"ok": True, "work": w, "started": True, "msg": ""})
             return self._json(404, {"ok": False})
     def db_loop():   # 4.4: يحدّث قاعدة البيانات بالخلفية (بس المقاطع اللي تغيّرت)
@@ -4126,6 +4625,13 @@ def hub_serve(root, port):
             except Exception: pass
             time.sleep(45)
     threading.Thread(target=db_loop, daemon=True).start()
+    FAC["root"] = root
+    def fac_loop():   # 4.5: مصنع الليل
+        while True:
+            try: factory_tick()
+            except Exception as e: FAC["err"] = str(e)[:200]
+            time.sleep(20)
+    threading.Thread(target=fac_loop, daemon=True).start()
     threading.Thread(target=lambda: (time.sleep(40), whisper_device()), daemon=True).start()
     srv = http.server.ThreadingHTTPServer(("0.0.0.0", port), HB); srv.daemon_threads = True
     print("المكتبة شغّالة: http://127.0.0.1:%d/library · الجوال: http://%s:%d/library?k=%s" % (port, LAN, port, TOKEN)); sys.stdout.flush()
@@ -4196,6 +4702,13 @@ def main():
     elif cmd == "layer": cmd_layer(work, rest)
     elif cmd == "hook": cmd_hook(work, rest)
     elif cmd == "check": cmd_check(work)
+    elif cmd == "retention":   # 4.5: فحص قبل النشر
+        R = retention(work)
+        if not R.get("ok"): sys.exit(R.get("msg") or "ما قدرت أفحص")
+        print("فحص قبل النشر: %d/100 · تقدير اللي يكملون للنهاية %d%%" % (R["score"], R["end"]))
+        print("  " + " · ".join("%s %d" % (k, v) for k, v in R["dims"].items()))
+        for f in R["fixes"]: print("- [%s] %s %s" % (tfmt(f["t"]), f["msg"], ("(تصليح: %s)" % f["fix"]) if f.get("fix") else ""))
+        for g in R["takes"]: print("- إعادات: الجمل %s ← خلّ %d" % (", ".join(str(i + 1) for i in g["cards"]), g["keep"] + 1))
     elif cmd == "brief": cmd_brief(work, rest)
     elif cmd == "media": cmd_media(work, rest)
     elif cmd == "sfx": cmd_sfx(work, rest)

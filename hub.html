@@ -142,6 +142,14 @@ textarea{width:100%;background:var(--s1);border:1px solid var(--bd);border-radiu
 .prog{height:6px;border-radius:3px;background:var(--s3);overflow:hidden;margin:12px 0}
 .prog i{display:block;height:100%;width:0;background:var(--y)}
 .seg2{display:flex;gap:8px;flex-wrap:wrap}
+.tkb{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:999px;background:rgba(242,179,61,.16);color:var(--warn);border:1px solid rgba(242,179,61,.35);vertical-align:middle;margin-inline-start:4px}
+#tok{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px}
+#tok .in{background:var(--s1);border:1px solid var(--bd);border-radius:20px;padding:20px;max-width:420px;width:100%;line-height:1.8}
+#tok h3{margin:0 0 6px;font-size:18px} #tok .ck{display:flex;gap:8px;align-items:center;margin:4px 0 14px;font-size:13.5px;color:var(--mut)} #tok .acts{display:flex;gap:8px}
+.st-tip{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--bd);line-height:1.8} .st-tip:first-of-type{border-top:0} .st-tip b{min-width:46px;color:var(--ok);direction:ltr;text-align:center}
+.st-tip.dn b{color:var(--warn)} .pr-row{display:grid;grid-template-columns:minmax(0,1fr) 110px 90px;gap:8px;align-items:center;padding:7px 0;border-top:1px solid var(--bd)} .pr-row input{width:100%;padding:8px 10px}
+.pr-row input,.pr-row select{background:rgba(0,0,0,.25);border:1px solid var(--bd);border-radius:10px;color:var(--tx);padding:8px 10px;outline:none}
+.pr-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .fac-st{font-size:13px;color:var(--mut);line-height:1.8;margin-top:8px}
 .clb{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid rgba(242,179,61,.45);background:rgba(242,179,61,.08);border-radius:16px;padding:12px 14px;margin:0 0 14px;font-size:13.5px;line-height:1.7}
 .clb>div{flex:1;min-width:200px}.clb b{display:block;font-weight:600}.clb span{color:var(--mut)}
 .job .cn{display:block;color:var(--warn);font-size:12px;margin-top:4px}
@@ -260,7 +268,8 @@ mark{background:rgba(76,141,255,.35);color:#fff;border-radius:4px;padding:0 2px}
   #side .new{width:100%;margin-bottom:22px;padding:13px;font-size:15.5px;border-radius:16px}
   #side .nv{display:flex;flex-direction:column;gap:4px}
   #side .nv button{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:13px;color:var(--mut);font-size:15px;text-align:start}
-  #side .nv button:hover{background:var(--s1);color:var(--tx)}
+  #side .nv button:hover,#side .nv a.tl:hover{background:var(--s1);color:var(--tx)}
+  #side .nv a.tl{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:13px;color:var(--mut);font-size:15px;text-decoration:none;margin-top:6px;border-top:1px solid var(--bd);padding-top:14px}
   #side .nv button.on{background:rgba(76,141,255,.16);color:#fff;font-weight:600}
   #side .nv button small{margin-inline-start:auto;background:rgba(76,141,255,.3);color:#fff;border-radius:8px;padding:0 7px;font-size:12px}
   #side .foot{margin-top:auto;display:grid;gap:10px;padding:14px 6px 0;border-top:1px solid var(--bd);font-size:13px;color:var(--mut)}
@@ -335,7 +344,18 @@ mark{background:rgba(76,141,255,.35);color:#fff;border-radius:4px;padding:0 2px}
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 let LANG='ar'; try{ LANG=localStorage.getItem('hsLang')||'ar'; }catch(e){}
 const TX={
- lib:['المكتبة','Library'], search:['دوّر بمقاطعك','Search your clips'], resume:['وقفت عند {0}','You stopped at {0}'], liveNow:['Claude يشتغل على «{0}»','Claude is working on “{0}”'], cmds:['الأوامر','Commands'], dev:['جهازك','Computer'],
+ lib:['المكتبة','Library'], stats:['أرقامك','Your numbers'], tele:['الملقّن','Teleprompter'],
+ tokT:['هذا يستهلك من حدّك في Claude','This uses your Claude limit'], tokYes:['كمّل','Continue'], tokNo:['لا، خلّه','Cancel'], tokSkip:['لا تسألني مرة ثانية عن هذا','Don\'t ask again for this'], tokBadge:['يستهلك','Uses limit'],
+ tok_auto:['Claude بيمنتج المقطع كامل من البداية. هذا أكثر شي يستهلك.','Claude edits the whole clip. This uses the most.'], tok_pick:['Claude بيقرأ الحلقة كاملة ويختار اللقطات ويمنتجها.','Claude reads the whole episode, picks and edits clips.'],
+ tok_rank:['Claude بيقرأ الحلقة كاملة ويقيّم كل لقطة.','Claude reads the episode and rates each clip.'], tok_edit:['Claude بيمنتج كل لقطة اخترتها.','Claude edits every clip you picked.'], tok_test:['تجربة سريعة: سؤال واحد صغير.','Quick test: one tiny prompt.'], tok_script:['Claude بيكتب لك السكربت.','Claude writes your script.'],
+ tokSize_big:['الاستهلاك: كثير (ممكن ياخذ جزء كبير من حدّك)','Usage: high'], tokSize_mid:['الاستهلاك: متوسط','Usage: medium'], tokSize_small:['الاستهلاك: قليل','Usage: low'],
+ tokAskT:['Claude وحدّك','Claude and your limit'], tokAskOn:['اسألني قبل أي استهلاك','Ask before using my limit'], tokAskSub:['أي زر يشغّل Claude ينبّهك قبلها ويقول لك كم تقريباً يستهلك. كل الميزات الثانية تشتغل على جهازك بدون ما تلمس حدّك.','Every Claude action asks first. Everything else runs on your PC.'],
+ facT:['مصنع الليل','Night factory'], facSub:['ارمي مقاطعك بالمجلد وتتجهّز لحالها وحدة ورا وحدة، بالوضع الخفيف. أول ما تخلص يجيك إشعار بالجوال.','Drop clips in the folder and they get prepared one by one.'], facOn:['شغّال','On'], facNight:['بالليل بس (12 إلى 7 الصبح)','Only at night (12 to 7 am)'],
+ facMan:['أجهّزها وأمنتجها أنا','Prepare, I edit'], facAuto:['Claude يمنتجها','Claude edits'], facOpen:['افتح المجلد','Open folder'], facNow:['ابدأ الحين','Start now'], facQ:['بالانتظار: {0}','Waiting: {0}'], facDoing:['يجهّز الحين: {0}','Preparing: {0}'], facDone:['خلص {0} مقطع','{0} done'], facNightWait:['ينتظر الساعة 12 الليل','Waiting for midnight'],
+ stIns:['وش يضرب عندك','What works for you'], stNeed:['دخّل أرقام {0} مقاطع زيادة عشان أقدر أقول لك وش يضرب عندك. الحين عندي {1}.','Add numbers for {0} more clips. I have {1}.'], stNoTip:['للحين ما فيه فرق واضح بين مقاطعك. كل ما زادت الأرقام صار أدق.','No clear pattern yet.'], stTop:['أقوى مقاطعك','Your top clips'],
+ stLearn:['ترشيح اللقطات صار يميل لهذا تلقائياً.','Clip suggestions now lean toward this.'], stImp:['استورد من ملف CSV','Import CSV'], stImpSub:['تيك توك: TikTok Studio ← Analytics ← Export. انستقرام وغيره: Metricool ← تصدير CSV. الأداة تربط كل صف بمقطعه من النص.','Export analytics as CSV and drop it here.'],
+ stPick:['اختر ملف CSV','Choose CSV'], stMatched:['ربطت {0} صف بمقاطعها','Matched {0} rows'], stUnm:['ما عرفت مقطعها ({0})','Not matched ({0})'], stLink:['اربط','Link'], stMan:['دخّلها بيدك','Enter by hand'], stManSub:['اكتب المشاهدات وتنحفظ لحالها.','Type views, they save automatically.'], stViews:['مشاهدات','views'], stLikes:['إعجاب','likes'], stPickP:['أي مقطع؟','Which clip?'], stSaved:['انحفظت','Saved'],
+ teleSub:['اكتب سكربتك واقراه وأنت تصوّر','Read your script while recording'], search:['دوّر بمقاطعك','Search your clips'], resume:['وقفت عند {0}','You stopped at {0}'], liveNow:['Claude يشتغل على «{0}»','Claude is working on “{0}”'], cmds:['الأوامر','Commands'], dev:['جهازك','Computer'],
  all:['الكل','All'], wait:['ينتظرك','Waiting'], work:['شغّال','In progress'], ready:['جاهز','Ready'],
  awakeOn:['الجهاز صاحي','Computer is awake'], on:['الجهاز شغّال','Computer is on'], charging:['وعلى الشاحن','and charging'], onBat:['على البطارية','on battery'],
  open:['افتح الاستوديو','Open studio'], watch:['شاهد النهائي','Watch final'], dup:['تايم لاين جديد منه','New timeline from it'], rename:['غيّر الاسم','Rename'], renameQ:['الاسم الجديد','New name'],
@@ -391,7 +411,7 @@ function toast(s){ const e=$('#toast'); e.textContent=s; e.style.display='block'
 const SV=(d,w=24,sw=1.8)=>'<svg width="'+w+'" height="'+w+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="'+sw+'" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>';
 const IC={
  lib:SV('<rect x="7" y="4" width="10" height="16" rx="2"/><path d="M4 7v10M20 7v10"/>'), cmds:SV('<path d="M4 7h11M4 12h11M4 17h7"/><circle cx="19" cy="7" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/>'),
- dev:SV('<rect x="4" y="5" width="16" height="11" rx="2"/><path d="M2 19h20"/>'), spark:SV('<path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/>',20), up:SV('<path d="M12 15V4M7 9l5-5 5 5M5 20h14"/>',20),
+ dev:SV('<rect x="4" y="5" width="16" height="11" rx="2"/><path d="M2 19h20"/>'), stats:SV('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'), tele:SV('<rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M9 7h6M9 11h6M9 15h4"/>'), spark:SV('<path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/>',20), up:SV('<path d="M12 15V4M7 9l5-5 5 5M5 20h14"/>',20),
  box:SV('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/>',20), bell:SV('<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>',20), globe:SV('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',20),
  plus:SV('<path d="M12 5v14M5 12h14"/>',20,2.4), link:SV('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',20), file:SV('<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>',20),
  wand:SV('<path d="M5 19L16 8M14 6l4 4M18.5 2.5v3M17 4h3M7 4v2M6 5h2"/>',26), hand:SV('<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V11M11 10V4.5a1.5 1.5 0 0 1 3 0V11M14 10.5V6a1.5 1.5 0 0 1 3 0v7c0 4-2.5 7-6 7-2.8 0-4.4-1.6-5.6-3.7L4 13.2a1.5 1.5 0 0 1 2.6-1.5L8 14"/>',26),
@@ -399,7 +419,7 @@ const IC={
  back:SV('<path d="M9 6l6 6-6 6"/>',22,2), film:SV('<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M10 9l5 3-5 3z"/>',20), copy:SV('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',18),
  pen:SV('<path d="M4 20l4-1L19 8l-3-3L5 16z"/>',18), x:SV('<path d="M6 6l12 12M18 6L6 18"/>',16,2.2)
 };
-let DBS=null; let TAB='lib', FILTER='all', DATA=null, DEV=null, CMDS=null, Q='', EP=null, EPD=null, SEL=new Set(), EDIT='me', ETAB='picks', ANCH=null, PLAYC=null, OPENC=null;
+let DBS=null, STATS=null, UNM=[]; let TAB='lib', FILTER='all', DATA=null, DEV=null, CMDS=null, Q='', EP=null, EPD=null, SEL=new Set(), EDIT='me', ETAB='picks', ANCH=null, PLAYC=null, OPENC=null;
 const pos=p=>{ try{ const v=+localStorage.getItem('hsPos:'+p.work); return v>1&&v<p.dur-1?v:0; }catch(e){ return 0; } };
 try{ TAB=localStorage.getItem('hubTab')||'lib'; EDIT=localStorage.getItem('hubEdit')||'me'; }catch(e){}
 const DESK=()=>innerWidth>=900;
@@ -410,6 +430,9 @@ function lanes(L){ const C={img:'var(--img)',cap:'var(--cap)',vid:'var(--vid)',s
 const thumb=p=>p.thumb?'/hub/thumb/'+p.id+'?f='+encodeURIComponent(p.thumb)+'&v='+p.mt:'';
 function subHtml(p){ return '<div class="sub '+p.state+'"><span class="dot"></span><span>'+esc(p.sub)+'</span></div>'; }
 function stageTxt(j){ const k='g_'+(j.stage||'grab'); let s=TX[k]?t(k):j.sub; if(j.stage==='grab'&&j.pct!=null) s+=' '+Math.round(j.pct)+'%'; else if(j.eta&&j.t0){ const left=Math.max(1,Math.round((j.t0+j.eta-Date.now()/1000)/60)); if(j.stage==='transcribe') s+=' · '+t('leftMin',left); } return s; }
+function tokenGo(kind,size){ return new Promise(res=>{ if(DATA&&DATA.tokenAsk===false) return res(true); let skip=false; try{ skip=localStorage.getItem('hsTok_'+kind)==='1'; }catch(e){} if(skip) return res(true);
+  const w=document.createElement('div'); w.id='tok'; w.innerHTML='<div class="in"><h3>'+t('tokT')+'</h3><p>'+t('tok_'+kind)+'</p><div class="box" style="margin:10px 0">'+t('tokSize_'+(size||'mid'))+'</div><label class="ck"><input type="checkbox" id="tkSkip"><span>'+t('tokSkip')+'</span></label><div class="acts"><button class="btn y" id="tkYes">'+t('tokYes')+'</button><button class="btn" id="tkNo">'+t('tokNo')+'</button></div></div>';
+  document.body.appendChild(w); const done=v=>{ try{ if(v&&$('#tkSkip').checked) localStorage.setItem('hsTok_'+kind,'1'); }catch(e){} w.remove(); res(v); }; $('#tkYes').onclick=()=>done(true); $('#tkNo').onclick=()=>done(false); w.onclick=e=>{ if(e.target===w) done(false); }; }); }
 function clBanner(){ if(!DATA) return ''; let hid=0; try{ hid=+localStorage.getItem('hsClHide')||0; }catch(e){}
   if(!DATA.claude) return '<div class="clb"><div><b>'+t('clMiss')+'</b><span>'+t('clMissSub')+'</span></div><button class="btn sm" id="bClFind">'+t('clFind')+'</button></div>';
   const e=DATA.claudeErr; if(e&&e.at>hid) return '<div class="clb '+esc(e.why)+'"><div><b dir="auto">'+esc(e.msg)+'</b><span>'+t('clErrSub')+'</span></div><button class="btn sm" id="bClTest">'+t('clTest')+'</button><button class="btn sm" id="bClHide" data-at="'+e.at+'">'+t('clHide')+'</button></div>';
@@ -446,9 +469,30 @@ function renderCmds(){ if(!CMDS){ $('#main').innerHTML=LOADERR?errBox():loader('
   const now=L.filter(c=>c.status==='running'), old=L.filter(c=>c.status!=='running');
   $('#main').innerHTML='<div id="cmds">'+(now.length?'<h4 class="sec">'+t('now')+'</h4>'+now.map(card).join(''):'')+(old.length?'<h4 class="sec">'+t('before')+'</h4>'+old.map(card).join(''):'')+'</div>'; }
 function trim(s){ s=String(s||'').replace(/\n\n\(سياق[^)]*\)/,'').replace(/^.*?المطلوب:\n/s,''); return s.length>420?s.slice(0,420)+'…':s; }
+function renderStats(){ const S=STATS; if(!S){ $('#main').innerHTML=LOADERR?errBox():loader('lib'); return; } const P=(DATA&&DATA.projects)||[], pv=S.perf||{}; let o='<div id="dev"><div class="cols"><div>';
+  o+='<div class="card" style="margin-bottom:12px"><b style="font-size:17px">'+t('stIns')+'</b>';
+  if(S.need>0) o+='<p class="lbl" style="line-height:1.8;margin-top:8px">'+t('stNeed',S.need,S.n)+'</p>';
+  else if(!S.tips.length) o+='<p class="lbl" style="line-height:1.8;margin-top:8px">'+t('stNoTip')+'</p>';
+  else o+='<div style="margin-top:6px">'+S.tips.map(x=>'<div class="st-tip'+(x.up===false?' dn':'')+'"><b>×'+x.r+'</b><span dir="auto">'+esc(x.msg)+'</span></div>').join('')+'</div>'+((S.learned&&S.learned.n>=5)?'<p class="lbl" style="margin-top:6px">'+t('stLearn')+'</p>':'');
+  o+='</div>';
+  if(S.top&&S.top.length) o+='<div class="card" style="margin-bottom:12px"><b style="font-size:17px">'+t('stTop')+'</b>'+S.top.map(x=>'<div class="pr-row" style="grid-template-columns:minmax(0,1fr) auto"><span dir="auto">'+esc(x.title||'')+'</span><b dir="ltr">'+num(x.views)+'</b></div>').join('')+'</div>';
+  o+='</div><div>';
+  o+='<div class="card" style="margin-bottom:12px"><b style="font-size:17px">'+t('stImp')+'</b><p class="lbl" style="line-height:1.8;margin:6px 0 10px">'+t('stImpSub')+'</p><label class="btn sm y" style="cursor:pointer">'+IC.up+t('stPick')+'<input type="file" id="stCsv" accept=".csv,text/csv" hidden></label><div id="stImpOut"></div>';
+  if(UNM.length) o+='<h4 class="sec">'+t('stUnm',UNM.length)+'</h4>'+UNM.map((u,i)=>'<div class="pr-row" style="grid-template-columns:minmax(0,1fr) 150px auto"><span dir="auto" title="'+esc(u.title)+'">'+esc(u.title||'-')+' · <bdi dir="ltr">'+num(u.views||0)+'</bdi></span><select data-unm="'+i+'"><option value="">'+t('stPickP')+'</option>'+P.map(p=>'<option value="'+p.id+'">'+esc(p.title)+'</option>').join('')+'</select><button class="btn sm" data-unml="'+i+'">'+t('stLink')+'</button></div>').join('');
+  o+='</div><div class="card"><b style="font-size:17px">'+t('stMan')+'</b><p class="lbl" style="margin:4px 0 6px">'+t('stManSub')+'</p>'+P.slice(0,60).map(p=>{ const v=pv[p.id]||{}; return '<div class="pr-row"><span dir="auto">'+esc(p.title)+'</span><input inputmode="numeric" dir="ltr" data-pv="'+p.id+'" data-k="views" placeholder="'+t('stViews')+'" value="'+(v.views!=null?v.views:'')+'"><input inputmode="numeric" dir="ltr" data-pv="'+p.id+'" data-k="likes" placeholder="'+t('stLikes')+'" value="'+(v.likes!=null?v.likes:'')+'"></div>'; }).join('')+'</div>';
+  o+='</div></div></div>'; $('#main').innerHTML=o;
+  const f=$('#stCsv'); if(f) f.onchange=async()=>{ const file=f.files[0]; if(!file) return; const tx=await file.text(); const r=await api('perf_import',{text:tx,name:file.name}); if(!r.ok){ toast(r.msg||t('failed')); return; } UNM=r.unmatched||[]; toast(t('stMatched',r.matched)); STATS=await api('insights'); render(); };
+  $$('[data-pv]').forEach(x=>x.onchange=async()=>{ const v=x.value.trim(); await api('perf',{id:x.dataset.pv,[x.dataset.k]:v}); toast(t('stSaved')); STATS=await api('insights'); }); }
+function num(n){ n=+n||0; return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':String(Math.round(n)); }
 function renderDev(){ const d=DEV; if(!d){ $('#main').innerHTML=LOADERR?errBox():loader('dev'); return; } const b=d.battery||{}, used=1-d.disk.free/d.disk.total; let o='<div id="dev"><div class="cols"><div>';
   if(b.has) o+='<div class="card" style="margin-bottom:12px"><div class="lbl">'+t('battery')+'</div><div class="big">'+b.pct+'%'+batHtml(b)+'</div><div class="lbl">'+(b.ac?t('onAC'):t('onBat'))+'</div></div>';
   o+='<div class="card" style="margin-bottom:12px"><div class="rowc"><span class="lbl">'+t('storage')+'</span><b style="direction:rtl">'+t('freeOf',gb(d.disk.free),gb(d.disk.total))+'</b></div><div class="bar"><i style="width:'+(used*100).toFixed(1)+'%"></i></div>'+(d.disk.free<15e9?'<div class="warn">'+t('lowDisk')+'</div>':'')+'</div>';
+  { const ta=!(DATA&&DATA.tokenAsk===false); o+='<div class="card" style="margin-bottom:12px"><div class="rowc"><b style="font-size:17px">'+t('tokAskT')+'</b><div class="tg'+(ta?' on':'')+'" data-tokask="1"></div></div><div class="lbl" style="line-height:1.7;margin-top:6px">'+t('tokAskOn')+'. '+t('tokAskSub')+'</div></div>'; }
+  { const F=(DATA&&DATA.factory)||{}; o+='<div class="card" style="margin-bottom:12px"><div class="rowc"><b style="font-size:17px">'+t('facT')+'</b><div class="tg'+(F.on?' on':'')+'" data-fac="on"></div></div><div class="lbl" style="line-height:1.7;margin:6px 0 10px">'+t('facSub')+'</div>'
+    +'<div class="copy"><span dir="ltr">'+esc(F.dir||'')+'</span></div><div class="seg2" style="margin:10px 0">'+[['manual','facMan'],['auto','facAuto']].map(([m,l])=>'<button class="btn sm'+(F.mode===m?' y':'')+'" data-facm="'+m+'">'+t(l)+(m==='auto'?' <span class="tkb">'+t('tokBadge')+'</span>':'')+'</button>').join('')+'</div>'
+    +'<label class="rowc" style="justify-content:flex-start;gap:8px;font-size:13.5px"><input type="checkbox" data-fac="night"'+(F.night?' checked':'')+'><span>'+t('facNight')+'</span></label>'
+    +'<div class="acts" style="margin-top:10px"><button class="btn sm" data-faco="1">'+t('facOpen')+'</button>'+(F.queue?'<button class="btn sm y" data-facn="1">'+t('facNow')+'</button>':'')+'</div>'
+    +'<div class="fac-st">'+[F.doing?t('facDoing',esc(F.doing)):'',F.queue?t('facQ',F.queue):'',F.done?t('facDone',F.done):'',(F.on&&F.queue&&!F.now)?t('facNightWait'):'',F.err?'<span style="color:var(--bad)">'+esc(F.err)+'</span>':''].filter(Boolean).join(' · ')+'</div></div>'; }
   o+='<div class="card" style="margin-bottom:12px"><div class="rowc"><b style="font-size:17px">'+t('cpuT')+'</b></div><div class="seg2" style="margin:10px 0 8px">'+['light','full'].map(m=>'<button class="btn sm'+(d.cpu===m?' y':'')+'" data-cpu="'+m+'">'+t('cpu_'+m)+'</button>').join('')+'</div><div class="lbl" style="line-height:1.7">'+t(d.cpu==='full'?'cpuFullSub':'cpuLightSub')+'</div>'+(d.whisper==='cpu'?'<div class="box" style="margin-bottom:0">'+t('wCpu')+'</div>':d.whisper==='gpu'?'<div class="lbl" style="margin-top:6px">'+t('wGpu')+'</div>':'')+'</div>';
   if(DBS) o+='<div class="card dbcard" style="margin-bottom:12px"><div class="rowc"><b style="font-size:17px">'+t('dbTitle')+'</b><button class="btn sm" id="bDbRe">'+t('dbRe')+'</button></div><div class="big2">'+t('dbLines',DBS.items||0,DBS.lines||0,((DBS.secs||0)/3600).toFixed(1))+'</div><div class="lbl" style="line-height:1.7">'+t('dbSub')+'</div><div class="copy" style="margin-top:8px"><span>'+esc(DBS.path||'')+'</span></div></div>';
   o+='<div class="card" style="margin-bottom:12px"><div class="rowc"><div><b style="font-size:17px">'+t('awake')+'</b><div class="lbl" style="margin-top:3px">'+t('awakeSub')+'</div></div><div class="tg'+(d.awake?' on':'')+'" data-awake="1"></div></div><div class="note" style="margin:10px 0 0">'+t('awakeHint')+'</div></div>';
@@ -467,16 +511,16 @@ function renderDev(){ const d=DEV; if(!d){ $('#main').innerHTML=LOADERR?errBox()
 function renderSide(){ const P=(DATA&&DATA.projects)||[], E=(DATA&&DATA.eps)||[], b=(DATA&&DATA.battery)||{}, aw=DATA&&DATA.awake, nw=P.filter(p=>p.state==='wait').length+E.filter(e=>e.state==='wait').length;
   $('#side').innerHTML='<div class="brand"><div class="logo"><i style="background:var(--cap);width:70%"></i><i style="background:var(--img)"></i><i style="background:var(--vid);width:55%"></i></div><div><b>Hojas Studio</b><small>'+(DATA?esc(DATA.root||''):'')+'</small></div></div>'
    +'<button class="btn y new" data-new="1">'+IC.plus+t('newP')+'</button><div class="nv">'
-   +[['lib',IC.lib,nw],['cmds',IC.cmds,0],['dev',IC.dev,0]].map(([k,i,n])=>'<button data-tab="'+k+'" class="'+(TAB===k&&!EP?'on':'')+'">'+i+'<span>'+t(k)+'</span>'+(n?'<small>'+n+'</small>':'')+'</button>').join('')+'</div>'
+   +[['lib',IC.lib,nw],['stats',IC.stats,0],['cmds',IC.cmds,0],['dev',IC.dev,0]].map(([k,i,n])=>'<button data-tab="'+k+'" class="'+(TAB===k&&!EP?'on':'')+'">'+i+'<span>'+t(k)+'</span>'+(n?'<small>'+n+'</small>':'')+'</button>').join('')+'<a class="tl" href="/tele">'+IC.tele+'<span>'+t('tele')+'</span></a></div>'
    +'<div class="foot"><div class="rowc"><span>'+t('awake')+'</span><div class="tg'+(aw?' on':'')+'" data-awake="1"></div></div><div class="rowc"><span style="display:flex;gap:8px;align-items:center"><span class="dot'+(aw?'':' warn')+'"></span>'+(b.has?b.pct+'% '+batHtml(b):t('on'))+'</span><button class="btn sm" data-lang="1">'+(LANG==='ar'?'EN':'ع')+'</button></div></div>'; }
 function render(){ if(EP) return renderEp(); $('#h1').textContent=t(TAB);
   $('#status').innerHTML=TAB==='cmds'?'<span class="dot"></span><span>'+t('cmdsSub')+'</span>':statusLine();
   if(DESK()&&TAB==='lib'&&DATA&&(DATA.projects.length||(DATA.eps||[]).length)){ if(!$('#hq')){ const s=document.createElement('div'); s.id='hq'; s.innerHTML=searchBox(); $('header').appendChild(s.firstChild); $('#sbox').id='hq'; } } else { const s=$('#hq'); if(s) s.remove(); }
-  $('#tabs').innerHTML=[['lib',IC.lib],['cmds',IC.cmds],['dev',IC.dev]].map(([k,i])=>'<button data-tab="'+k+'" class="'+(TAB===k?'on':'')+'">'+i+'<span>'+t(k)+'</span></button>').join('');
+  $('#tabs').innerHTML=[['lib',IC.lib],['stats',IC.stats],['cmds',IC.cmds],['dev',IC.dev]].map(([k,i])=>'<button data-tab="'+k+'" class="'+(TAB===k?'on':'')+'">'+i+'<span>'+t(k)+'</span></button>').join('');
   $('header').style.display=''; $('nav').style.display='';
-  if(TAB==='lib') renderLib(); else if(TAB==='cmds') renderCmds(); else renderDev(); renderSide(); document.documentElement.lang=LANG; document.documentElement.dir=LANG==='ar'?'rtl':'ltr'; }
+  if(TAB==='lib') renderLib(); else if(TAB==='stats') renderStats(); else if(TAB==='cmds') renderCmds(); else renderDev(); renderSide(); document.documentElement.lang=LANG; document.documentElement.dir=LANG==='ar'?'rtl':'ltr'; }
 let LOADERR=null, _loading=false;
-async function load(){ if(_loading) return; _loading=true; try{ if(EP){ await loadEp(); return; } if(TAB==='lib'||!DATA) DATA=await api('projects'); if(TAB==='cmds') CMDS=await api('commands'); else if(TAB==='dev'){ DEV=await api('device'); DBS=await api('db').catch(()=>null); } LOADERR=null; }catch(e){ if(!DATA||(TAB==='cmds'&&!CMDS)||(TAB==='dev'&&!DEV)) LOADERR=String(e&&e.message||e); } finally{ _loading=false; } render(); }
+async function load(){ if(_loading) return; _loading=true; try{ if(EP){ await loadEp(); return; } if(TAB==='lib'||!DATA) DATA=await api('projects'); if(TAB==='stats') STATS=await api('insights'); if(TAB==='cmds') CMDS=await api('commands'); else if(TAB==='dev'){ DEV=await api('device'); DBS=await api('db').catch(()=>null); } LOADERR=null; }catch(e){ if(!DATA||(TAB==='cmds'&&!CMDS)||(TAB==='dev'&&!DEV)) LOADERR=String(e&&e.message||e); } finally{ _loading=false; } render(); }
 function sheet(html){ $('#sheetIn').innerHTML='<div class="grab"></div>'+html; $('#sheet').classList.add('on'); }
 function closeSheet(){ const v=$('#fin'); if(v) v.pause(); $('#sheet').classList.remove('on'); }
 $('#sheet').addEventListener('click',e=>{ if(e.target.id==='sheet') closeSheet(); });
@@ -516,16 +560,17 @@ function openAt(id,tt){ const g=((SR&&SR.items)||[]).find(x=>x.id===id); if(!g) 
   try{ if(v!=null) localStorage.setItem('hsPos:'+g.work,String(v)); }catch(e){} go(id); }
 let PEND_SEEK=null;
 /* ── مشروع جديد ── */
-const NW={src:'link',mode:'clips',pick:'claude',n:5,len:'30-60',file:null};
+const NW={src:'link',mode:'clips',pick:'me',n:5,len:'30-60',file:null};
 function newSheet(){ NW.file=null; if(!DATA||(!DATA.claude&&NW.mode==='auto')) NW.mode=NW.src==='link'?'clips':'manual'; drawNew(); }
 function drawNew(){ const y=DATA&&DATA.ytdlp, cl=DATA&&DATA.claude;
   let o='<h2 style="margin-bottom:14px">'+t('newTitle')+'</h2><div class="src2"><button data-nsrc="link" class="'+(NW.src==='link'?'on':'')+'">'+IC.link+t('srcLink')+'</button><button data-nsrc="file" class="'+(NW.src==='file'?'on':'')+'">'+IC.file+t('srcFile')+'</button></div>';
   if(NW.src==='link'){ o+='<div class="field"><input id="nUrl" inputmode="url" placeholder="'+esc(t('linkPh'))+'" value="'+esc(NW.url||'')+'"><button class="btn sm" id="nPaste">'+t('paste')+'</button></div><div class="sites"><span>TikTok</span><span>YouTube</span><span>Instagram</span><span>X</span><span>Snapchat</span><span>Twitch</span><span>+1000</span></div>';
     if(!y) o+='<div class="box">'+t('needY')+'<div style="margin-top:8px"><button class="btn sm y" id="nInstall">'+t('installY')+'</button></div></div>'; }
   else o+='<label class="drop" id="nDrop"><b>'+(NW.file?esc(NW.file.name):t('dropB'))+'</b>'+(NW.file?'<bdi dir="ltr">'+(NW.file.size/1e6).toFixed(0)+' MB</bdi>':t('dropS'))+'<input type="file" id="nFile" accept="video/*" hidden></label>';
-  o+='<h5>'+t('whatDo')+'</h5><div class="opts3">'+[['auto',IC.wand,'mAuto','mAutoS'],['manual',IC.hand,'mMan','mManS'],['clips',IC.scissors,'mClips','mClipsS']].map(([k,i,a,b])=>'<button class="opt'+(NW.mode===k?' on':'')+'" data-nmode="'+k+'">'+i+'<div><b>'+t(a)+'</b><small>'+t(b)+'</small></div></button>').join('')+'</div>';
+  if(NW.src==='file') o+='<a class="hint2" href="/tele" style="display:flex;gap:8px;align-items:center;margin-top:8px;color:var(--pri);text-decoration:none">'+IC.tele+t('teleSub')+'</a>';
+  o+='<h5>'+t('whatDo')+'</h5><div class="opts3">'+[['auto',IC.wand,'mAuto','mAutoS'],['manual',IC.hand,'mMan','mManS'],['clips',IC.scissors,'mClips','mClipsS']].map(([k,i,a,b])=>'<button class="opt'+(NW.mode===k?' on':'')+'" data-nmode="'+k+'">'+i+'<div><b>'+t(a)+(k==='auto'?' <span class="tkb">'+t('tokBadge')+'</span>':'')+'</b><small>'+t(b)+'</small></div></button>').join('')+'</div>';
   if(NW.mode==='auto'&&!cl) o+='<div class="box">'+t('noClaude')+'</div>';
-  if(NW.mode==='clips'){ o+='<h5>'+t('whoPick')+'</h5><div class="chips">'+[['claude','pClaude'],['me','pMe']].map(([k,l])=>'<button class="chip'+(NW.pick===k?' on':'')+'" data-npick="'+k+'">'+t(l)+'</button>').join('')+'</div>'
+  if(NW.mode==='clips'){ o+='<h5>'+t('whoPick')+'</h5><div class="chips">'+[['claude','pClaude'],['me','pMe']].map(([k,l])=>'<button class="chip'+(NW.pick===k?' on':'')+'" data-npick="'+k+'">'+t(l)+(k==='claude'?' <span class="tkb">'+t('tokBadge')+'</span>':'')+'</button>').join('')+'</div>'
     +'<h5>'+t('howMany')+'</h5><div class="chips">'+[3,5,8,10].map(n=>'<button class="chip'+(NW.n===n?' on':'')+'" data-nn="'+n+'">'+n+'</button>').join('')+'</div>'
     +'<h5>'+t('howLong')+'</h5><div class="chips">'+[['15-30','lenS'],['30-60','lenM'],['60-90','lenL']].map(([k,l])=>'<button class="chip'+(NW.len===k?' on':'')+'" data-nlen="'+k+'">'+t(l)+'</button>').join('')+'</div>'; }
   o+='<h5></h5><textarea id="nNote" dir="auto" placeholder="'+esc(t('notePh'))+'">'+esc(NW.note||'')+'</textarea>'+(NW.src==='link'?'<div class="hint2">'+t('rights')+'</div>':'')
@@ -536,7 +581,7 @@ function drawNew(){ const y=DATA&&DATA.ytdlp, cl=DATA&&DATA.claude;
   const ps=$('#nPaste'); if(ps) ps.onclick=async()=>{ try{ NW.url=await navigator.clipboard.readText(); drawNew(); }catch(e){ $('#nUrl').focus(); } };
   const ins=$('#nInstall'); if(ins) ins.onclick=async()=>{ ins.disabled=true; ins.textContent=t('installing'); const r=await api('ytdlp_install',{}); if(r.ok){ DATA.ytdlp=true; toast(t('done')); drawNew(); } else { ins.disabled=false; ins.textContent=t('installY'); toast((r.out||t('failed')).slice(-160)); } };
   $('#nGo').onclick=startNew; }
-async function startNew(){ const b=$('#nGo'), extra={mode:NW.mode,pick:NW.pick,n:NW.n,len:NW.mode==='clips'?NW.len:'',note:NW.note||''};
+async function startNew(){ if(NW.mode==='auto'&&!(await tokenGo('auto','big'))) return; if(NW.mode==='clips'&&NW.pick==='claude'&&!(await tokenGo('pick','big'))) return; const b=$('#nGo'), extra={mode:NW.mode,pick:NW.pick,n:NW.n,len:NW.mode==='clips'?NW.len:'',note:NW.note||''};
   if(NW.src==='link'){ const url=(NW.url||'').trim(); if(!/^https?:\/\//.test(url)){ $('#nUrl').focus(); toast(t('linkPh')); return; } b.disabled=true;
     const r=await api('link',{url,...extra}); b.disabled=false; if(r.ok){ toast(t('started')); closeSheet(); NW.url=''; NW.note=''; TAB='lib'; load(); } else if(r.need==='ytdlp'){ DATA.ytdlp=false; drawNew(); } else toast(r.msg||t('failed')); return; }
   const f=NW.file; if(!f){ $('#nDrop').click(); return; } b.disabled=true; const x=new XMLHttpRequest(); $('#nProg').style.display='block';
@@ -579,7 +624,7 @@ function drawPick(){ const pk=$('#pick'); if(!pk) return; const n=[...SEL].filte
   pk.innerHTML='<div class="in"><span class="n">'+t('selN',n)+'</span><div class="seg"><button data-edit="claude" class="'+(EDIT==='claude'?'on':'')+'"'+(EPD.claude?'':' disabled')+'>'+t('editClaude')+'</button><button data-edit="me" class="'+(EDIT==='me'?'on':'')+'">'+t('editMe')+'</button></div><button class="btn y" id="epMake"'+(n?'':' disabled')+'>'+IC.scissors.replace('width="26" height="26"','width="18" height="18"')+t('makeIt')+'</button></div>'; }
 function playCand(id){ const c=(EPD.cands||[]).find(x=>x.id===id), v=$('#pv'); if(!c||!v) return; PLAYC=id; v.currentTime=c.from; v.play().catch(()=>{}); drawCands(); if(!DESK()) scrollTo({top:0,behavior:'smooth'}); }
 async function candSet(c){ const r=await api('ep_cand',{id:EP,cand:c}); if(r.ok){ EPD.cands=r.cands; drawCands(); drawTr(); drawPick(); } }
-document.addEventListener('click',async e=>{ const el=e.target.closest('#ldRetry,[data-hit],[data-sro],#qX,[data-tab],[data-f],[data-open],[data-go],[data-watch],[data-dup],[data-ren],[data-prep],[data-rev],[data-new],[data-awake],[data-lang],[data-ep],[data-retry],[data-nsrc],[data-nmode],[data-npick],[data-nn],[data-nlen],[data-ck],[data-cid],[data-pc],[data-nud],[data-crm],[data-rc],[data-si],[data-et],[data-edit],[data-cpu],#fab,#bDbRe,#bClFind,#bClTest,#bClHide,#bTest,#bStopC,#bStopE,#bRestart,#bScreen,#epMake,#epRank,#epRe'); if(!el) return; const d=el.dataset;
+document.addEventListener('click',async e=>{ const el=e.target.closest('#ldRetry,[data-hit],[data-sro],#qX,[data-tab],[data-f],[data-open],[data-go],[data-watch],[data-dup],[data-ren],[data-prep],[data-rev],[data-new],[data-awake],[data-lang],[data-ep],[data-retry],[data-nsrc],[data-nmode],[data-npick],[data-nn],[data-nlen],[data-ck],[data-cid],[data-pc],[data-nud],[data-crm],[data-rc],[data-si],[data-et],[data-edit],[data-cpu],#fab,#bDbRe,[data-tokask],[data-fac],[data-facm],[data-faco],[data-facn],[data-unml],#bClFind,#bClTest,#bClHide,#bTest,#bStopC,#bStopE,#bRestart,#bScreen,#epMake,#epRank,#epRe'); if(!el) return; const d=el.dataset;
   if(d.tab){ if(EP){ EP=null; const pk=$('#pick'); if(pk) pk.remove(); try{ history.pushState({},'','/library'); }catch(e){} } TAB=d.tab; try{ localStorage.setItem('hubTab',TAB); }catch(e){} render(); load(); scrollTo(0,0); return; }
   if(el.id==='ldRetry'){ LOADERR=null; _loading=false; render(); load(); return; }
   if(d.hit){ const [id,tt]=d.hit.split('|'); openAt(id,tt); return; }
@@ -593,8 +638,12 @@ document.addEventListener('click',async e=>{ const el=e.target.closest('#ldRetry
   if(d.prep){ await api('prep',{id:d.prep}); closeSheet(); toast(t('started')); load(); return; }
   if(d.open){ if(TAB==='lib'&&!DESK()) openSheet(d.open); else if(TAB==='lib'&&DESK()) openSheet(d.open); else go(d.open); return; }
   if(d.cpu){ const r=await api('cpu',{mode:d.cpu}); if(DEV) DEV.cpu=r.cpu; toast(t('cpuSet')); render(); return; }
+  if(d.tokask){ const r=await api('tokens',{ask:!(DATA&&DATA.tokenAsk!==false)}); if(DATA) DATA.tokenAsk=r.tokenAsk; render(); return; }
+  if(d.fac||d.facm||d.faco||d.facn){ const F=(DATA&&DATA.factory)||{}; let b={}; if(d.fac==='on') b={on:!F.on}; else if(d.fac==='night') b={night:el.checked}; else if(d.facm){ if(d.facm==='auto'&&!(await tokenGo('auto','big'))) return; b={mode:d.facm}; } else if(d.faco) b={open:true}; else b={now:true};
+    const r=await api('factory',b); if(DATA) DATA.factory=r; if(d.faco&&r.dir) toast(r.dir); render(); return; }
+  if(d.unml){ const sel=document.querySelector('[data-unm="'+d.unml+'"]'), u=UNM[+d.unml]; if(!sel||!sel.value||!u) return; await api('perf',{id:sel.value,...u.row}); UNM.splice(+d.unml,1); STATS=await api('insights'); toast(t('stSaved')); render(); return; }
   if(el.id==='bClHide'){ try{ localStorage.setItem('hsClHide',d.at); }catch(_){ } render(); return; }
-  if(el.id==='bClFind'||el.id==='bClTest'){ el.disabled=true; el.textContent=t('clChecking'); try{ const r=await api('claude_check',{test:el.id==='bClTest'},el.id==='bClTest'?100000:20000); toast(r.ok?(r.msg||t('clFound')):r.msg); }catch(_){ toast(t('failed')); } await load(); return; }
+  if(el.id==='bClFind'||el.id==='bClTest'){ if(el.id==='bClTest'&&!(await tokenGo('test','small'))) return; el.disabled=true; el.textContent=t('clChecking'); try{ const r=await api('claude_check',{test:el.id==='bClTest'},el.id==='bClTest'?100000:20000); toast(r.ok?(r.msg||t('clFound')):r.msg); }catch(_){ toast(t('failed')); } await load(); return; }
   if(d.retry){ e.stopPropagation(); await api('retry',{id:d.retry}); toast(t('started')); load(); return; }
   if(d.ep){ openEp(d.ep); return; }
   if(d.rev){ return confirmSheet(t('revertQ'),async()=>{ const r=await api('revert',{id:d.rev}); toast(r.ok?t('reverted'):(r.msg||t('failed'))); load(); }); }
@@ -614,8 +663,8 @@ document.addEventListener('click',async e=>{ const el=e.target.closest('#ldRetry
     if(S[b][1]-S[a][0]<4){ drawTr(); return; } const before=new Set((EPD.cands||[]).map(c=>c.id)); await candSet({from:Math.max(0,S[a][0]-0.15),to:S[b][1]+0.25,hook:S[a][2]});
     (EPD.cands||[]).forEach(c=>{ if(!before.has(c.id)) SEL.add(c.id); }); drawCands(); drawTr(); drawPick(); toast(t('mineAdded')); return; }
   if(d.cid){ if(e.target.closest('button')) return; OPENC=OPENC===d.cid?null:d.cid; if(OPENC) playCand(OPENC); else drawCands(); return; }
-  if(el.id==='epMake'){ const ids=[...SEL].filter(id=>(EPD.cands||[]).some(c=>c.id===id&&!c.made)); if(!ids.length) return; el.disabled=true; const r=await api('ep_build',{id:EP,picks:ids,edit:EDIT}); if(r.ok){ toast(t('building')); SEL.clear(); closeEp(); } else { el.disabled=false; toast(r.msg||t('failed')); } return; }
-  if(el.id==='epRank'){ const r=await api('ep_rank',{id:EP}); if(r.ok){ EPD.ranking=true; renderEp(); } else toast(r.msg||t('failed')); return; }
+  if(el.id==='epMake'){ if(EDIT==='claude'&&!(await tokenGo('edit','big'))) return; const ids=[...SEL].filter(id=>(EPD.cands||[]).some(c=>c.id===id&&!c.made)); if(!ids.length) return; el.disabled=true; const r=await api('ep_build',{id:EP,picks:ids,edit:EDIT}); if(r.ok){ toast(t('building')); SEL.clear(); closeEp(); } else { el.disabled=false; toast(r.msg||t('failed')); } return; }
+  if(el.id==='epRank'){ if(!(await tokenGo('rank','mid'))) return; const r=await api('ep_rank',{id:EP}); if(r.ok){ EPD.ranking=true; renderEp(); } else toast(r.msg||t('failed')); return; }
   if(el.id==='epRe'){ const r=await api('ep_suggest',{id:EP}); if(r.ok){ EPD.cands=r.cands; drawCands(); drawTr(); drawPick(); } return; }
   if(el.id==='bDbRe'){ el.disabled=true; DBS=await api('db',{full:true}); toast(t('done')); setTimeout(load,2500); return; }
   if(el.id==='bTest'){ const r=await api('notify_test',{}); toast(r.ok?t('done'):(r.msg||t('failed'))); return; }

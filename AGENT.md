@@ -86,3 +86,4 @@
 - مكتبة الأصوات (30 صوت): `python hs.py sfx <work> list` ثم `python hs.py sfx <work> add <id> <ثانية>` · حذف: `sfx <work> rm <id> <ثانية>`.
 
 - حركات أرقام: `layer add type=viz kind=pctdots|people|fill|bars|route|cta …` · شاشة كلمة: `type=cover text="…"` · نص قزاز: `type=text bg=glass` · إطار صورة: `frame=glass|ring|browser|post` · لقطة موقع: `python hs.py shot <work> <رابط> --at <ث>` · مقاطع حقيقية: `python hs.py media <work> search "…" --video` ثم `media <work> add <رقم> --at <ث>`.
+- 4.5: المستخدم يهمه حدّه في Claude. لا تسوي بنفسك شي الأداة تسويه بدون Claude (`hs retention`، الإعادات، الأغلفة، نصوص النشر بـ`repurpose.json`). خلّ ردك قصير وشغلك أقل شي يكفي.

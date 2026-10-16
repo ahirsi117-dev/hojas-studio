@@ -30,14 +30,41 @@ print("الإيقاع:", "هادي (زوم أخف · لا تغيير قبل 4 ث
 p=subprocess.run(["ffprobe","-v","error","-select_streams","v:0","-show_entries",
    "stream=width,height","-of","csv=p=0:s=x",SRC],capture_output=True,text=True).stdout.strip()
 SW,SH=[int(x) for x in p.split("x")[:2]]
+# 4.5: فيديو عرضي (بودكاست/مقابلة): نقص عمودي 9:16 على اللي يتكلم بدل ما نمطّ الصورة. 22_reframe.py يحسب المكان.
+WIDE=SW/max(1,SH)>0.75
+RK=[]
+if WIDE:
+    _rp=os.path.join(W,"reframe.json")
+    if not os.path.exists(_rp) or os.path.getmtime(_rp)<os.path.getmtime(SRC):
+        subprocess.run([sys.executable,os.path.join(os.path.dirname(os.path.abspath(__file__)),"22_reframe.py"),W])
+    try: RK=json.load(open(_rp)).get("keys") or []
+    except Exception: RK=[]
+    if RK:   # نقسم أي جزء يمر فيه تبديل متكلم
+        _sw=[t for t,_ in RK[1:]]; _k2=[]
+        for s,e in k:
+            cut=[t for t in _sw if s+0.3<t<e-0.3]
+            for t in cut: _k2.append([s,t]); s=t
+            _k2.append([s,e])
+        k=_k2
+    print("فيديو عرضي: قص عمودي", "يتبع المتكلم" if len(RK)>1 else "على الشخص")
+def _cx(t):
+    c=0.5
+    for kt,kc in RK:
+        if kt<=t+0.01: c=kc
+    return c
 fc=[];v=[];a=[]
 zi=0; held=0.0
 for i,(s,e) in enumerate(k):
     # بالوضع الهادي: نفس الزوم يستمر لين تتجمّع 4 ثوانٍ، ثم ينتقل للي بعده
     if i and (not CALM or held>=MINHOLD): zi+=1; held=0.0
     held+=(e-s)
-    z=Z[zi%len(Z)]; cw=int(SW/z)//2*2; ch=int(SH/z)//2*2
-    x=(SW-cw)//2; y=int((SH-ch)*ANCH)
+    z=Z[zi%len(Z)]
+    if WIDE:
+        bw=SH*9/16; cw=int(bw/z)//2*2; ch=int(SH/z)//2*2
+        x=int(max(0,min(SW-cw,_cx((s+e)/2)*SW-cw/2)))//2*2; y=int((SH-ch)*ANCH)
+    else:
+        cw=int(SW/z)//2*2; ch=int(SH/z)//2*2
+        x=(SW-cw)//2; y=int((SH-ch)*ANCH)
     fc.append(f"[0:v]trim=start={s:.4f}:end={e:.4f},setpts=PTS-STARTPTS,crop={cw}:{ch}:{x}:{y},"
               f"scale=1080:1920:flags=lanczos,setsar=1[v{i}]")
     # تلاشي 12 جزء من الثانية أول وآخر كل لقطة: بدونه يطلع «تك» أو قطع بالصوت عند كل قصة
