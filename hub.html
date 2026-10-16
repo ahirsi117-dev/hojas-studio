@@ -148,6 +148,10 @@ textarea{width:100%;background:var(--s1);border:1px solid var(--bd);border-radiu
 #tok h3{margin:0 0 6px;font-size:18px} #tok .ck{display:flex;gap:8px;align-items:center;margin:4px 0 14px;font-size:13.5px;color:var(--mut)} #tok .acts{display:flex;gap:8px}
 .st-tip{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--bd);line-height:1.8} .st-tip:first-of-type{border-top:0} .st-tip b{min-width:46px;color:var(--ok);direction:ltr;text-align:center}
 .st-tip.dn b{color:var(--warn)} .pr-row{display:grid;grid-template-columns:minmax(0,1fr) 110px 90px;gap:8px;align-items:center;padding:7px 0;border-top:1px solid var(--bd)} .pr-row input{width:100%;padding:8px 10px}
+.stsrc{margin-bottom:12px;border-color:rgba(242,179,61,.35)!important}
+.pill{font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px}.pill.off{background:rgba(242,179,61,.14);color:var(--warn);border:1px solid rgba(242,179,61,.35)}
+.stnums{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stnums div{background:rgba(255,255,255,.04);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.stnums b{font-size:20px;direction:ltr;text-align:start}.stnums span{font-size:12px;color:var(--mut)}
 .pr-row input,.pr-row select{background:rgba(0,0,0,.25);border:1px solid var(--bd);border-radius:10px;color:var(--tx);padding:8px 10px;outline:none}
 .pr-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .fac-st{font-size:13px;color:var(--mut);line-height:1.8;margin-top:8px}
 .clb{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid rgba(242,179,61,.45);background:rgba(242,179,61,.08);border-radius:16px;padding:12px 14px;margin:0 0 14px;font-size:13.5px;line-height:1.7}
@@ -352,6 +356,9 @@ const TX={
  tokAskT:['Claude وحدّك','Claude and your limit'], tokAskOn:['اسألني قبل أي استهلاك','Ask before using my limit'], tokAskSub:['أي زر يشغّل Claude ينبّهك قبلها ويقول لك كم تقريباً يستهلك. كل الميزات الثانية تشتغل على جهازك بدون ما تلمس حدّك.','Every Claude action asks first. Everything else runs on your PC.'],
  facT:['مصنع الليل','Night factory'], facSub:['ارمي مقاطعك بالمجلد وتتجهّز لحالها وحدة ورا وحدة، بالوضع الخفيف. أول ما تخلص يجيك إشعار بالجوال.','Drop clips in the folder and they get prepared one by one.'], facOn:['شغّال','On'], facNight:['بالليل بس (12 إلى 7 الصبح)','Only at night (12 to 7 am)'],
  facMan:['أجهّزها وأمنتجها أنا','Prepare, I edit'], facAuto:['Claude يمنتجها','Claude edits'], facOpen:['افتح المجلد','Open folder'], facNow:['ابدأ الحين','Start now'], facQ:['بالانتظار: {0}','Waiting: {0}'], facDoing:['يجهّز الحين: {0}','Preparing: {0}'], facDone:['خلص {0} مقطع','{0} done'], facNightWait:['ينتظر الساعة 12 الليل','Waiting for midnight'],
+ stSrcT:['من وين الأرقام؟','Where numbers come from'], stSrcOff:['مو مربوط بحساباتك','Not linked to your accounts'],
+ stSrcSub:['الأداة ما تتصل بتيك توك ولا انستقرام ولا يوتيوب، ولا تسحب أرقامك لحالها. كل رقم هنا أنت دخّلته بيدك تحت، أو من ملف CSV صدّرته من المنصة. يعني لو ما دخّلت شي، ما فيه أرقام.','The tool does not connect to TikTok, Instagram or YouTube. Every number here is one you typed or imported from a CSV.'],
+ stHave:['مقطع فيه أرقام (من {0})','clips with numbers (of {0})'], stLast:['آخر مرة دخّلت أرقام','Last update'], stLeft:['باقي عشان تطلع النصايح','left until tips'],
  stIns:['وش يضرب عندك','What works for you'], stNeed:['دخّل أرقام {0} مقاطع زيادة عشان أقدر أقول لك وش يضرب عندك. الحين عندي {1}.','Add numbers for {0} more clips. I have {1}.'], stNoTip:['للحين ما فيه فرق واضح بين مقاطعك. كل ما زادت الأرقام صار أدق.','No clear pattern yet.'], stTop:['أقوى مقاطعك','Your top clips'],
  stLearn:['ترشيح اللقطات صار يميل لهذا تلقائياً.','Clip suggestions now lean toward this.'], stImp:['استورد من ملف CSV','Import CSV'], stImpSub:['تيك توك: TikTok Studio ← Analytics ← Export. انستقرام وغيره: Metricool ← تصدير CSV. الأداة تربط كل صف بمقطعه من النص.','Export analytics as CSV and drop it here.'],
  stPick:['اختر ملف CSV','Choose CSV'], stMatched:['ربطت {0} صف بمقاطعها','Matched {0} rows'], stUnm:['ما عرفت مقطعها ({0})','Not matched ({0})'], stLink:['اربط','Link'], stMan:['دخّلها بيدك','Enter by hand'], stManSub:['اكتب المشاهدات وتنحفظ لحالها.','Type views, they save automatically.'], stViews:['مشاهدات','views'], stLikes:['إعجاب','likes'], stPickP:['أي مقطع؟','Which clip?'], stSaved:['انحفظت','Saved'],
@@ -469,7 +476,10 @@ function renderCmds(){ if(!CMDS){ $('#main').innerHTML=LOADERR?errBox():loader('
   const now=L.filter(c=>c.status==='running'), old=L.filter(c=>c.status!=='running');
   $('#main').innerHTML='<div id="cmds">'+(now.length?'<h4 class="sec">'+t('now')+'</h4>'+now.map(card).join(''):'')+(old.length?'<h4 class="sec">'+t('before')+'</h4>'+old.map(card).join(''):'')+'</div>'; }
 function trim(s){ s=String(s||'').replace(/\n\n\(سياق[^)]*\)/,'').replace(/^.*?المطلوب:\n/s,''); return s.length>420?s.slice(0,420)+'…':s; }
-function renderStats(){ const S=STATS; if(!S){ $('#main').innerHTML=LOADERR?errBox():loader('lib'); return; } const P=(DATA&&DATA.projects)||[], pv=S.perf||{}; let o='<div id="dev"><div class="cols"><div>';
+function renderStats(){ const S=STATS; if(!S){ $('#main').innerHTML=LOADERR?errBox():loader('lib'); return; } const P=(DATA&&DATA.projects)||[], pv=S.perf||{}, have=Object.keys(pv).filter(k=>P.some(p=>p.id===k)).length; let o='';
+  o+='<div class="card stsrc"><div class="rowc"><b style="font-size:17px">'+t('stSrcT')+'</b><span class="pill off">'+t('stSrcOff')+'</span></div><p class="lbl" style="line-height:1.85;margin:8px 0 10px">'+t('stSrcSub')+'</p>'
+    +'<div class="stnums"><div><b>'+have+'</b><span>'+t('stHave',P.length)+'</span></div><div><b>'+(S.last?ago(S.last):'-')+'</b><span>'+t('stLast')+'</span></div><div><b>'+Math.max(0,5-(S.n||0))+'</b><span>'+t('stLeft')+'</span></div></div></div>';
+  o+='<div id="dev"><div class="cols"><div>';
   o+='<div class="card" style="margin-bottom:12px"><b style="font-size:17px">'+t('stIns')+'</b>';
   if(S.need>0) o+='<p class="lbl" style="line-height:1.8;margin-top:8px">'+t('stNeed',S.need,S.n)+'</p>';
   else if(!S.tips.length) o+='<p class="lbl" style="line-height:1.8;margin-top:8px">'+t('stNoTip')+'</p>';

@@ -65,7 +65,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.5.0"
+VERSION = "4.5.1"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -1997,8 +1997,9 @@ def serve(work, port, engine):
             if dl: self.send_header("Content-Disposition", 'attachment; filename="%s"' % dl)
             self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
         def _deny(self):
-            b = ('<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><body dir=rtl style="font-family:system-ui;background:#101014;color:#eee;display:grid;place-items:center;height:100vh;margin:0">'
-                 '<form method=get style="text-align:center"><p>اكتب رمز الدخول الظاهر على شاشة الاستوديو</p><input name=k inputmode=numeric autofocus style="font-size:28px;width:180px;text-align:center;padding:10px;border-radius:10px;border:1px solid #444;background:#1b1b22;color:#fff"><p><button style="font-size:18px;padding:10px 26px;border-radius:10px;border:0;background:#7c5cff;color:#fff">دخول</button></form>').encode()
+            ip = self.client_address[0]; f = FAILS.get(ip); q = self._q()
+            locked = FAILS_ALL[0] >= 200 or bool(f and f[0] >= 10 and time.time() - f[1] <= 900)
+            b = login_html(urllib.parse.urlparse(self.path).path or "/", "بالاستوديو على الكمبيوتر (زر «الجوال»)", len(TOKEN), "الرمز غلط، جرّب مرة ثانية." if q.get("k") else "", locked).encode()
             self.send_response(403); self.send_header("Content-Type", "text/html; charset=utf-8"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
         def _review_video(self):
             ex = exports(); return ("/hs/export/" + ex[0]) if ex else ("/ad-master.mp4" if os.path.exists(P("ad-master.mp4")) else None)
@@ -2933,6 +2934,35 @@ def whisper_device():
         v = (r.stdout or "").strip().splitlines()[-1] if r.returncode == 0 and r.stdout.strip() else None
     except Exception: pass
     _WD.update(t=time.time(), v=v); return v
+# ── 4.5.1: صفحة رمز الدخول من الجوال (6 خانات، لصق، إرسال تلقائي، رسالة واضحة لو غلط أو انقفل) ──
+LOGIN_CSS = """*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;height:100%}
+body{background:#0a0c11;color:#f1f4fa;font-family:"IBM Plex Sans Arabic",system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px 16px calc(24px + env(safe-area-inset-bottom))}
+.c{width:100%;max-width:380px;text-align:center}.logo{width:44px;height:44px;margin:0 auto 18px;display:grid;gap:4px;grid-template-rows:repeat(3,1fr)}
+.logo i{display:block;border-radius:4px}.logo i:nth-child(1){background:#8f73f5;width:70%}.logo i:nth-child(2){background:#4f7fd4}.logo i:nth-child(3){background:#3aa57e;width:55%}
+h1{font-size:24px;margin:0 0 8px;font-weight:700}p{color:#8b93a7;font-size:14.5px;line-height:1.8;margin:0 0 22px}
+.d{display:flex;gap:8px;justify-content:center;direction:ltr;margin-bottom:18px}
+.d input{width:46px;height:58px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#fff;font-size:26px;font-weight:600;text-align:center;outline:none;caret-color:#6aa2ff;font-family:inherit}
+.d input:focus{border-color:#6aa2ff;background:rgba(76,141,255,.08)}.err .d input{border-color:rgba(239,106,90,.7)}
+button{width:100%;height:52px;border:0;border-radius:14px;background:#3f7ff0;color:#fff;font-size:17px;font-weight:600;font-family:inherit;cursor:pointer}button:disabled{opacity:.45}
+.m{min-height:22px;font-size:13.5px;margin:-6px 0 14px;color:#ef6a5a}.h{margin-top:22px;padding:14px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);font-size:13px;color:#8b93a7;line-height:1.9;text-align:start}
+.h b{color:#f1f4fa;font-weight:600}.lk{color:#f2b33d}"""
+def login_html(action, where, n=6, err="", locked=False):
+    msg = "انقفل الدخول من الجوال مؤقتاً بعد محاولات كثيرة غلط. جرّب بعد ربع ساعة، أو افتح من الكمبيوتر." if locked else err
+    return ("<!doctype html><html lang=ar dir=rtl><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1,viewport-fit=cover'><meta name=theme-color content='#0a0c11'>"
+            "<title>رمز الدخول · Hojas Studio</title><link href='https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap' rel=stylesheet><style>" + LOGIN_CSS.replace("%", "%%") + "</style></head><body>"
+            "<form class='c%s' method=get action='%s' id=f><div class=logo><i></i><i></i><i></i></div><h1>اكتب رمز الدخول</h1>"
+            "<p>الرمز من %d أرقام، تلقاه %s.</p><div class=d id=d>%s</div><input type=hidden name=k id=k>"
+            "<div class=m id=m>%s</div><button id=b%s>دخول</button>"
+            "<div class=h><b>وين ألقى الرمز؟</b><br>على الكمبيوتر افتح المكتبة ← <b>جهازك</b> ← «افتحه من جوالك». تلقى الرمز تحت رمز QR، ومسح الرمز يدخلك على طول بدون كتابة.<br>لازم الجوال والكمبيوتر على نفس الواي فاي.</div></form>"
+            "<script>const N=%d,D=[...document.querySelectorAll('.d input')],f=document.getElementById('f');"
+            "const v=()=>D.map(x=>x.value).join('');function go(){ if(v().length===N){ document.getElementById('k').value=v(); document.getElementById('b').disabled=true; f.submit(); } }"
+            "D.forEach((x,i)=>{ x.addEventListener('input',()=>{ x.value=x.value.replace(/\\D/g,'').slice(-1); if(x.value&&i<N-1) D[i+1].focus(); document.getElementById('m').textContent=''; f.classList.remove('err'); go(); });"
+            "x.addEventListener('keydown',e=>{ if(e.key==='Backspace'&&!x.value&&i>0){ D[i-1].focus(); D[i-1].value=''; } });"
+            "x.addEventListener('paste',e=>{ const t=(e.clipboardData.getData('text')||'').replace(/\\D/g,'').slice(0,N); if(!t) return; e.preventDefault(); t.split('').forEach((c,j)=>{ if(D[j]) D[j].value=c; }); (D[t.length]||D[N-1]).focus(); go(); }); });"
+            "f.addEventListener('submit',e=>{ if(v().length!==N){ e.preventDefault(); document.getElementById('m').textContent='اكتب الأرقام كلها'; } else document.getElementById('k').value=v(); });"
+            "if(!%s) D[0].focus();</script></body></html>") % (
+            " err" if msg else "", action, n, where, "".join("<input inputmode=numeric autocomplete=one-time-code maxlength=1 aria-label='رقم %d'%s>" % (i + 1, " disabled" if locked else "") for i in range(n)),
+            msg, " disabled" if locked else "", n, "true" if locked else "false")
 # ── تشغيل Claude Code بالخلفية على مجلد (من المكتبة) ──
 # 4.4.1: نلقى Claude حتى لو المكتبة اشتغلت بـ PATH ناقص (مع تشغيل ويندوز، أو من تطبيق Claude)، ونفهم ليش وقف ونقوله بكلام واضح.
 _CL = {"t": 0, "v": None}
@@ -4271,9 +4301,10 @@ def hub_serve(root, port):
             self.end_headers(); self.wfile.write(b)
         def _json(self, code, o, extra=None): self._send(code, json.dumps(o, ensure_ascii=False), extra=extra)
         def _deny(self):
-            b = ('<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><body dir=rtl style="font-family:system-ui;background:#111113;color:#eee;display:grid;place-items:center;height:100vh;margin:0">'
-                 '<form method=get action=/library style="text-align:center"><p>اكتب رمز الدخول الظاهر بالمكتبة على جهازك</p><input name=k inputmode=numeric autofocus style="font-size:28px;width:180px;text-align:center;padding:10px;border-radius:14px;border:1px solid #444;background:#1c1c1f;color:#fff"><br><br><button style="font-size:18px;padding:10px 28px;border-radius:14px;border:0;background:#F5C443;color:#111">دخول</button></form>')
-            self._send(403, b, "text/html; charset=utf-8")
+            ip = self.client_address[0]; f = FAILS.get(ip); q = self._q()
+            locked = FAILS_ALL[0] >= 200 or bool(f and f[0] >= 10 and time.time() - f[1] <= 900)
+            pth = urllib.parse.urlparse(self.path).path
+            self._send(403, login_html(pth if pth in ("/tele", "/library") else "/library", "بالمكتبة على الكمبيوتر", len(TOKEN), "الرمز غلط، جرّب مرة ثانية." if q.get("k") else "", locked), "text/html; charset=utf-8")
         def _body(self):
             n = int(self.headers.get("Content-Length") or 0); return self.rfile.read(n) if n else b""
         def _cookie(self, name):
@@ -4405,7 +4436,11 @@ def hub_serve(root, port):
                 return self._json(200, {"ok": True, "work": w})
             if a == "tokens":   # 4.5: اسألني قبل أي شي يستهلك من حدّي في Claude
                 c = hub_cfg(); c["tokenAsk"] = bool(data.get("ask", True)); wj(hub_cfg_path(), c); return self._json(200, {"ok": True, "tokenAsk": token_ask()})
-            if a == "insights": return self._json(200, {**insights(), "learned": learned(), "perf": {k: {"views": v.get("views"), "likes": v.get("likes")} for k, v in perf_all().items()}})
+            if a == "insights":
+                c = perf_conn()
+                try: last = (c.execute("SELECT MAX(at) FROM perf").fetchone() or [None])[0]; srcs = [r[0] for r in c.execute("SELECT DISTINCT src FROM perf").fetchall()]
+                finally: c.close()
+                return self._json(200, {**insights(), "learned": learned(), "last": last, "srcs": srcs, "perf": {k: {"views": v.get("views"), "likes": v.get("likes")} for k, v in perf_all().items()}})
             if a == "perf":
                 w = card_by((q.get("id") or [data.get("id") or ""])[0])
                 if not w: return self._json(404, {"ok": False})
