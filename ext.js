@@ -3,7 +3,7 @@
    تقرأ studio.json ← hs  وتتحكم بالكابشن كامل (خط · وزن · حجم · ألوان · مكان · عرض السطر) + سطر الترجمة.
    لو hs.cap.on مو true  ← المحرّك الأصلي يرسم كابشنه كما هو (صفر أثر). */
 (function(){
-  if(window.__hsExt) return; window.__hsExt='4.2';
+  if(window.__hsExt) return; window.__hsExt='4.6';
   const GF={ /* خطوط قوقل والأوزان المتوفرة فعلاً لكل خط */
     'Cairo':[400,500,600,700,800,900],'Tajawal':[400,500,700,800,900],'IBM Plex Sans Arabic':[400,500,600,700],
     'Alexandria':[400,500,600,700,800,900],'El Messiri':[400,500,600,700],'Noto Sans Arabic':[400,500,600,700,800,900],
@@ -195,13 +195,22 @@
     if(t<VEND&&!CAPFORCE&&HSX.pod&&HSX.pod.on){ podDraw(t); return; }
     if(HSX.nocap) return;
     if((HSX.layers||[]).some(L=>!L.off&&t>=L.s&&t<L.e&&(L.type==='cover'||(L.type==='viz'&&L.kind==='cta')))) return;
-    if(!CAP.on) return _cap(t);
+    if(!CAP.on){ const c0=blOf()&&CAPS.find(c=>t>=c.s&&t<c.e); if(!c0||blOf().cap==='keep') return _cap(t);
+      const sv=[]; for(const x of c0.w||[]) if(blHit(x)){ sv.push([x,x.t]); x.t=blStar(x.t); } try{ return _cap(t); } finally { for(const [x,v] of sv) x.t=v; } }
     if(!CAPFORCE&&SCENES.some(sc=>sc.nocap&&t>=sc.s&&t<sc.e)) return;
     if(typeof BEHIND!=='undefined'&&BEHIND&&PRS_OK&&isFull(vrect(t))&&BEHIND.lines.some(l=>t>=l.s&&t<=l.e&&!BEHIND_OFF.includes(l.card))) return;
     if(collageActive(t)) return;
     const c=CAPS.find(c=>t>=c.s&&t<c.e); if(!c) return;
     const _ov=(HSX.capOv||{})[cardKey(c)], _CAP0=CAP; if(_ov) CAP={...CAP,..._ov};
-    try{ return capDraw(c,t); } finally { CAP=_CAP0; } };
+    try{ return capDraw(blMask(c),t); } finally { CAP=_CAP0; } };
+  /* 4.6: كتم الكلمات ← hs.bleep {mode, cap: stars|hide|keep, items:[{s,e,t}]}: الكلمة المكتومة بالكابشن نجوم أو مربع */
+  const blOf=()=>{ const b=HSX.bleep; return b&&Array.isArray(b.items)&&b.items.length?b:null; };
+  const blHit=w=>{ const b=blOf(); if(!b) return false; const m=(w.s+w.e)/2; return b.items.some(i=>m>=i.s-1e-6&&m<=i.e+1e-6); };
+  const blStar=s=>{ const a=Array.from(String(s)); return a.length<2?'*':a[0]+'*'.repeat(Math.min(5,a.length-1)); };
+  function blMask(c){ const b=blOf(); if(!b||b.cap==='keep') return c; let hit=false;
+    const w=c.w.map(x=>{ if(!blHit(x)) return x; hit=true; return {...x,t:b.cap==='hide'?x.t:blStar(x.t),bl:b.cap==='hide'?2:1,fx:undefined,hot:false}; });
+    return hit?{...c,w}:c; }
+  window.__hsBleep={hit:blHit,star:blStar};
   function capDraw(c,t){
     const lt=t-c.s, rt=c.e-t; let a=1, dy=0, sc=1;
     let dx=0; const EN_=CAP.enter||'rise';
@@ -259,6 +268,7 @@
           else { ps*=1+0.26*Math.sin(k*Math.PI); } }
         X.save(); const cxw=x-i.w/2; X.translate(cxw+ddx,cy+lift+ddy); X.scale(ps,ps); X.translate(-cxw,-(cy+lift));
         if(clip<1){ X.beginPath(); X.rect(x-i.w*clip-4,cy-fs,i.w*clip+8,fs*2); X.clip(); }
+        if(i.bl===2){ shadowOff(); X.fillStyle=act?CAP.active:CAP.color; rr(x-i.w,cy+lift-fs*0.4,i.w,fs*0.8,Math.round(fs*0.12)); X.fill(); X.restore(); x-=i.w+gap; continue; }
         let fill=(act||(i.hot&&sp))?CAP.active:CAP.color; const on=act||(i.hot&&sp);
         if(CAP.hl==='under'){ fill=CAP.color; if(on){ shadowOff(); X.fillStyle=CAP.active; rr(x-i.w,cy+lift+fs*0.5,i.w,Math.max(5,Math.round(fs*0.1)),Math.round(fs*0.05)); X.fill(); } }
         if(CAP.hl==='dim'&&!sp) X.globalAlpha*=0.36;

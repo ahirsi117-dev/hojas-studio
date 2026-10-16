@@ -210,4 +210,9 @@ vk_line:['خط بياني','Line chart'], vh_line:['أرقام تتغيّر مع
 vk_slot:['عدّاد سلوت','Slot counter'], vh_slot:['رقم واحد مهم يدور مثل آلة السلوت ويوقف عليه.','One key number that rolls like a slot machine and lands.'],
 vk_news:['خبر','News'], vh_news:['عنوان خبر مكتوب، وجزء منه يتظلّل بقلم مع كلامك.','A headline card. Part of it gets highlighted as you say it.'],
 vLabels:['أسماء النقاط','Point labels'], vSource:['المصدر','Source'], vMark:['الجزء المظلّل','Highlighted part'], vMarkPh:['كلمات من العنوان','Words from the headline'],
+blTitle:['كتم كلمة','Bleep words'], blClear:['شيل الكل','Clear all'], blPh:['اكتب الكلمة، وأكثر من وحدة بينها مسافة','Type a word, or several separated by spaces'], blGo:['اكتمها','Bleep'],
+blSound:['الصوت','Sound'], blBeep:['بيب','Beep'], blMute:['صمت','Silence'], blTone:['النغمة','Tone'], blCap:['بالكابشن','In captions'], blStars:['نجوم','Stars'], blHide:['مربع','Block'], blKeep:['كما هي','As is'],
+blRange:['مقطع صوت','Audio range'], blNone:['ما فيه كلمات مكتومة.','No bleeped words yet.'], blHint:['يلقى الكلمة بكل مكان انقالت فيه (حتى مع و ب ال قبلها وبدون همزات). وتنكتم بالتصدير والترجمة SRT، وتسمعها بالمعاينة.','Finds every time the word is said (with prefixes, ignoring hamza). Applied to the export and SRT, and you hear it in preview.'],
+blWords:['اكتم كلمة','Bleep a word'], blWordHint:['اضغط الكلمة عشان تنكتم بصوت بيب وتطلع نجوم بالكابشن، واضغطها مرة ثانية عشان ترجع.','Tap a word to bleep it and star it in captions. Tap again to undo.'],
+blNotFound:['ما لقيت الكلمة بالكلام','That word isn’t in the speech'], blFound:['لقيتها {0} مرة، وانكتم {1} جديد','Found {0} times, {1} newly bleeped'],
 };
