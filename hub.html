@@ -141,6 +141,10 @@ nav .fab{width:66px;flex:none;background:var(--pri);color:#fff;border-radius:24p
 textarea{width:100%;background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:10px 12px;min-height:64px;outline:none;resize:vertical}
 .prog{height:6px;border-radius:3px;background:var(--s3);overflow:hidden;margin:12px 0}
 .prog i{display:block;height:100%;width:0;background:var(--y)}
+.seg2{display:flex;gap:8px;flex-wrap:wrap}
+.clb{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid rgba(242,179,61,.45);background:rgba(242,179,61,.08);border-radius:16px;padding:12px 14px;margin:0 0 14px;font-size:13.5px;line-height:1.7}
+.clb>div{flex:1;min-width:200px}.clb b{display:block;font-weight:600}.clb span{color:var(--mut)}
+.job .cn{display:block;color:var(--warn);font-size:12px;margin-top:4px}
 .box{border:1px solid rgba(242,179,61,.4);background:rgba(242,179,61,.09);border-radius:14px;padding:12px;font-size:13.5px;line-height:1.7;margin:10px 0}
 #toast{position:fixed;bottom:110px;left:50%;transform:translateX(-50%);background:rgba(30,34,44,.95);border:1px solid var(--bd);padding:10px 16px;border-radius:14px;font-size:14px;display:none;z-index:60;max-width:90%}
 .search{display:flex;align-items:center;gap:8px;background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:10px 14px;margin:0 0 14px}
@@ -361,7 +365,11 @@ const TX={
  reverted:['رجّعته. افتح المقطع تشوفه.','Reverted.'], revertQ:['أرجّع المقطع لقبل هذا الطلب؟','Revert the clip to before this request?'], done:['تم','Done'], failed:['ما زبط','Failed'], restarting:['يعيد التشغيل…','Restarting…'],
  inProg:['شغّال الحين','In progress'], eps:['فيديوهات طويلة','Long videos'], epsSub:['اختر منها لقطاتك','Pick your clips'], clipsN:['{0} مرشّح · {1} مقطع','{0} picks · {1} clips'],
  g_grab:['يسحب الفيديو','Downloading'], g_transcribe:['يفرّغ الكلام','Transcribing'], g_suggest:['يرشّح اللقطات','Finding clips'], g_build:['يقص اللقطات','Cutting clips'], g_prep:['يتجهّز للمونتاج','Preparing'], g_claude:['Claude شغّال','Claude working'], g_error:['وقف','Stopped'],
- leftMin:['باقي تقريباً {0} د','~{0} min left'], retry:['أعد','Retry'], prepAgain:['أعد التجهيز','Prepare again'],
+ leftMin:['باقي تقريباً {0} د','~{0} min left'], retry:['أعد','Retry'], clMiss:['ما لقيت Claude Code على جهازك','Claude Code not found on this PC'], clMissSub:['افتح Claude Code مرة وحدة وأنا ألقاه لحالي، وبعدها المونتاج يشتغل من هنا. أو كمّل يدوي.','Open Claude Code once and I will find it. Or edit manually.'], cpuT:['الجهاز وقت الشغل','PC while working'], cpu_light:['خفيف على الجهاز','Light on PC'], cpu_full:['أقصى سرعة','Max speed'], cpuSet:['تمام، يطبّق على الشغل الجاي','Applies to new work'],
+ cpuLightSub:['التفريغ والتصدير يشتغلون بأولوية أقل من برامجك ويخلّون لك جزء من المعالج، فتقدر تستخدم جهازك عادي. أبطأ شوي.','Processing runs below your apps so the PC stays smooth. A bit slower.'],
+ cpuFullSub:['ياخذ كل قوة الجهاز. أسرع، بس الجهاز يثقل وقت التفريغ والتصدير.','Uses the whole PC. Faster, but heavy while working.'],
+ wCpu:['التفريغ يشتغل على المعالج، وهذا أكثر شي يثقل الجهاز. عندك كرت شاشة NVIDIA؟ قل لـClaude «خلّ التفريغ على كرت الشاشة» ويستأذنك قبل ما يثبّت.','Transcription runs on the CPU. With an NVIDIA GPU, ask Claude to switch it to the GPU.'],
+ wGpu:['التفريغ يشتغل على كرت الشاشة.','Transcription runs on the GPU.'], clFind:['دوّر مرة ثانية','Look again'], clErrSub:['جهّزت مقاطعك تمنتجها بنفسك لين يرجع.','Your clips are ready to edit by hand meanwhile.'], clTest:['جرّب Claude الحين','Test Claude now'], clHide:['تمام','OK'], clChecking:['أتأكد من Claude…','Checking Claude…'], clFound:['لقيته، Claude جاهز.','Found it. Claude is ready.'], prepAgain:['أعد التجهيز','Prepare again'],
  picks:['المرشّحات','Picks'], script:['النص','Transcript'], hitP:['احتمال يضرب','Hit chance'], preview:['شغّل','Play'], made:['انعمل','Made'], openIt:['افتحه','Open'],
  selN:['اخترت {0}','{0} selected'], editClaude:['Claude يمنتج','Claude edits'], editMe:['أنا أمنتج','I edit'], makeIt:['سوّ المقاطع','Make clips'],
  rankClaude:['خلّ Claude يقيّمها','Ask Claude to rank'], ranking:['Claude يقيّمها الحين','Claude is ranking'], reSuggest:['رشّح من جديد','Suggest again'],
@@ -378,7 +386,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const fmt=s=>{ s=Math.round(s||0); const h=Math.floor(s/3600); return (h?h+':'+String(Math.floor(s/60)%60).padStart(2,'0'):Math.floor(s/60))+':'+String(s%60).padStart(2,'0'); };
 const gb=b=>'<bdi dir="ltr">'+(b/1e9).toFixed(b>1e11?0:1)+' GB</bdi>';
 const ago=ts=>{ const m=Math.round((Date.now()/1000-ts)/60); if(m<1) return t('justNow'); if(m<60) return t('ago_m',m); if(m<1440) return t('ago_h',Math.round(m/60)); return t('ago_d',Math.round(m/1440)); };
-async function api(p,b){ const ac=new AbortController(), to=setTimeout(()=>ac.abort(),p==='ytdlp_install'?600000:90000); try{ const r=await fetch('/hub/api/'+p,{signal:ac.signal,...(b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{})}); if(r.status===403) throw new Error('403'); return await r.json(); } finally{ clearTimeout(to); } }
+async function api(p,b,ms){ const ac=new AbortController(), to=setTimeout(()=>ac.abort(),ms||(p==='ytdlp_install'?600000:90000)); try{ const r=await fetch('/hub/api/'+p,{signal:ac.signal,...(b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{})}); if(r.status===403) throw new Error('403'); return await r.json(); } finally{ clearTimeout(to); } }
 function toast(s){ const e=$('#toast'); e.textContent=s; e.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(()=>e.style.display='none',2800); }
 const SV=(d,w=24,sw=1.8)=>'<svg width="'+w+'" height="'+w+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="'+sw+'" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>';
 const IC={
@@ -402,8 +410,12 @@ function lanes(L){ const C={img:'var(--img)',cap:'var(--cap)',vid:'var(--vid)',s
 const thumb=p=>p.thumb?'/hub/thumb/'+p.id+'?f='+encodeURIComponent(p.thumb)+'&v='+p.mt:'';
 function subHtml(p){ return '<div class="sub '+p.state+'"><span class="dot"></span><span>'+esc(p.sub)+'</span></div>'; }
 function stageTxt(j){ const k='g_'+(j.stage||'grab'); let s=TX[k]?t(k):j.sub; if(j.stage==='grab'&&j.pct!=null) s+=' '+Math.round(j.pct)+'%'; else if(j.eta&&j.t0){ const left=Math.max(1,Math.round((j.t0+j.eta-Date.now()/1000)/60)); if(j.stage==='transcribe') s+=' · '+t('leftMin',left); } return s; }
+function clBanner(){ if(!DATA) return ''; let hid=0; try{ hid=+localStorage.getItem('hsClHide')||0; }catch(e){}
+  if(!DATA.claude) return '<div class="clb"><div><b>'+t('clMiss')+'</b><span>'+t('clMissSub')+'</span></div><button class="btn sm" id="bClFind">'+t('clFind')+'</button></div>';
+  const e=DATA.claudeErr; if(e&&e.at>hid) return '<div class="clb '+esc(e.why)+'"><div><b dir="auto">'+esc(e.msg)+'</b><span>'+t('clErrSub')+'</span></div><button class="btn sm" id="bClTest">'+t('clTest')+'</button><button class="btn sm" id="bClHide" data-at="'+e.at+'">'+t('clHide')+'</button></div>';
+  return ''; }
 function jobCard(j){ const ind=!(j.stage==='grab'&&j.pct!=null), w=j.stage==='grab'&&j.pct!=null?j.pct:0;
-  return '<div class="job" '+(j.kind==='proj'?'data-open':'data-ep')+'="'+(j.kind==='job'?'':j.id)+'"><b dir="auto">'+esc(j.title)+'</b><small>'+(j.stage==='error'?'<span style="color:var(--bad)">'+esc(j.err||t('failed'))+'</span>':esc(stageTxt(j)))+'</small>'+(j.stage==='error'?'<div class="acts" style="margin-top:8px"><button class="btn sm" data-retry="'+j.id+'">'+t('retry')+'</button></div>':'<div class="prog'+(ind?' ind':'')+'"><i style="width:'+(ind?'':w+'%')+'"></i></div>')+'</div>'; }
+  return '<div class="job" '+(j.kind==='proj'?'data-open':'data-ep')+'="'+(j.kind==='job'?'':j.id)+'"><b dir="auto">'+esc(j.title)+'</b><small>'+(j.stage==='error'?'<span style="color:var(--bad)">'+esc(j.err||t('failed'))+'</span>':esc(stageTxt(j)))+(j.note?'<span class="cn" dir="auto">'+esc(j.note)+'</span>':'')+'</small>'+(j.stage==='error'?'<div class="acts" style="margin-top:8px"><button class="btn sm" data-retry="'+j.id+'">'+t('retry')+'</button></div>':'<div class="prog'+(ind?' ind':'')+'"><i style="width:'+(ind?'':w+'%')+'"></i></div>')+'</div>'; }
 function epCard(e){ return '<div class="ep" data-ep="'+e.id+'">'+(e.thumb?'<img class="th" loading="lazy" src="'+thumb(e)+'">':'<div class="th"></div>')+'<div style="min-width:0"><b dir="auto">'+esc(e.title)+'</b><div class="meta">'+(e.by?esc(e.by)+' · ':'')+'<bdi dir="ltr">'+fmt(e.dur)+'</bdi> · '+t('clipsN',e.cands,e.made)+'</div>'+subHtml(e)+'</div></div>'; }
 function tileHtml(p){ const pr=p.prep&&!p.prep.err;
   return '<div class="tile" data-open="'+p.id+'">'+(p.thumb?'<img loading="lazy" src="'+thumb(p)+'">':'<div class="ph">'+esc(p.title)+'</div>')+'<span class="tm">'+fmt(p.dur)+'</span>'+(p.manual?'<span class="tg2">'+IC.pen+'</span>':'')
@@ -414,6 +426,7 @@ function renderLib(){ if(!DATA){ $('#main').innerHTML=LOADERR?errBox():loader('l
   if((P.length||E.length)&&!DESK()) o+=searchBox();
   if(Q.trim().length>=2){ $('#main').innerHTML=o+'<div id="sres">'+srHtml()+'</div>'; return; }
   if(!P.length&&!E.length){ $('#main').innerHTML='<div class="empty">'+t('noProj')+'<br><button class="btn y" data-new="1">'+IC.plus+t('newP')+'</button></div>'; return; }
+  o+=clBanner();
   const lv=P.find(p=>p.agent); if(lv) o+='<div class="live" data-open="'+lv.id+'"><i></i><span dir="auto">'+t('liveNow',esc(lv.title))+(lv.last?' · '+esc(lv.last):'')+'</span></div>';
   const busy=E.filter(e=>e.state==='work'||e.state==='err').concat(P.filter(p=>p.prep).map(p=>({...p,kind:'proj',stage:p.prep.err?'error':'prep',err:p.prep.err,t0:p.prep.t0,eta:p.prep.eta})));
   if(busy.length) o+='<h4 class="sec">'+t('inProg')+'</h4><div class="row">'+busy.map(jobCard).join('')+'</div>';
@@ -436,6 +449,7 @@ function trim(s){ s=String(s||'').replace(/\n\n\(سياق[^)]*\)/,'').replace(/^
 function renderDev(){ const d=DEV; if(!d){ $('#main').innerHTML=LOADERR?errBox():loader('dev'); return; } const b=d.battery||{}, used=1-d.disk.free/d.disk.total; let o='<div id="dev"><div class="cols"><div>';
   if(b.has) o+='<div class="card" style="margin-bottom:12px"><div class="lbl">'+t('battery')+'</div><div class="big">'+b.pct+'%'+batHtml(b)+'</div><div class="lbl">'+(b.ac?t('onAC'):t('onBat'))+'</div></div>';
   o+='<div class="card" style="margin-bottom:12px"><div class="rowc"><span class="lbl">'+t('storage')+'</span><b style="direction:rtl">'+t('freeOf',gb(d.disk.free),gb(d.disk.total))+'</b></div><div class="bar"><i style="width:'+(used*100).toFixed(1)+'%"></i></div>'+(d.disk.free<15e9?'<div class="warn">'+t('lowDisk')+'</div>':'')+'</div>';
+  o+='<div class="card" style="margin-bottom:12px"><div class="rowc"><b style="font-size:17px">'+t('cpuT')+'</b></div><div class="seg2" style="margin:10px 0 8px">'+['light','full'].map(m=>'<button class="btn sm'+(d.cpu===m?' y':'')+'" data-cpu="'+m+'">'+t('cpu_'+m)+'</button>').join('')+'</div><div class="lbl" style="line-height:1.7">'+t(d.cpu==='full'?'cpuFullSub':'cpuLightSub')+'</div>'+(d.whisper==='cpu'?'<div class="box" style="margin-bottom:0">'+t('wCpu')+'</div>':d.whisper==='gpu'?'<div class="lbl" style="margin-top:6px">'+t('wGpu')+'</div>':'')+'</div>';
   if(DBS) o+='<div class="card dbcard" style="margin-bottom:12px"><div class="rowc"><b style="font-size:17px">'+t('dbTitle')+'</b><button class="btn sm" id="bDbRe">'+t('dbRe')+'</button></div><div class="big2">'+t('dbLines',DBS.items||0,DBS.lines||0,((DBS.secs||0)/3600).toFixed(1))+'</div><div class="lbl" style="line-height:1.7">'+t('dbSub')+'</div><div class="copy" style="margin-top:8px"><span>'+esc(DBS.path||'')+'</span></div></div>';
   o+='<div class="card" style="margin-bottom:12px"><div class="rowc"><div><b style="font-size:17px">'+t('awake')+'</b><div class="lbl" style="margin-top:3px">'+t('awakeSub')+'</div></div><div class="tg'+(d.awake?' on':'')+'" data-awake="1"></div></div><div class="note" style="margin:10px 0 0">'+t('awakeHint')+'</div></div>';
   const ag=d.live.find(x=>x.agent), jb=d.live.find(x=>x.job);
@@ -565,7 +579,7 @@ function drawPick(){ const pk=$('#pick'); if(!pk) return; const n=[...SEL].filte
   pk.innerHTML='<div class="in"><span class="n">'+t('selN',n)+'</span><div class="seg"><button data-edit="claude" class="'+(EDIT==='claude'?'on':'')+'"'+(EPD.claude?'':' disabled')+'>'+t('editClaude')+'</button><button data-edit="me" class="'+(EDIT==='me'?'on':'')+'">'+t('editMe')+'</button></div><button class="btn y" id="epMake"'+(n?'':' disabled')+'>'+IC.scissors.replace('width="26" height="26"','width="18" height="18"')+t('makeIt')+'</button></div>'; }
 function playCand(id){ const c=(EPD.cands||[]).find(x=>x.id===id), v=$('#pv'); if(!c||!v) return; PLAYC=id; v.currentTime=c.from; v.play().catch(()=>{}); drawCands(); if(!DESK()) scrollTo({top:0,behavior:'smooth'}); }
 async function candSet(c){ const r=await api('ep_cand',{id:EP,cand:c}); if(r.ok){ EPD.cands=r.cands; drawCands(); drawTr(); drawPick(); } }
-document.addEventListener('click',async e=>{ const el=e.target.closest('#ldRetry,[data-hit],[data-sro],#qX,[data-tab],[data-f],[data-open],[data-go],[data-watch],[data-dup],[data-ren],[data-prep],[data-rev],[data-new],[data-awake],[data-lang],[data-ep],[data-retry],[data-nsrc],[data-nmode],[data-npick],[data-nn],[data-nlen],[data-ck],[data-cid],[data-pc],[data-nud],[data-crm],[data-rc],[data-si],[data-et],[data-edit],#fab,#bDbRe,#bTest,#bStopC,#bStopE,#bRestart,#bScreen,#epMake,#epRank,#epRe'); if(!el) return; const d=el.dataset;
+document.addEventListener('click',async e=>{ const el=e.target.closest('#ldRetry,[data-hit],[data-sro],#qX,[data-tab],[data-f],[data-open],[data-go],[data-watch],[data-dup],[data-ren],[data-prep],[data-rev],[data-new],[data-awake],[data-lang],[data-ep],[data-retry],[data-nsrc],[data-nmode],[data-npick],[data-nn],[data-nlen],[data-ck],[data-cid],[data-pc],[data-nud],[data-crm],[data-rc],[data-si],[data-et],[data-edit],[data-cpu],#fab,#bDbRe,#bClFind,#bClTest,#bClHide,#bTest,#bStopC,#bStopE,#bRestart,#bScreen,#epMake,#epRank,#epRe'); if(!el) return; const d=el.dataset;
   if(d.tab){ if(EP){ EP=null; const pk=$('#pick'); if(pk) pk.remove(); try{ history.pushState({},'','/library'); }catch(e){} } TAB=d.tab; try{ localStorage.setItem('hubTab',TAB); }catch(e){} render(); load(); scrollTo(0,0); return; }
   if(el.id==='ldRetry'){ LOADERR=null; _loading=false; render(); load(); return; }
   if(d.hit){ const [id,tt]=d.hit.split('|'); openAt(id,tt); return; }
@@ -578,6 +592,9 @@ document.addEventListener('click',async e=>{ const el=e.target.closest('#ldRetry
   if(d.ren){ const p=proj(d.ren); sheet('<h2 style="margin-bottom:12px">'+t('rename')+'</h2><div class="field"><input id="rnI" dir="auto" style="direction:rtl;text-align:right" value="'+esc(p?p.title:'')+'"></div><button class="btn y wide" id="rnOk" style="margin-top:12px">'+t('done')+'</button>'); $('#rnI').focus(); $('#rnOk').onclick=async()=>{ await api('rename',{id:d.ren,title:$('#rnI').value}); closeSheet(); load(); }; return; }
   if(d.prep){ await api('prep',{id:d.prep}); closeSheet(); toast(t('started')); load(); return; }
   if(d.open){ if(TAB==='lib'&&!DESK()) openSheet(d.open); else if(TAB==='lib'&&DESK()) openSheet(d.open); else go(d.open); return; }
+  if(d.cpu){ const r=await api('cpu',{mode:d.cpu}); if(DEV) DEV.cpu=r.cpu; toast(t('cpuSet')); render(); return; }
+  if(el.id==='bClHide'){ try{ localStorage.setItem('hsClHide',d.at); }catch(_){ } render(); return; }
+  if(el.id==='bClFind'||el.id==='bClTest'){ el.disabled=true; el.textContent=t('clChecking'); try{ const r=await api('claude_check',{test:el.id==='bClTest'},el.id==='bClTest'?100000:20000); toast(r.ok?(r.msg||t('clFound')):r.msg); }catch(_){ toast(t('failed')); } await load(); return; }
   if(d.retry){ e.stopPropagation(); await api('retry',{id:d.retry}); toast(t('started')); load(); return; }
   if(d.ep){ openEp(d.ep); return; }
   if(d.rev){ return confirmSheet(t('revertQ'),async()=>{ const r=await api('revert',{id:d.rev}); toast(r.ok?t('reverted'):(r.msg||t('failed'))); load(); }); }

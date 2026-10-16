@@ -228,6 +228,8 @@ hs gen <work> import 3 "C:/Users/…/Downloads/الناتج.png"   # يدخّل 
 | فيديو من رابط | `hs grab <رابط> --mode auto\|manual\|clips [--pick claude\|me] [--n 5] [--len 30-60] [--note "…"]` |
 | تجهيز للمونتاج اليدوي | `hs prep <work> [--keep-silence]` |
 | البحث بكل مقاطعه | `hs db search "كلمة"` · `index [--full]` · `stats` · `reset` |
+| «ما لقيت Claude» أو Claude وقف | `hs claude` (وينه) · `hs claude test` (يرد؟ حد؟ دخول؟) · `hs claude set <مسار>` |
+| الجهاز يثقل وقت الشغل | `hs hub --cpu light` (الافتراضي: أولوية أقل) · `--cpu full` أقصى سرعة · `hs doctor` يقول هل التفريغ على كرت الشاشة |
 | الملاحظات | `hs notes <work> list` · `done <id> "وش سويت"` · `add <ث> "…" [--kind question\|info]` (ملاحظة منك له) |
 | التصدير والحزمة | `hs export <work> [--frame 4:5] [--hooks] [--clean]` · `hs pack <work>` |
 | إشعار لجواله | `hs notify send "نص" --work <work> [--file <ملف>]` · `hs notify status` |
@@ -444,6 +446,8 @@ hs clips build <مجلد> --picks c1,c3 --edit none|me|claude   # يقص الم�
 hs db search "مليون ريال"     # وين قلت هالكلام؟ (المقطع + الثانية)
 hs db index [--full]          # يحدّثها الحين (المكتبة تحدّثها لحالها كل دقيقة)
 hs db stats · hs db reset     # reset يمسح القاعدة بس، مقاطعه ما تنلمس
+hs claude [test|set <مسار>]   # 4.4.1: المكتبة تحفظ مكان Claude لحالها أول ما تفتح Claude Code
+hs hub --cpu light|full       # خفيف على الجهاز (الافتراضي) أو أقصى سرعة
 ```
 - لما يسأل «وين المقطع اللي تكلمت فيه عن كذا» أو يبي يعيد استخدام لقطة قديمة: `hs db search` أول، لا تفتح المشاريع وحدة وحدة.
 

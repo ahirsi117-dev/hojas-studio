@@ -65,7 +65,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.4.0"
+VERSION = "4.4.1"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -135,16 +135,33 @@ def say(work, text, kind="info"):
     n = sum(1 for _ in open(p, encoding="utf-8")) if os.path.exists(p) else 0
     with open(p, "a", encoding="utf-8") as f:
         f.write(json.dumps({"id": n + 1, "t": int(time.time()), "kind": kind, "text": str(text)[:1200]}, ensure_ascii=False) + "\n")
+_ACT = {}
 def activity(work, since=0, limit=80):
     p = act_path(work)
-    if not os.path.exists(p): return []
+    try: st = os.stat(p)
+    except OSError: return []
+    c = _ACT.get(p)
+    if c and c[0] == (st.st_mtime, st.st_size) and since >= c[1]: return []   # 4.4.1: ما تغيّر شي، لا نقرأ الملف كامل
     out = []
     for line in open(p, encoding="utf-8"):
         try: e = json.loads(line)
         except Exception: continue
         if e.get("id", 0) > since: out.append(e)
+        last = e.get("id", 0)
+    try: _ACT[p] = ((st.st_mtime, st.st_size), last)
+    except NameError: pass
     return out[-limit:]
+_STG = {}
 def stages(work):
+    """4.4.1: نفس النتيجة بدون ما نعدّ آلاف الفريمات مع كل نبضة: نعيد الحساب بس لو شي تغيّر."""
+    def mt_(*a):
+        try: return os.path.getmtime(J(work, *a))
+        except OSError: return 0
+    k = (signature(work), mt_("vfr"), mt_("out"), mt_("ad-master.mp4"), mt_("ad-final.mp4"), mt_("src.mov"), mt_("a.json"))
+    c = _STG.get(work)
+    if c and c[0] == k: return c[1]
+    r = _stages(work); _STG[work] = (k, r); return r
+def _stages(work):
     E = lambda *a: os.path.exists(J(work, *a))
     nvf = len(os.listdir(J(work, "vfr"))) if os.path.isdir(J(work, "vfr")) else 0
     nout = len(os.listdir(J(work, "out"))) if os.path.isdir(J(work, "out")) else 0
@@ -1489,6 +1506,14 @@ def cmd_selftest(work=None, engine=None):
     chk("قاعدة البيانات: توحيد الحروف وبحث سريع", norm_txt("أَلحقيقة إلى") == "الحقيقه الي" and (f5 or True), "" if f5 else "FTS5 مو متوفر، البحث بيشتغل بالطريقة العادية")
     try:
         pj = rj(os.path.join(HERE, ".claude-plugin", "plugin.json"), {}) or {}; sk = os.path.join(HERE, "skills", "hojas-studio", "SKILL.md")
+        w1 = claude_why("You've hit your session limit · resets 11:40pm (Asia/Riyadh)"); w2 = claude_why("Invalid API key · Please run /login"); w3 = claude_why("weird thing", 2)
+        chk("4.4.1: سبب وقوف Claude يتفهم (حد، دخول، غيره)", w1["why"] == "limit" and w1["reset"] == "11:40م" and w2["why"] == "login" and w3["why"] == "other" and "2" in w3["msg"])
+        old_e = {k: os.environ.get(k) for k in ("OMP_NUM_THREADS", "HS_CPU")}; os.environ["HS_CPU"] = "light"
+        try: chk("4.4.1: الوضع الخفيف يحدد الأنوية", lighten() == "light" and 1 <= int(os.environ.get("OMP_NUM_THREADS", "0")) < max(2, os.cpu_count() or 2))
+        finally:
+            for k, v in old_e.items():
+                if v is None: os.environ.pop(k, None)
+                else: os.environ[k] = v
         chk("البلقن: النسخة ونسخة السكل محدّثة", pj.get("version") == VERSION and os.path.isfile(sk) and open(sk, encoding="utf-8").read() == plugin_skill_text(), "شغّل: hs release")
     except Exception as e: chk("البلقن: النسخة ونسخة السكل محدّثة", False, str(e)[:120])
     chk("الرسم الحر بالمحرّك والاستوديو", "function drawLayer" in txt.get("ext.js", "") and "function drawStart" in txt.get("app.js", ""))
@@ -1674,7 +1699,10 @@ def cmd_doctor(engine):
     fix_windows_path()
     if os.name == "nt": chk("Git Bash", shutil.which("bash"), "ثبّت Git for Windows")
     chk("ملفات الاستوديو", all(os.path.exists(os.path.join(HERE, f)) for f in ("studio.html", "app.js", "i18n.js", "ext.js", "qr.js", "review.html", "AGENT.md")), "أعد نسخ مجلد hojas-studio")
-    print(("OK   " if shutil.which("claude") else "—    ") + "Claude Code (لزر «نفّذ» داخل الاستوديو)" + ("" if shutil.which("claude") else "  ← اختياري: بدونه تنسخ الطلب وتلصقه في المحادثة"))
+    wd = whisper_device()
+    if wd: print(("OK   " if wd == "gpu" else "—    ") + "التفريغ (whisper) يشتغل على " + ("كرت الشاشة، سريع وما يثقل الجهاز" if wd == "gpu" else "المعالج، يثقل الجهاز وقت التفريغ  ← لو عندك كرت NVIDIA: ثبّت نسخة torch اللي تدعم CUDA (اسأل Claude يسويها لك بعد إذنك)"))
+    print("     وضع الجهاز: " + ("خفيف (أولوية أقل وتخلي أنوية لك)" if cpu_mode() == "light" else "أقصى سرعة") + " · غيّره من المكتبة ← الجهاز، أو: hs hub --cpu light|full")
+    print(("OK   " if find_claude() else "—    ") + "Claude Code (لزر «نفّذ» داخل الاستوديو)" + ("" if find_claude() else "  ← اختياري: بدونه تنسخ الطلب وتلصقه في المحادثة"))
     eng2 = find_engine(engine); vis = bool(eng2) and all(os.path.exists(os.path.join(eng2, "vision", f)) for f in ("vision_bundle.mjs", "wasm/vision_wasm_internal.wasm", "selfie_segmentation.tflite", "face_detection_short_range.tflite"))
     print(("OK   " if vis else "—    ") + "ملفات العين (engine/vision): مكان الوجه وقص الشخص" + ("" if vis else "  ← ناقصة: الكروت تشتغل بس بدون ضبط الوجه وبدون تغيير الخلفية"))
     print("\nالنتيجة:", "جاهز" if ok else "فيه نواقص فوق")
@@ -1743,7 +1771,7 @@ def serve(work, port, engine):
         v = ("%0" + str(n) + "d") % secrets.randbelow(10 ** n); open(p, "w").write(v); return v
     TOKEN = tok("token", 6); RTOKEN = tok("rtoken", 8)
     LAN = base.lan_ip(); BG = {"thumbsDone": False, "mt": None, "patched": bool(changed is not None)}
-    AG = {"running": False, "proc": None, "started": 0}; VIS = {"busy": False, "what": "", "retry": 0}
+    AG = {"running": False, "proc": None, "started": 0}; VIS = {"busy": False, "what": "", "retry": time.time() + 25}; HK = {"t": 0, "patch": None, "vis": None}   # 4.4.1: العين تستنى شوي بعد الفتح عشان الصفحة تفتح بسرعة
     FAILS = {}; FAILS_ALL = [0]
     projects_remember(work); KIDS = []; _RealPopen = subprocess.Popen
     class _TrackPopen(_RealPopen):          # 4.3: نتتبّع عمليات الرسم والتصدير عشان «أوقف التصدير» من المكتبة
@@ -1778,15 +1806,26 @@ def serve(work, port, engine):
         BG["thumbsDone"] = True
     def refresh_bg(): BG["thumbsDone"] = False; threading.Thread(target=build_thumbs, daemon=True).start()
     def housekeeping():
-        """يتابع الملفات: يركّب الإضافة أول ما يطلع compose.html، ويعيد بناء الصور المصغّرة لو تغيّر الفيديو."""
+        """يتابع الملفات: يركّب الإضافة أول ما يطلع compose.html، ويعيد بناء الصور المصغّرة لو تغيّر الفيديو.
+        4.4.1: كل 4 ثواني بالكثير، وما يعيد القراءة إلا لو ملف تغيّر (كان يقرأ compose.html كامل مع كل نبضة)."""
+        if time.time() - HK["t"] < 4: return
+        HK["t"] = time.time()
+        def mt_(f):
+            try: return os.path.getmtime(f)
+            except OSError: return 0
         if os.path.exists(P("compose.html")):
-            try: patch(work, quiet=True)
-            except Exception: pass
+            k = (mt_(P("compose.html")), mt_(os.path.join(HERE, "ext.js")), mt_(P("hs-ext.js")))
+            if k != HK["patch"]:
+                try: patch(work, quiet=True)
+                except Exception: pass
+                HK["patch"] = (mt_(P("compose.html")), mt_(os.path.join(HERE, "ext.js")), mt_(P("hs-ext.js")))
         mt = int(os.path.getmtime(P("cutz.mp4"))) if os.path.exists(P("cutz.mp4")) else None
         if mt != BG["mt"]: BG["mt"] = mt; refresh_bg()
-        if not VIS["busy"] and time.time() > VIS["retry"] and not base.JOB["running"] and ready(work):
+        vk = (signature(work), aux_sig(), mt_(P("vfr")))
+        if not VIS["busy"] and time.time() > VIS["retry"] and not base.JOB["running"] and vk != HK["vis"] and ready(work):
             try: todo_v = face_stale(work) or bool(mask_need(work))
             except Exception: todo_v = False
+            if not todo_v: HK["vis"] = vk
             if todo_v:
                 VIS.update(busy=True, what="face" if face_stale(work) else "mask")
                 def vgo():
@@ -1865,7 +1904,7 @@ def serve(work, port, engine):
 
     # ── تشغيل Claude Code من الاستوديو ──
     def agent_run(task, label, gen=False):
-        exe = shutil.which("claude"); oc = None if exe else shutil.which("opencode")
+        exe = find_claude(); oc = None if exe else shutil.which("opencode")
         if not exe and not oc: return False, "ما لقيت Claude Code ولا OpenCode على الجهاز"
         if AG["running"]: return False, "الوكيل شغّال الحين على طلب سابق"
         if oc: return agent_run_opencode(oc, task, label)
@@ -1883,10 +1922,10 @@ def serve(work, port, engine):
             try:
                 kw = {"creationflags": 0x08000000} if os.name == "nt" else {}
                 p = subprocess.Popen(cmd, cwd=work, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kw); AG["proc"] = p
-                p.stdin.write(full.encode("utf-8")); p.stdin.close(); final = None
+                p.stdin.write(full.encode("utf-8")); p.stdin.close(); final = None; plain = []
                 for raw in p.stdout:
                     try: ev = json.loads(raw.decode("utf-8", "replace"))
-                    except Exception: continue
+                    except Exception: plain = (plain + [raw.decode("utf-8", "replace")])[-30:]; continue
                     if ev.get("type") == "assistant":
                         for b in (ev.get("message") or {}).get("content") or []:
                             if b.get("type") == "text" and b.get("text", "").strip(): say(work, b["text"].strip(), "claude")
@@ -1896,8 +1935,8 @@ def serve(work, port, engine):
                     elif ev.get("type") == "result": final = ev
                 p.wait()
                 cmd_log_set(cid, status="err" if (final and final.get("is_error")) or (p.returncode not in (0, None) and not final) else "done", result=str((final or {}).get("result") or "")[:800])
-                if final and final.get("is_error"): say(work, "Claude وقف بخطأ: " + str(final.get("result", ""))[:300], "err")
-                elif p.returncode not in (0, None) and not final: say(work, "Claude ما اشتغل (رمز %s). تأكد إنك مسجّل دخول في Claude Code." % p.returncode, "err")
+                if final and final.get("is_error"): say(work, claude_why(str(final.get("result", "")) + "\n" + "".join(plain), p.returncode)["msg"], "err")
+                elif p.returncode not in (0, None) and not final: say(work, claude_why("".join(plain), p.returncode)["msg"], "err")
                 else: say(work, "خلص Claude من الطلب.", "done")
             except Exception as e: say(work, "تعذّر تشغيل Claude: " + str(e)[:200], "err")
             finally: AG.update(running=False, proc=None)
@@ -1997,7 +2036,7 @@ def serve(work, port, engine):
             if p == "/hs/info":
                 return self._json(200, {"version": VERSION, "vsig": vsig(work), "token": TOKEN, "lan": "http://%s:%d/?k=%s" % (LAN, port, TOKEN), "lanM": "http://%s:%d/m?k=%s" % (LAN, port, TOKEN), "review": "http://%s:%d/review?r=%s" % (LAN, port, RTOKEN),
                                         "work": work, "name": os.path.basename(work.rstrip("/\\")), "thumbsDone": BG["thumbsDone"], "versions": versions(), "exports": exports(), "exportMt": export_mt(), "hub": hub_url(), "title": (hs_of(load_studio(work)).get("title") or (hs_of(load_studio(work)).get("pod") or {}).get("title") or (hs_of(load_studio(work)).get("dahih") or {}).get("title") or ""),
-                                        "brands": sorted(os.path.splitext(f)[0] for f in os.listdir(brand_dir())), "local": self._local(), "claude": bool(shutil.which("claude") or shutil.which("opencode")), "agent": "claude" if shutil.which("claude") else ("opencode" if shutil.which("opencode") else ""), "notify": bool(notify_cfg().get("on")), "gen": gen_view(gen_list(work)), "safe": safe_of((load_studio(work).get("hs") or {}).get("platforms"), *frame_of(load_studio(work).get("hs") or {})), "platforms": {k: {"safe": v["safe"], "frames": v["frames"], "best": v["best"], "max": v["max"]} for k, v in PLATFORMS.items()},
+                                        "brands": sorted(os.path.splitext(f)[0] for f in os.listdir(brand_dir())), "local": self._local(), "claude": bool(find_claude() or shutil.which("opencode")), "agent": "claude" if find_claude() else ("opencode" if shutil.which("opencode") else ""), "notify": bool(notify_cfg().get("on")), "gen": gen_view(gen_list(work)), "safe": safe_of((load_studio(work).get("hs") or {}).get("platforms"), *frame_of(load_studio(work).get("hs") or {})), "platforms": {k: {"safe": v["safe"], "frames": v["frames"], "best": v["best"], "max": v["max"]} for k, v in PLATFORMS.items()},
                                         "assets": sorted(f for f in os.listdir(P("assets")) if os.path.splitext(f)[1].lower() in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg")) if os.path.isdir(P("assets")) else [], "seams": keep_seams(work), "looks": looks_all(), "beats": rj(P("beats.json")),
                                         "post": open(P("post.txt"), encoding="utf-8").read() if os.path.exists(P("post.txt")) else "", "ready": ready(work),
                                         "finals": [f for f in sorted(os.listdir(work)) if re.match(r"ad-(master|clean|hook-\d+|\d+x\d+)\.mp4$", f)]})
@@ -2815,21 +2854,205 @@ def prep(work, model=None, lang=None, keep_silence=False, log=print):
     except Exception as e:
         st(prep_state(work).get("stage") or "cut", err=str(e)[:400]); raise
 
+# ── 4.4.1: خفيف على الجهاز ──
+# الأداة (وكل اللي تشغّله: ffmpeg وwhisper وكروم) تشتغل بأولوية أقل من برامجك، فالكمبيوتر يبقى سلس وهي تفرّغ أو تصدّر.
+# «light» (الافتراضي): أولوية أقل + نخلي ربع الأنوية لك · «full»: أقصى سرعة مثل قبل.
+CPU_MODES = ("light", "full")
+def cpu_mode(): m = os.environ.get("HS_CPU") or hub_cfg().get("cpu") or "light"; return m if m in CPU_MODES else "light"
+def lighten(mode=None):
+    mode = mode or cpu_mode(); n = os.cpu_count() or 4
+    if mode == "light":
+        use = str(max(1, n - max(2, n // 4)))
+        for k in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"): os.environ[k] = use
+    else:
+        for k in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"): os.environ.pop(k, None)
+    try:
+        if os.name == "nt":
+            import ctypes; k = ctypes.windll.kernel32; k.GetCurrentProcess.restype = ctypes.c_void_p
+            k.SetPriorityClass(ctypes.c_void_p(k.GetCurrentProcess()), 0x4000 if mode == "light" else 0x20)   # BELOW_NORMAL · NORMAL (البرامج اللي نشغّلها تورثها)
+        elif mode == "light" and os.getpriority(os.PRIO_PROCESS, 0) < 10: os.nice(10 - os.getpriority(os.PRIO_PROCESS, 0))
+    except Exception: pass
+    return mode
+_WD = {}
+def whisper_device():
+    """هل التفريغ يشتغل على كرت الشاشة؟ نسأل بعملية منفصلة (torch ثقيل) ونحفظ الجواب ساعة."""
+    if _WD.get("t", 0) > time.time() - 3600: return _WD.get("v")
+    v = None
+    try:
+        r = subprocess.run([PY, "-c", "import torch;print('gpu' if torch.cuda.is_available() else 'cpu')"], capture_output=True, text=True, timeout=60,
+                           **({"creationflags": 0x08000000} if os.name == "nt" else {}))
+        v = (r.stdout or "").strip().splitlines()[-1] if r.returncode == 0 and r.stdout.strip() else None
+    except Exception: pass
+    _WD.update(t=time.time(), v=v); return v
 # ── تشغيل Claude Code بالخلفية على مجلد (من المكتبة) ──
-def have_claude(): return bool(shutil.which("claude")) and not os.environ.get("HS_NO_CLAUDE")
-def claude_spawn(work, task, label="طلب"):
-    exe = None if os.environ.get("HS_NO_CLAUDE") else shutil.which("claude")
+# 4.4.1: نلقى Claude حتى لو المكتبة اشتغلت بـ PATH ناقص (مع تشغيل ويندوز، أو من تطبيق Claude)، ونفهم ليش وقف ونقوله بكلام واضح.
+_CL = {"t": 0, "v": None}
+def claude_cfg_path(): return os.path.join(HOME_CFG, "claude.json")
+def _win_path():
+    if os.name != "nt": return ""
+    try:
+        import winreg; out = []
+        for hk, sub in ((winreg.HKEY_CURRENT_USER, r"Environment"), (winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment")):
+            try:
+                with winreg.OpenKey(hk, sub) as k: out.append(os.path.expandvars(winreg.QueryValueEx(k, "Path")[0]))
+            except OSError: pass
+        return os.pathsep.join(out)
+    except Exception: return ""
+def _cl_spots():
+    h = os.path.expanduser("~")
+    if os.name == "nt":
+        A = os.environ.get("APPDATA") or J(h, "AppData", "Roaming"); L = os.environ.get("LOCALAPPDATA") or J(h, "AppData", "Local")
+        s = [J(h, ".local", "bin", "claude.exe"), J(h, ".claude", "local", "claude.exe"), J(h, ".claude", "local", "claude.cmd"), J(A, "npm", "claude.cmd"),
+             J(L, "Microsoft", "WinGet", "Links", "claude.exe"), J(h, "scoop", "shims", "claude.exe"), J(h, ".bun", "bin", "claude.exe"), J(L, "Volta", "bin", "claude.exe"), J(L, "pnpm", "claude.cmd")]
+    else:
+        s = [J(h, ".local", "bin", "claude"), J(h, ".claude", "local", "claude"), "/opt/homebrew/bin/claude", "/usr/local/bin/claude", J(h, ".npm-global", "bin", "claude"), J(h, ".bun", "bin", "claude"), J(h, ".volta", "bin", "claude")]
+        s += sorted(glob.glob(J(h, ".nvm", "versions", "node", "*", "bin", "claude")))[-1:]
+    return s
+def _parent_exes(limit=10):
+    """مسارات البرامج اللي شغّلتنا (أب ثم جدّ…). لو Claude Code هو اللي شغّل hs نلقاه هنا حتى لو مو بالـ PATH."""
+    out = []
+    try:
+        if os.name == "nt":
+            import ctypes, ctypes.wintypes as W
+            class PE(ctypes.Structure):
+                _fields_ = [("dwSize", W.DWORD), ("cntUsage", W.DWORD), ("th32ProcessID", W.DWORD), ("th32DefaultHeapID", ctypes.c_size_t), ("th32ModuleID", W.DWORD),
+                            ("cntThreads", W.DWORD), ("th32ParentProcessID", W.DWORD), ("pcPriClassBase", ctypes.c_long), ("dwFlags", W.DWORD), ("szExeFile", ctypes.c_wchar * 260)]
+            k = ctypes.windll.kernel32; k.CreateToolhelp32Snapshot.restype = ctypes.c_void_p; k.OpenProcess.restype = ctypes.c_void_p
+            snap = k.CreateToolhelp32Snapshot(2, 0); par = {}; e = PE(); e.dwSize = ctypes.sizeof(PE)
+            ok = k.Process32FirstW(ctypes.c_void_p(snap), ctypes.byref(e))
+            while ok: par[e.th32ProcessID] = e.th32ParentProcessID; ok = k.Process32NextW(ctypes.c_void_p(snap), ctypes.byref(e))
+            k.CloseHandle(ctypes.c_void_p(snap)); pid = os.getpid()
+            for _ in range(limit):
+                pid = par.get(pid)
+                if not pid: break
+                hp = k.OpenProcess(0x1000, False, pid)
+                if not hp: continue
+                buf = ctypes.create_unicode_buffer(1024); n = W.DWORD(1024)
+                if k.QueryFullProcessImageNameW(ctypes.c_void_p(hp), 0, buf, ctypes.byref(n)): out.append(buf.value)
+                k.CloseHandle(ctypes.c_void_p(hp))
+        elif os.path.isdir("/proc"):
+            pid = os.getppid()
+            for _ in range(limit):
+                if pid <= 1: break
+                try: out.append(os.readlink("/proc/%d/exe" % pid)); pid = int(open("/proc/%d/stat" % pid).read().rsplit(")", 1)[1].split()[1])
+                except Exception: break
+        else:
+            pid = os.getppid()
+            for _ in range(limit):
+                if pid <= 1: break
+                r = subprocess.run(["ps", "-o", "ppid=,comm=", "-p", str(pid)], capture_output=True, text=True, timeout=3).stdout.strip().split(None, 1)
+                if len(r) < 2: break
+                out.append(r[1]); pid = int(r[0])
+    except Exception: pass
+    return out
+def _is_claude_cli(p):
+    try:
+        if not p or not os.path.isfile(p): return False
+        cmd = ["cmd", "/c", p, "--version"] if p.lower().endswith((".cmd", ".bat")) else [p, "--version"]
+        kw = {"creationflags": 0x08000000} if os.name == "nt" else {}
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=15, stdin=subprocess.DEVNULL, **kw)
+        return "claude code" in (r.stdout + r.stderr).lower()
+    except Exception: return False
+def claude_remember(p, how):
+    try:
+        old = rj(claude_cfg_path(), {}) or {}
+        if old.get("path") != p: os.makedirs(HOME_CFG, exist_ok=True); wj(claude_cfg_path(), {"path": p, "how": how, "at": int(time.time())})
+    except Exception: pass
+def find_claude(fresh=False):
+    """مسار Claude Code: PATH ← PATH الجديد من الريجستري ← آخر مسار نجح ← الأماكن المعروفة للتثبيت."""
+    if os.environ.get("HS_NO_CLAUDE"): return None
+    if not fresh and time.time() - _CL["t"] < 30: return _CL["v"]
+    saved = (rj(claude_cfg_path(), {}) or {}).get("path"); how = "path"
+    v = os.environ.get("HS_CLAUDE") if os.path.isfile(os.environ.get("HS_CLAUDE") or "") else None
+    v = v or shutil.which("claude")
+    if not v and os.name == "nt":
+        wp = _win_path(); v = shutil.which("claude", path=wp) if wp else None; how = "registry"
+    if not v and saved and os.path.isfile(saved): v = saved; how = "saved"
+    if not v: v = next((p for p in _cl_spots() if os.path.isfile(p)), None); how = "known"
+    if v and v != saved: claude_remember(v, how)
+    _CL.update(t=time.time(), v=v); return v
+def claude_learn():
+    """يشتغل وقت ما Claude Code نفسه يشغّل hs (مثل hs sync من بداية الجلسة): يحفظ مكانه للمكتبة."""
+    if os.environ.get("HS_NO_CLAUDE"): return None
+    v = shutil.which("claude"); saved = (rj(claude_cfg_path(), {}) or {}).get("path")
+    if not v:
+        for p in _parent_exes():
+            b = os.path.basename(p).lower()
+            if b in ("claude", "claude.exe") and (p == saved or _is_claude_cli(p)): v = p; break
+    if v: claude_remember(v, "session"); _CL.update(t=0)
+    return v
+def have_claude(): return bool(find_claude())
+AR_RESET = {"am": "ص", "pm": "م"}
+def claude_why(txt, rc=None):
+    """يقرأ آخر كلام Claude ويقول ليش وقف بكلام واضح."""
+    t = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", str(txt or "")); low = t.lower()
+    if re.search(r"hit your (session |usage |weekly |daily )?limit|usage limit|limit reached|out of (extra )?usage|5-hour limit|rate.?limit", low):
+        m = re.search(r"resets?\s+(?:at\s+)?([0-9]{1,2}(?::[0-9]{2})?\s*(am|pm)?)", t, re.I); r = ""
+        if m: r = re.sub(r"\s*(am|pm)", lambda x: AR_RESET[x.group(1).lower()], m.group(1), flags=re.I)
+        return {"why": "limit", "reset": r, "msg": "خلص حد استخدامك في Claude" + (" ويرجع الساعة %s" % r if r else " لين يتجدد") + "."}
+    if re.search(r"not logged in|please (run )?/?login|invalid api key|authentication|unauthori[sz]ed|oauth token|401", low):
+        return {"why": "login", "msg": "Claude Code مو مسجّل دخول. افتح Claude Code مرة واكتب /login ثم أعد."}
+    if re.search(r"credit balance|billing|payment required", low): return {"why": "credit", "msg": "حسابك في Claude يبي اشتراك أو رصيد."}
+    if re.search(r"overloaded|529|internal server error|\b500\b|api error", low): return {"why": "busy", "msg": "خوادم Claude مزحومة الحين. أعد بعد دقايق."}
+    if re.search(r"enotfound|econnrefused|econnreset|getaddrinfo|network|timed? ?out|offline|socket hang up", low): return {"why": "net", "msg": "Claude ما قدر يتصل بالنت. تأكد من النت وأعد."}
+    last = next((x.strip() for x in reversed(t.strip().splitlines()) if x.strip()), "")
+    return {"why": "other", "msg": "Claude وقف" + (" (رمز %s)" % rc if rc not in (None, 0) else "") + (": " + last[:160] if last else ".")}
+def claude_spawn(work, task, label="طلب", on_done=None, on_fail=None):
+    exe = find_claude()
     task = task.replace("<engine>", find_engine(None) or "engine") + '\n\n(سياق: `hs` = `"%s" "%s"` · السكل: %s)' % (PY, os.path.abspath(__file__), HERE)
-    if not exe: return False, "ما لقيت Claude Code على الجهاز. افتح Claude Code وقل له: " + task[:200]
-    eng = find_engine(None)
+    if not exe: return False, "ما لقيت Claude Code على الجهاز. افتح Claude Code مرة وحدة (عشان أعرف مكانه) أو قل له: " + task[:200]
     cmd = [exe, "-p", task, "--permission-mode", "acceptEdits", "--add-dir", HERE, "--allowedTools", "Bash", "Read", "Edit", "Write", "Glob", "Grep"]
     if exe.lower().endswith((".cmd", ".bat")): cmd = ["cmd", "/c"] + cmd
-    kw = {"cwd": work, "stdin": subprocess.DEVNULL, "stdout": open(J(work, "claude.log"), "ab"), "stderr": subprocess.STDOUT}
+    lg = J(work, "claude.log")
+    try: off = os.path.getsize(lg)
+    except OSError: off = 0
+    kw = {"cwd": work, "stdin": subprocess.DEVNULL, "stdout": open(lg, "ab"), "stderr": subprocess.STDOUT}
     if os.name == "nt": kw["creationflags"] = 0x08000000
-    try: pr = subprocess.Popen(cmd, **kw); cid = cmd_log_add(work, label, task, None)
+    try: pr = subprocess.Popen(cmd, **kw); cid = cmd_log_add(work, label, task, None); t0 = time.time()
     except Exception as e: return False, str(e)[:200]
-    def wait(): rc = pr.wait(); cmd_log_set(cid, status="done" if rc == 0 else "err")
-    threading.Thread(target=wait).start(); return True, ""
+    def wait():
+        rc = pr.wait()
+        try:
+            with open(lg, "rb") as f: f.seek(off); out = f.read().decode("utf-8", "replace")
+        except Exception: out = ""
+        bad = rc != 0 or (time.time() - t0 < 180 and len(out) < 3000 and claude_why(out)["why"] in ("limit", "login", "credit"))
+        if bad:
+            w = claude_why(out, rc); cmd_log_set(cid, status="err", result=w["msg"], why=w["why"])
+            try: say(work, w["msg"], "err")
+            except Exception: pass
+            try: job_set(work, claudeErr=w["msg"], why=w["why"], ranking=False)
+            except Exception: pass
+            if on_fail:
+                try: on_fail(w)
+                except Exception as e: print("بعد ما وقف Claude:", e, file=sys.stderr)
+        else:
+            cmd_log_set(cid, status="done")
+            try: job_set(work, claudeErr=None, why=None, ranking=False)
+            except Exception: pass
+            if on_done:
+                try: on_done()
+                except Exception: pass
+    threading.Thread(target=wait, daemon=True).start(); return True, ""
+def cmd_claude(args):
+    """hs claude            وين Claude Code؟
+hs claude set <مسار>   حدد مكانه بنفسك
+hs claude test         يجرّب يرد بكلمة (يتأكد من الدخول والحد)"""
+    sub = args[0] if args else "where"
+    if sub == "set":
+        p = os.path.abspath(args[1]) if len(args) > 1 else sys.exit(cmd_claude.__doc__)
+        if not _is_claude_cli(p): sys.exit("هذا مو Claude Code: " + p)
+        claude_remember(p, "manual"); print("تمام، المكتبة بتستخدم:", p); return
+    v = claude_learn() or find_claude(True)
+    if not v: sys.exit("ما لقيت Claude Code. ثبّته من claude.com/claude-code أو حدد مكانه: hs claude set <المسار>")
+    print("Claude Code:", v, "·", (rj(claude_cfg_path(), {}) or {}).get("how", ""))
+    if sub == "test":
+        cmd = (["cmd", "/c"] if v.lower().endswith((".cmd", ".bat")) else []) + [v, "-p", "Reply with the single word: ok"]
+        kw = {"creationflags": 0x08000000} if os.name == "nt" else {}
+        try: r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, stdin=subprocess.DEVNULL, **kw)
+        except subprocess.TimeoutExpired: sys.exit("Claude ما رد خلال دقيقتين.")
+        out = (r.stdout or "") + (r.stderr or "")
+        if r.returncode == 0 and "ok" in out.lower() and claude_why(out)["why"] == "other": print("شغّال ويرد.")
+        else: sys.exit(claude_why(out, r.returncode)["msg"])
 
 # ── سحب فيديو من رابط (تيك توك · يوتيوب · انستقرام · X · سناب …) بأداة yt-dlp المجانية ──
 LONG_SEC = 360
@@ -2896,15 +3119,17 @@ def job_run(d, src, mode="auto", pick="claude", n=5, ln=None, note="", lang=None
                         "1) اقرأ النص كامل وقيّم المرشّحات كمحرّر محتوى قصير: الهوك بأول 3 ثواني، فكرة مكتملة، مشاعر أو رقم أو رأي جريء. عدّل الدرجات والأسباب (cand set) وأضف أي لحظة أقوى فاتت (cand add) واكتب لكل وحدة عنوان قصير.\n"
                         "2) اختر أقوى %d وسوّها: hs clips build %s --picks <ids> --edit none\n3) منتج كل مقطع حسب references/clips.md." % (d, d, int(n or 5), d))
                 if note: task += "\nطلب المستخدم: " + note
-                ok, msg = claude_spawn(d, task, "لقطات من فيديو طويل")
-                if not ok:   # بدون Claude: ناخذ الأعلى ونجهّزها للتعديل اليدوي
-                    job_set(d, stage="build", note2=msg); clips_build(d, [c["id"] for c in C[: int(n or 5)]], "me")
-                job_set(d, stage="claude" if ok else "done", done=True)
+                def fallback(w=None, C=C):   # بدون Claude أو وقف: ناخذ الأعلى ونجهّزها للتعديل اليدوي
+                    if any(c.get("made") for c in clips_cfg(d).get("cands") or []): job_set(d, stage="done", done=True); return
+                    job_set(d, stage="build", note2=(w or {}).get("msg")); clips_build(d, [c["id"] for c in C[: int(n or 5)]], "me"); job_set(d, stage="done", done=True)
+                ok, msg = claude_spawn(d, task, "لقطات من فيديو طويل", on_done=lambda: job_set(d, stage="done", done=True), on_fail=fallback)
+                if not ok: fallback({"msg": msg})
+                else: job_set(d, stage="claude", done=True)
             else:
                 task = ("حلقة طويلة بمجلد %s والمستخدم بيختار اللقطات بنفسه من المكتبة. لا تقص ولا تمنتج شي.\n"
                         "اقرأ transcript.txt والمرشّحات (hs clips cand %s list) وقيّم كل وحدة كم يتوقع تضرب (0-100) مع سبب قصير وعنوان، وعدّل البداية والنهاية عشان تبدأ بهوك وتنتهي بفكرة كاملة (cand set)، وأضف أقوى لحظات فاتت (cand add)." % (d, d))
                 if note: task += "\nطلب المستخدم: " + note
-                ok, _ = claude_spawn(d, task, "تقييم اللقطات") if hub_cfg().get("rankWithClaude", True) else (False, "")
+                ok, _ = claude_spawn(d, task, "تقييم اللقطات") if hub_cfg().get("rankWithClaude", True) and have_claude() else (False, "")
                 job_set(d, stage="pick", ranking=ok, done=True)
             return d
         sm = J(d, "src.mov")
@@ -2917,8 +3142,14 @@ def job_run(d, src, mode="auto", pick="claude", n=5, ln=None, note="", lang=None
         else:
             task = "فيديو جديد وصل من المكتبة: %s. منتجه كامل حسب SKILL.md من البداية (البث الحي ثم صفحة الأسئلة ثم المونتاج)." % sm
             if note: task += "\nملاحظته: " + note
-            ok, msg = claude_spawn(d, task, "مقطع جديد")
-            job_set(d, stage="claude" if ok else "done", done=True, note2=msg)
+            def fallback(w=None):   # Claude مو موجود أو وقف (حد، دخول، نت): نجهّزه تمنتجه بنفسك بدل ما يعلق
+                if ready(d): job_set(d, stage="done", done=True); return
+                job_set(d, stage="prep", note2=(w or {}).get("msg"), done=False)
+                try: prep(d, lang=lang); job_set(d, stage="done", done=True)
+                except Exception as e: job_set(d, stage="error", err=str(e)[:500], done=True)
+            ok, msg = claude_spawn(d, task, "مقطع جديد", on_done=lambda: job_set(d, stage="done", done=True), on_fail=fallback)
+            if ok: job_set(d, stage="claude", done=True)
+            else: job_set(d, claudeErr=msg, why="missing"); fallback({"msg": msg})
         return d
     except Exception as e:
         job_set(d, stage="error", err=str(e)[:500], done=True); raise
@@ -3019,25 +3250,40 @@ def cmd_log_set(cid, **kw):
             if x["id"] == cid: x.update(kw)
         wj(cmds_path(), L)
     except Exception: pass
+def claude_last_err(hours=8):
+    """آخر مرة Claude وقف بسبب يخص الحساب (حد، دخول، رصيد) ولا نجح شي بعدها: نعرضه فوق المكتبة."""
+    try:
+        for x in rj(cmds_path(), []) or []:
+            if x.get("status") == "done" or time.time() - x.get("at", 0) > hours * 3600: return None
+            if x.get("status") == "err" and x.get("why") in ("limit", "login", "credit") and not x.get("seen"): return {"msg": x.get("result") or "", "why": x["why"], "at": x.get("at")}
+    except Exception: pass
+    return None
+def cmd_log_clear_err():
+    try:
+        L = rj(cmds_path(), []) or []
+        for x in L:
+            if x.get("status") == "err": x["seen"] = True
+        wj(cmds_path(), L)
+    except Exception: pass
 def is_ep(d): return os.path.isdir(d) and os.path.exists(os.path.join(d, "clips.json"))
 def ep_card(d):
     cfg = clips_cfg(d); jb = job_get(d); so = rj(J(d, "source.json"), {}) or {}; C = cfg.get("cands") or []; made = cfg.get("clips") or []
     stg = jb.get("stage") or ("pick" if C else "transcribe"); err = jb.get("err")
     if stg == "error": state, sub = "err", "وقف: " + (err or "")[:90]
     elif stg in ("grab", "transcribe", "suggest", "build"): state, sub = "work", {"grab": "يسحب الفيديو", "transcribe": "يفرّغ الكلام", "suggest": "يرشّح اللقطات", "build": "يقص اللقطات"}[stg]
-    elif stg == "claude": state, sub = "work", "Claude يختار ويمنتج"
+    elif stg == "claude" and not jb.get("claudeErr"): state, sub = "work", "Claude يختار ويمنتج"
     elif made: state, sub = "ready", "%d مقطع جاهز · %d مرشّح" % (len(made), len(C))
     else: state, sub = "wait", "اختر لقطاتك (%d مرشّح)" % len(C)
     return {"kind": "ep", "id": hashlib.md5(os.path.normcase(os.path.abspath(d)).encode()).hexdigest()[:10], "work": os.path.abspath(d), "name": os.path.basename(d.rstrip("/\\")),
             "title": cfg.get("title") or so.get("title") or os.path.basename(d.rstrip("/\\")), "by": so.get("by") or cfg.get("credit") or "", "url": so.get("url"), "dur": cfg.get("dur") or so.get("dur") or 0,
             "thumb": ".hs/th.jpg" if os.path.exists(J(d, ".hs", "th.jpg")) else None, "stage": stg, "pct": jb.get("pct"), "t0": jb.get("t0"), "eta": jb.get("eta"), "err": err,
-            "cands": len(C), "made": len(made), "state": state, "sub": sub, "w": cfg.get("w") or 0, "h": cfg.get("h") or 0, "mt": int(max([os.path.getmtime(J(d, f)) for f in ("clips.json", ".hs/job.json") if os.path.exists(J(d, f))] or [os.path.getmtime(d)]))}
+            "cands": len(C), "made": len(made), "state": state, "sub": sub, "note": jb.get("claudeErr"), "why": jb.get("why"), "w": cfg.get("w") or 0, "h": cfg.get("h") or 0, "mt": int(max([os.path.getmtime(J(d, f)) for f in ("clips.json", ".hs/job.json") if os.path.exists(J(d, f))] or [os.path.getmtime(d)]))}
 def job_card(d):
     jb = job_get(d); so = rj(J(d, "source.json"), {}) or {}; stg = jb.get("stage") or "grab"
     sub = {"grab": "يسحب الفيديو", "prep": "يتجهّز", "transcribe": "يفرّغ", "error": "وقف: " + (jb.get("err") or "")[:90]}.get(stg, stg)
     return {"kind": "job", "id": hashlib.md5(os.path.normcase(os.path.abspath(d)).encode()).hexdigest()[:10], "work": os.path.abspath(d), "name": os.path.basename(d.rstrip("/\\")),
             "title": so.get("title") or jb.get("src") or os.path.basename(d), "dur": so.get("dur") or 0, "thumb": None, "stage": stg, "pct": jb.get("pct"), "err": jb.get("err"), "mode": jb.get("mode"),
-            "state": "err" if stg == "error" else "work", "sub": sub, "mt": jb.get("at") or 0}
+            "state": "err" if stg == "error" else "work", "sub": sub, "note": jb.get("claudeErr"), "why": jb.get("why"), "mt": jb.get("at") or 0}
 def hub_eps(root):
     seen, out = set(), []
     cands = [w for w in rj(projects_reg_path(), []) or []]
@@ -3278,6 +3524,8 @@ def proj_card(work, live=False):
     elif job: sub = "يصدّر الحين"
     elif bstate == "pending": sub = "ينتظر إجاباتك"
     elif ask: sub = "Claude ينتظر ردك (%d)" % ask
+    elif jb.get("stage") == "claude" and not jb.get("claudeErr"): sub = "Claude يمنتجه"; state = "work"
+    elif jb.get("claudeErr") and not caps.get("cards"): sub = jb["claudeErr"][:90]; state = "work"
     elif not caps.get("cards"): sub = "يتجهّز"
     elif not exps: sub = "ما تصدّر بعد"
     elif smt > os.path.getmtime(exps[-1]) + 2: sub = "فيه تعديل ما تصدّر"
@@ -3297,7 +3545,7 @@ def proj_card(work, live=False):
     th = None
     for f in ("vfr/00045.jpg", "vfr/00001.jpg", ".hs/th/2.jpg", ".hs/th/1.jpg"):
         if os.path.exists(J(work, f)): th = f; break
-    return {"work": work, "id": hashlib.md5(os.path.normcase(work).encode()).hexdigest()[:10], "name": os.path.basename(work.rstrip("/\\")), "title": title, "dur": round(dur, 1),
+    return {"work": work, "id": hashlib.md5(os.path.normcase(work).encode()).hexdigest()[:10], "name": os.path.basename(work.rstrip("/\\")), "title": title, "dur": round(dur, 1), "note": jb.get("claudeErr"), "why": jb.get("why"),
             "state": state, "sub": sub, "lanes": lanes, "thumb": th, "final": os.path.relpath(exps[-1], work).replace("\\", "/") if exps else None, "last": (activity(work, 0, 400) or [{}])[-1].get("text", "")[:160] if agent else "", "mt": int(max(smt, os.path.getmtime(work))), "notes": openn, "ask": ask, "port": port, "agent": agent, "job": job,
             "prep": ({"stage": pst.get("stage"), "i": pst.get("i", 0), "n": pst.get("n", 5), "t0": pst.get("t0"), "eta": pst.get("eta"), "err": pst.get("err")} if pst and not pst.get("done") else None),
             "manual": (jb.get("mode") == "manual") or bool(pst), "src": (rj(J(work, "source.json"), {}) or {}).get("url"), "clip": hs.get("clip")}
@@ -3414,6 +3662,9 @@ def cmd_sync(args):
             if os.path.isfile(os.path.join(d, UI_FONT)):
                 os.makedirs(fd, exist_ok=True); shutil.copy2(os.path.join(d, UI_FONT), os.path.join(fd, UI_FONT)); break
     find_engine(None) and remember_engine(find_engine(None))
+    if "--now" not in args:
+        try: claude_learn()   # 4.4.1: المكتبة تعرف وين Claude حتى لو اشتغلت مع ويندوز بدون PATH
+        except Exception: pass
     port = hub_cfg().get("port") or HUB_PORT; pg = hub_ping(port)
     if pg and (pg.get("version") != VERSION or os.path.normcase(pg.get("root") or "") != os.path.normcase(HERE)):
         if "--now" not in args:   # لا نأخّر بداية الجلسة: نكمّل بالخلفية
@@ -3462,6 +3713,8 @@ def cmd_hub(args):
         return d
     cfg = hub_cfg(); root = os.path.abspath(o("--root") or cfg.get("root") or os.path.join(os.path.expanduser("~"), "Documents", "hojas-studio-projects"))
     port = int(o("--port", cfg.get("port") or HUB_PORT)); os.makedirs(root, exist_ok=True); cfg.update(root=root, port=port)
+    cm = o("--cpu")
+    if cm in CPU_MODES: cfg["cpu"] = cm; os.makedirs(HOME_CFG, exist_ok=True); wj(hub_cfg_path(), cfg); print("وضع الجهاز: " + ("خفيف" if cm == "light" else "أقصى سرعة") + " (يطبّق على الشغل الجديد)"); lighten(cm)
     ck = o("--cookies")
     if ck: cfg["cookies"] = None if ck == "off" else ck; print("السحب بيستخدم دخولك من متصفح: " + ck if ck != "off" else "انطفى استخدام دخول المتصفح"); os.makedirs(HOME_CFG, exist_ok=True); wj(hub_cfg_path(), cfg)
     if "--serve" in rest: return hub_serve(root, port)
@@ -3675,7 +3928,7 @@ def hub_serve(root, port):
             if a == "projects":
                 cards = [proj_card(w, live=True) for w in hub_projects(root)]; cards.sort(key=lambda c: -c["mt"])
                 eps = hub_eps(root); eps.sort(key=lambda c: -c["mt"])
-                return self._json(200, {"root": root, "projects": cards, "eps": eps, "awake": AWAKE["on"], "battery": battery(), "ytdlp": bool(ytdlp_cmd()), "claude": have_claude()})
+                return self._json(200, {"root": root, "projects": cards, "eps": eps, "awake": AWAKE["on"], "battery": battery(), "ytdlp": bool(ytdlp_cmd()), "claude": have_claude(), "claudeErr": claude_last_err()})
             if a == "search":
                 qq = (q.get("q") or [""])[0].strip()
                 if len(qq) < 2: return self._json(200, {"q": qq, "items": []})
@@ -3700,6 +3953,21 @@ def hub_serve(root, port):
                 if not ytdlp_cmd(): return self._json(200, {"ok": False, "need": "ytdlp", "msg": "أداة السحب yt-dlp مو مثبّتة"})
                 w = new_dir(data.get("name"), "long-" if data.get("mode") == "clips" else "clip-"); grab_bg(m.group(0), w, data)
                 return self._json(200, {"ok": True, "work": w})
+            if a == "cpu":   # 4.4.1: خفيف على الجهاز / أقصى سرعة
+                m = data.get("mode")
+                if data.get("probe"): whisper_device()
+                if m in CPU_MODES: c = hub_cfg(); c["cpu"] = m; wj(hub_cfg_path(), c); lighten(m)
+                return self._json(200, {"ok": True, "cpu": cpu_mode(), "whisper": whisper_device()})
+            if a == "claude_check":   # 4.4.1: «دوّر مرة ثانية» و«جرّب Claude»
+                v = find_claude(True)
+                if not v or not data.get("test"): return self._json(200, {"ok": bool(v), "path": v or "", "msg": "" if v else "ما لقيت Claude Code. افتح Claude Code مرة وحدة وأرجع اضغط «دوّر»، أو ثبّته من claude.com/claude-code"})
+                cmd = (["cmd", "/c"] if v.lower().endswith((".cmd", ".bat")) else []) + [v, "-p", "Reply with the single word: ok"]
+                kw = {"creationflags": 0x08000000} if os.name == "nt" else {}
+                try: r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=90, stdin=subprocess.DEVNULL, cwd=HOME_CFG, **kw); out = (r.stdout or "") + (r.stderr or ""); rc = r.returncode
+                except subprocess.TimeoutExpired: out, rc = "timed out", -1
+                good = rc == 0 and "ok" in out.lower() and claude_why(out)["why"] == "other"
+                if good: cmd_log_clear_err()
+                return self._json(200, {"ok": good, "path": v, "msg": "Claude شغّال ويرد." if good else claude_why(out, rc)["msg"]})
             if a == "ytdlp_install":
                 r = subprocess.run([PY, "-m", "pip", "install", "-U", "yt-dlp"], capture_output=True, text=True, timeout=600)
                 return self._json(200, {"ok": r.returncode == 0 and bool(ytdlp_cmd()), "out": (r.stdout + r.stderr)[-600:]})
@@ -3798,7 +4066,7 @@ def hub_serve(root, port):
                         pl = proj_live(pt) or {}; live.append({"name": os.path.basename(w), "port": pt, "agent": bool((pl.get("agent") or {}).get("running")), "job": bool((pl.get("job") or {}).get("running")), "jobKind": (pl.get("job") or {}).get("kind")})
                 ts, tu = (None, hub_cfg().get("ts"))
                 return self._json(200, {"battery": battery(), "disk": {"free": du.free, "total": du.total}, "awake": AWAKE["on"], "version": VERSION, "live": live,
-                                        "notify": bool(notify_cfg().get("topic")), "ts": tu, "lan": "http://%s:%d/library?k=%s" % (LAN, port, TOKEN), "token": TOKEN, "os": sys.platform, "up": int(time.time() - STATE["started"])})
+                                        "notify": bool(notify_cfg().get("topic")), "ts": tu, "lan": "http://%s:%d/library?k=%s" % (LAN, port, TOKEN), "token": TOKEN, "os": sys.platform, "up": int(time.time() - STATE["started"]), "cpu": cpu_mode(), "whisper": _WD.get("v"), "cores": os.cpu_count() or 0})
             if a == "awake": keep_awake(bool(data.get("on"))); return self._json(200, {"ok": True, "awake": AWAKE["on"]})
             if a == "screen_off": return self._json(200, {"ok": screen_off()})
             if a == "notify_test":
@@ -3858,6 +4126,7 @@ def hub_serve(root, port):
             except Exception: pass
             time.sleep(45)
     threading.Thread(target=db_loop, daemon=True).start()
+    threading.Thread(target=lambda: (time.sleep(40), whisper_device()), daemon=True).start()
     srv = http.server.ThreadingHTTPServer(("0.0.0.0", port), HB); srv.daemon_threads = True
     print("المكتبة شغّالة: http://127.0.0.1:%d/library · الجوال: http://%s:%d/library?k=%s" % (port, LAN, port, TOKEN)); sys.stdout.flush()
     try: srv.serve_forever()
@@ -3879,6 +4148,8 @@ def main():
         while j < len(a) and not a[j].startswith("--"): j += 1
         v = a[i + 1:j]; del a[i:j]; return v
     engine = opt("--engine"); port = int(opt("--port", "8800")); cmd = a[0]
+    if os.environ.get("CLAUDECODE") and not os.environ.get("HS_NO_CLAUDE") and shutil.which("claude"): claude_remember(shutil.which("claude"), "session")
+    if cmd not in ("sync", "claude", "db", "tools", "platform", "release", "autoupdate", "selftest"): lighten()
     if cmd == "doctor": sys.exit(0 if cmd_doctor(engine) else 1)
     if cmd == "platform": return cmd_platform(a[1:])
     if cmd == "tools": print(tools_text()); return
@@ -3889,6 +4160,7 @@ def main():
     if cmd == "grab": return cmd_grab(a[1:])
     if cmd == "db": return cmd_db(a[1:])
     if cmd == "sync": return cmd_sync(a[1:])
+    if cmd == "claude": return cmd_claude(a[1:])
     if cmd == "release": return cmd_release(a[1:])
     if cmd == "autoupdate": return cmd_autoupdate(a[1:])
     if cmd == "hub": return cmd_hub(a[1:])

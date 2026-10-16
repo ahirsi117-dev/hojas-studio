@@ -934,7 +934,11 @@ async function pulse(){ let p; try{ p=await api('/hs/pulse?since='+lastAct); }ca
   if(p.sig!==SIG&&!dragging&&!p.job.running&&!$('#modal').classList.contains('on')&&!_saveT_pending()){ SIG=p.sig; await load(true); toast(t('externalChange')); } }
 let BR_OPENING=false, VISB=false, AUXS=null;
 function _saveT_pending(){ return $('#saved').textContent===t('saving'); }
-applyLang(); pulse(); setInterval(pulse,1500);
+applyLang(); let _pAct=Date.now(); ['pointerdown','keydown','wheel'].forEach(k=>addEventListener(k,()=>{ _pAct=Date.now(); },{passive:true,capture:true}));
+// 4.4.1: النبضة تهدى لما ما فيه شغل: كل ثانية ونص وقت Claude أو التصدير، 4 ثواني عادي، و15 لما الصفحة مخفية
+(async function pLoop(){ try{ await pulse(); }catch(e){} const p=PULSE||{}, busy=(p.agent&&p.agent.running)||(p.job&&p.job.running)||(p.vis&&p.vis.busy)||p.brief==='pending';
+  setTimeout(pLoop, document.hidden?15000:(busy||Date.now()-_pAct<8000)?1500:4000); })();
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) pulse(); });
 (function(){ const d=document.createElement('datalist'); d.id='hsCities'; d.innerHTML=Object.keys(CITIES).map(c=>'<option value="'+c+'">').join(''); document.body.appendChild(d); })();
 
 /* ───── 4.4: رسم حر على الفيديو (بيدك، بالماوس أو بإصبعك) ───── */
