@@ -65,7 +65,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.5.1"
+VERSION = "4.5.2"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -4343,8 +4343,9 @@ def hub_serve(root, port):
             if not self._ok(): return self._deny()
             if (q.get("k") or [""])[0] == TOKEN and not self._local() and ("hs_k=" + TOKEN) not in (self.headers.get("Cookie") or ""):
                 self.send_response(302); self.send_header("Set-Cookie", "hs_k=%s; Path=/; Max-Age=2592000; SameSite=Lax" % TOKEN); self.send_header("Location", p or "/library"); self.send_header("Content-Length", "0"); self.end_headers(); return
-            if p in ("/tele", "/tele/"):   # 4.5: الملقّن
-                b = open(os.path.join(HERE, "tele.html"), "rb").read(); return self._send(200, b, "text/html; charset=utf-8")
+            if p in ("/tele", "/tele/"):   # 4.5.2: الملقّن قريباً (tele.html موجود للتطوير وما ينفتح للحين)
+                b = login_html("/library", "", 6).split("<body>")[0] + "<body><div class=c><div class=logo><i></i><i></i><i></i></div><h1>الملقّن قريباً</h1><p>جاي بالتحديث الجاي.</p><a href=/library style='color:#6aa2ff'>ارجع للمكتبة</a></div></body></html>"
+                return self._send(200, b.replace("%%", "%"), "text/html; charset=utf-8")
             if p in ("/library", "/library/"):
                 b = open(os.path.join(HERE, "hub.html"), "rb").read(); return self._send(200, b, "text/html; charset=utf-8", {"Set-Cookie": "hs_hub=1; Path=/; SameSite=Lax"})
             if p == "/hub/ui-font.otf":

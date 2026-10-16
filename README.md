@@ -98,7 +98,7 @@ Everything here runs on your computer and never touches your Claude limit. Anyth
 - **Pre-publish check:** a 0 to 100 score across six things (first 3 seconds, pace, visual change, clarity, ending, length), an estimated watch-through curve, weak spots marked red on the timeline, and a one-click fix for each (`hs retention`).
 - **Best take:** when you say a line several times, it keeps the clearest one. Listen to each take and switch with one tap.
 - **Your numbers:** type your views or import a CSV from TikTok Studio or Metricool. After 5 clips it tells you what works for your audience, and clip suggestions lean that way.
-- **Teleprompter:** read your script as it scrolls over the camera; the recording lands in the Library ready to edit.
+- **Teleprompter (coming soon):** read your script as it scrolls over the camera.
 - **Night factory:** drop videos into the `_inbox` folder and they get prepared one by one in light mode, with a phone notification when done.
 - **Covers, carousel, thread, YouTube:** three expressive cover frames with a big title, plus an Instagram carousel, an X thread and a YouTube title and description pulled from your own words.
 - **Wide video follows the speaker:** 16:9 podcasts and interviews get a vertical crop that cuts to whoever is talking.

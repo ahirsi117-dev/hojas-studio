@@ -272,8 +272,9 @@ mark{background:rgba(76,141,255,.35);color:#fff;border-radius:4px;padding:0 2px}
   #side .new{width:100%;margin-bottom:22px;padding:13px;font-size:15.5px;border-radius:16px}
   #side .nv{display:flex;flex-direction:column;gap:4px}
   #side .nv button{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:13px;color:var(--mut);font-size:15px;text-align:start}
-  #side .nv button:hover,#side .nv a.tl:hover{background:var(--s1);color:var(--tx)}
-  #side .nv a.tl{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:13px;color:var(--mut);font-size:15px;text-decoration:none;margin-top:6px;border-top:1px solid var(--bd);padding-top:14px}
+  #side .nv button:hover{background:var(--s1);color:var(--tx)}
+  #side .nv .tl.soon{opacity:.55;cursor:default}#side .nv .tl .sn{margin-inline-start:auto;font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.08);color:var(--mut)}
+  #side .nv a.tl,#side .nv .tl{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:13px;color:var(--mut);font-size:15px;text-decoration:none;margin-top:6px;border-top:1px solid var(--bd);padding-top:14px}
   #side .nv button.on{background:rgba(76,141,255,.16);color:#fff;font-weight:600}
   #side .nv button small{margin-inline-start:auto;background:rgba(76,141,255,.3);color:#fff;border-radius:8px;padding:0 7px;font-size:12px}
   #side .foot{margin-top:auto;display:grid;gap:10px;padding:14px 6px 0;border-top:1px solid var(--bd);font-size:13px;color:var(--mut)}
@@ -348,7 +349,7 @@ mark{background:rgba(76,141,255,.35);color:#fff;border-radius:4px;padding:0 2px}
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 let LANG='ar'; try{ LANG=localStorage.getItem('hsLang')||'ar'; }catch(e){}
 const TX={
- lib:['المكتبة','Library'], stats:['أرقامك','Your numbers'], tele:['الملقّن','Teleprompter'],
+ lib:['المكتبة','Library'], stats:['أرقامك','Your numbers'], tele:['الملقّن','Teleprompter'], soon:['قريباً','Soon'], soonSub:['الملقّن جاي بالتحديث الجاي','Coming in a future update'],
  tokT:['هذا يستهلك من حدّك في Claude','This uses your Claude limit'], tokYes:['كمّل','Continue'], tokNo:['لا، خلّه','Cancel'], tokSkip:['لا تسألني مرة ثانية عن هذا','Don\'t ask again for this'], tokBadge:['يستهلك','Uses limit'],
  tok_auto:['Claude بيمنتج المقطع كامل من البداية. هذا أكثر شي يستهلك.','Claude edits the whole clip. This uses the most.'], tok_pick:['Claude بيقرأ الحلقة كاملة ويختار اللقطات ويمنتجها.','Claude reads the whole episode, picks and edits clips.'],
  tok_rank:['Claude بيقرأ الحلقة كاملة ويقيّم كل لقطة.','Claude reads the episode and rates each clip.'], tok_edit:['Claude بيمنتج كل لقطة اخترتها.','Claude edits every clip you picked.'], tok_test:['تجربة سريعة: سؤال واحد صغير.','Quick test: one tiny prompt.'], tok_script:['Claude بيكتب لك السكربت.','Claude writes your script.'],
@@ -521,7 +522,7 @@ function renderDev(){ const d=DEV; if(!d){ $('#main').innerHTML=LOADERR?errBox()
 function renderSide(){ const P=(DATA&&DATA.projects)||[], E=(DATA&&DATA.eps)||[], b=(DATA&&DATA.battery)||{}, aw=DATA&&DATA.awake, nw=P.filter(p=>p.state==='wait').length+E.filter(e=>e.state==='wait').length;
   $('#side').innerHTML='<div class="brand"><div class="logo"><i style="background:var(--cap);width:70%"></i><i style="background:var(--img)"></i><i style="background:var(--vid);width:55%"></i></div><div><b>Hojas Studio</b><small>'+(DATA?esc(DATA.root||''):'')+'</small></div></div>'
    +'<button class="btn y new" data-new="1">'+IC.plus+t('newP')+'</button><div class="nv">'
-   +[['lib',IC.lib,nw],['stats',IC.stats,0],['cmds',IC.cmds,0],['dev',IC.dev,0]].map(([k,i,n])=>'<button data-tab="'+k+'" class="'+(TAB===k&&!EP?'on':'')+'">'+i+'<span>'+t(k)+'</span>'+(n?'<small>'+n+'</small>':'')+'</button>').join('')+'<a class="tl" href="/tele">'+IC.tele+'<span>'+t('tele')+'</span></a></div>'
+   +[['lib',IC.lib,nw],['stats',IC.stats,0],['cmds',IC.cmds,0],['dev',IC.dev,0]].map(([k,i,n])=>'<button data-tab="'+k+'" class="'+(TAB===k&&!EP?'on':'')+'">'+i+'<span>'+t(k)+'</span>'+(n?'<small>'+n+'</small>':'')+'</button>').join('')+'<div class="tl soon" title="'+esc(t('soonSub'))+'">'+IC.tele+'<span>'+t('tele')+'</span><small class="sn">'+t('soon')+'</small></div></div>'
    +'<div class="foot"><div class="rowc"><span>'+t('awake')+'</span><div class="tg'+(aw?' on':'')+'" data-awake="1"></div></div><div class="rowc"><span style="display:flex;gap:8px;align-items:center"><span class="dot'+(aw?'':' warn')+'"></span>'+(b.has?b.pct+'% '+batHtml(b):t('on'))+'</span><button class="btn sm" data-lang="1">'+(LANG==='ar'?'EN':'ع')+'</button></div></div>'; }
 function render(){ if(EP) return renderEp(); $('#h1').textContent=t(TAB);
   $('#status').innerHTML=TAB==='cmds'?'<span class="dot"></span><span>'+t('cmdsSub')+'</span>':statusLine();
@@ -577,7 +578,6 @@ function drawNew(){ const y=DATA&&DATA.ytdlp, cl=DATA&&DATA.claude;
   if(NW.src==='link'){ o+='<div class="field"><input id="nUrl" inputmode="url" placeholder="'+esc(t('linkPh'))+'" value="'+esc(NW.url||'')+'"><button class="btn sm" id="nPaste">'+t('paste')+'</button></div><div class="sites"><span>TikTok</span><span>YouTube</span><span>Instagram</span><span>X</span><span>Snapchat</span><span>Twitch</span><span>+1000</span></div>';
     if(!y) o+='<div class="box">'+t('needY')+'<div style="margin-top:8px"><button class="btn sm y" id="nInstall">'+t('installY')+'</button></div></div>'; }
   else o+='<label class="drop" id="nDrop"><b>'+(NW.file?esc(NW.file.name):t('dropB'))+'</b>'+(NW.file?'<bdi dir="ltr">'+(NW.file.size/1e6).toFixed(0)+' MB</bdi>':t('dropS'))+'<input type="file" id="nFile" accept="video/*" hidden></label>';
-  if(NW.src==='file') o+='<a class="hint2" href="/tele" style="display:flex;gap:8px;align-items:center;margin-top:8px;color:var(--pri);text-decoration:none">'+IC.tele+t('teleSub')+'</a>';
   o+='<h5>'+t('whatDo')+'</h5><div class="opts3">'+[['auto',IC.wand,'mAuto','mAutoS'],['manual',IC.hand,'mMan','mManS'],['clips',IC.scissors,'mClips','mClipsS']].map(([k,i,a,b])=>'<button class="opt'+(NW.mode===k?' on':'')+'" data-nmode="'+k+'">'+i+'<div><b>'+t(a)+(k==='auto'?' <span class="tkb">'+t('tokBadge')+'</span>':'')+'</b><small>'+t(b)+'</small></div></button>').join('')+'</div>';
   if(NW.mode==='auto'&&!cl) o+='<div class="box">'+t('noClaude')+'</div>';
   if(NW.mode==='clips'){ o+='<h5>'+t('whoPick')+'</h5><div class="chips">'+[['claude','pClaude'],['me','pMe']].map(([k,l])=>'<button class="chip'+(NW.pick===k?' on':'')+'" data-npick="'+k+'">'+t(l)+(k==='claude'?' <span class="tkb">'+t('tokBadge')+'</span>':'')+'</button>').join('')+'</div>'
