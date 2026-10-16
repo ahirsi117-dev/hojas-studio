@@ -4148,7 +4148,9 @@ def main():
         while j < len(a) and not a[j].startswith("--"): j += 1
         v = a[i + 1:j]; del a[i:j]; return v
     engine = opt("--engine"); port = int(opt("--port", "8800")); cmd = a[0]
-    if os.environ.get("CLAUDECODE") and not os.environ.get("HS_NO_CLAUDE") and shutil.which("claude"): claude_remember(shutil.which("claude"), "session")
+    if os.environ.get("CLAUDECODE") and cmd != "claude":   # Claude نفسه شغّل hs: نحفظ مكانه للمكتبة (لو ما هو بالـ PATH نلقاه من العملية الأم)
+        try: claude_learn()
+        except Exception: pass
     if cmd not in ("sync", "claude", "db", "tools", "platform", "release", "autoupdate", "selftest"): lighten()
     if cmd == "doctor": sys.exit(0 if cmd_doctor(engine) else 1)
     if cmd == "platform": return cmd_platform(a[1:])
