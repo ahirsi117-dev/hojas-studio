@@ -76,10 +76,11 @@ for _cd in _c["cards"]:
 _k=int(0.18*SR); _env=np.convolve(_sp,np.ones(_k)/_k,mode="same") if _k>1 else _sp
 _DUCKENV=1.0-(1.0-_DUCK)*np.clip(_env,0,1)
 for k,arr in _s.items():
-    if not (isinstance(arr,list) and k.startswith(("mk","my"))): continue
+    if not (isinstance(arr,list) and k.startswith(("mk","my","cc-"))): continue
     sig=_load(k)
     if sig is None: continue
     base=0.10 if len(sig)>8*SR else 0.20        # الخلفيات الطويلة أهدأ من الضربات
+    if k.startswith("cc-ambience"): base=0.035  # 4.6: صوت الغرفة والأجواء ينحس ما ينسمع (30 dB تحت الكلام)
     for v in arr:
         vv=list(v) if isinstance(v,list) else [v]; t0=vv[0]; g=vv[1] if len(vv)>1 else 1; d=vv[2] if len(vv)>2 else None
         L=len(sig) if not d else min(len(sig),int(float(d)*SR)); L=max(0,min(L,int((VEND-float(t0))*SR)))

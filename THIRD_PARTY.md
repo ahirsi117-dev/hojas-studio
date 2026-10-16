@@ -17,6 +17,12 @@ Copyright (c) 2026 pyang5166. https://github.com/pyang5166/gbro-collage-broll
 The paper-collage look, its color meanings and the metaphor, still, animate approval idea inspired Hojas's `collage` layer, which is rendered locally without any API.
 License text: `LICENSES/MIT-gbro-collage-broll.txt`.
 
+## agent-video-editor, MIT License (text) and CC0 1.0 (audio)
+Copyright (c) 2026 kmilo93sd. https://github.com/kmilo93sd/agent-video-editor
+The editing rules in `engine/references/editing-rules.md` are adapted and translated to Arabic from its references and recipes (pacing, hooks, captions and text timing, graphics timing, audio levels, sound effects, shorts). Its sources are listed there.
+The 128 sounds and music tracks with ids starting `cc-` in `sfxlib.json` are CC0 1.0 (public domain dedication), reviewed source by source in its `library/LICENSES.md`. They are not shipped inside Hojas Studio: each computer downloads them from the repository, pinned to commit 8e32c0a, on first use. Arabic names and usage notes are ours.
+License text: `LICENSES/MIT-agent-video-editor.txt`.
+
 ## onetake, ideas only
 https://github.com/feitangyuan/onetake is licensed PolyForm Noncommercial 1.0.0. **No code, text or presets from onetake are included in Hojas Studio.** General ideas (carry elements across beats instead of replacing them, rhythm and rest checks) were described in our own words and implemented from scratch.
 

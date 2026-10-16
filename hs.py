@@ -65,7 +65,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.5.3"
+VERSION = "4.6"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -582,7 +582,7 @@ def my_edit(i, name=None, note=None, delete=False):
     wj(my_meta_path(), meta); return meta
 def sfx_all():
     """مكتبة السكل + أصوات المستخدم بشكل واحد."""
-    out = [dict(x, have=sfx_have(x["id"])) for x in sfx_lib()]
+    out = [dict(x, have=sfx_have(x["id"]), long=float(x.get("sec") or 0) > 8) for x in sfx_lib()]
     for m in my_list(): out.append({"id": m["id"], "ar": m["name"], "en": m["name"], "dur": "%ss" % m.get("dur", 0), "have": True, "mine": True, "note": m.get("note", ""), "long": float(m.get("dur") or 0) > 8})
     return out
 
@@ -596,7 +596,7 @@ TOOLS = [
 ]
 NET_USE = [
     "خطوط Google: ينزّل ملف الخط اللي تختاره (fonts.googleapis.com). بلا نت يشتغل بخط مرفوع.",
-    "مكتبة الأصوات: أول مرة تستخدم صوتاً ينزل من Mixkit (assets.mixkit.co) وينحفظ على جهازك.",
+    "مكتبة الأصوات: أول مرة تستخدم صوتاً ينزل من مصدره (Mixkit، أو مكتبة CC0 على GitHub) وينحفظ على جهازك.",
     "بحث الصور والمقاطع: يسأل ويكيميديا كومنز بكلمات البحث فقط وينزّل اللي تختاره.",
     "لقطة موقع: يفتح الرابط اللي تكتبه أنت فقط.",
     "غير هذا ما فيه أي اتصال: الفيديو والصوت والنص والوجه كلها تتعالج على جهازك.",
@@ -616,8 +616,12 @@ def tools_text():
 # ───────────────────────── مكتبة المؤثرات الصوتية (3.6) ─────────────────────────
 # 30 صوت من Mixkit. رخصتها تسمح باستخدامها داخل الفيديو، وما تسمح بإعادة توزيع الملفات نفسها،
 # فالسكل ما يحملها معه: كل جهاز ينزّلها من المصدر مرة وحدة وتنحفظ في ~/.hojas-studio/sfx
+# 4.6: + 128 صوت وموسيقى CC0 (أرقامها cc-…) من agent-video-editor، مثبّتة على نسخة محددة من المستودع
+# عشان ما تتغير. الموسيقى mp3 فتتحول لـ wav أول ما تنزل.
 def sfx_lib():
     return rj(os.path.join(HERE, "sfxlib.json"), []) or []
+SFX_CAT = {"mixkit": "الأساسية (Mixkit)", "transition": "انتقال", "click": "نقر", "appear": "ظهور", "notification": "تنبيه", "success": "نجاح",
+           "error": "خطأ", "typing": "كتابة", "impact": "ضربة", "stinger": "فاصل موسيقي", "office": "فلوس وورق", "ambience": "أجواء", "music": "موسيقى"}
 def sfx_dir():
     d = os.path.join(HOME_CFG, "sfx"); os.makedirs(d, exist_ok=True); return d
 def sfx_path(i): return os.path.join(sfx_dir(), os.path.basename(str(i)) + ".wav")
@@ -630,10 +634,23 @@ def sfx_fetch(ids=None, log=None):
     for i in ids:
         if sfx_have(i): continue
         try:
-            rq = urllib.request.Request(lib[i]["url"], headers={"User-Agent": "Mozilla/5.0 (Hojas Studio)"})
-            b = urllib.request.urlopen(rq, timeout=40).read()
-            if len(b) < 2000 or b[:4] != b"RIFF": raise ValueError("الملف مو صوت")
-            tmp = sfx_path(i) + ".part"; open(tmp, "wb").write(b); os.replace(tmp, sfx_path(i)); ok += 1
+            b = None; err = None
+            for u in [x for x in (lib[i].get("url"), lib[i].get("url2")) if x]:
+                try:
+                    rq = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0 (Hojas Studio)"})
+                    b = urllib.request.urlopen(rq, timeout=60).read(); break
+                except Exception as e: err = e
+            if b is None: raise err or ValueError("ما فيه رابط")
+            mp3 = b[:3] == b"ID3" or (len(b) > 1 and b[0] == 0xFF and (b[1] & 0xE0) == 0xE0)
+            if len(b) < 2000 or not (b[:4] == b"RIFF" or mp3): raise ValueError("الملف مو صوت")
+            tmp = sfx_path(i) + ".part"; open(tmp, "wb").write(b)
+            if mp3:
+                src = tmp + ".mp3"; os.replace(tmp, src)
+                r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", src, "-ar", "48000", "-ac", "2", "-f", "wav", tmp], capture_output=True)
+                try: os.remove(src)
+                except OSError: pass
+                if r.returncode != 0 or not os.path.isfile(tmp): raise ValueError("ffmpeg ما حوّل الموسيقى")
+            os.replace(tmp, sfx_path(i)); ok += 1
             if log: log("نزل: %s (%s)" % (lib[i]["ar"], i))
         except Exception as e:
             bad.append(i)
@@ -642,8 +659,17 @@ def sfx_fetch(ids=None, log=None):
 def cmd_sfx(work, args):
     sub = args[0] if args else "list"; lib = sfx_lib(); mine = my_list(); ids = {x["id"] for x in lib} | {m["id"] for m in mine}
     if sub == "list":
-        for x in lib: print("%-7s %-5s %s  %s" % (x["id"], x["dur"], "✓" if sfx_have(x["id"]) else "—", x["ar"]))
-        print("\n✓ = منزّل على هذا الجهاز. نزّل الباقي: hs sfx <work> fetch")
+        want = args[1] if len(args) > 1 else ""; cats = []
+        for x in lib:
+            c = x.get("cat") or "mixkit"
+            if c not in cats: cats.append(c)
+        if want and want not in cats: sys.exit("الأقسام: " + " · ".join("%s (%s)" % (c, SFX_CAT.get(c, c)) for c in cats))
+        for c in ([want] if want else cats):
+            print("\n── %s ──" % SFX_CAT.get(c, c))
+            for x in [x for x in lib if (x.get("cat") or "mixkit") == c]:
+                print("%-30s %-6s %s  %s%s" % (x["id"], x["dur"], "✓" if sfx_have(x["id"]) else "—", x["ar"], ("  ← " + x["use"]) if x.get("use") else ""))
+        print("\n✓ = منزّل على هذا الجهاز. نزّل الباقي: hs sfx <work> fetch · قسم واحد: hs sfx <work> list music")
+        print("cc-… كلها CC0 (حرة للاستخدام التجاري بدون ذكر المصدر). القواعد: references/editing-rules.md")
         print("\nأصوات المستخدم (ملفاته هو، قدّمها على المكتبة لما تناسب اللحظة):" if mine else "\nما عنده أصوات خاصة بعد. مجلدها: " + my_dir())
         for m in mine: print("%-7s %-6s %s%s%s" % (m["id"], "%ss" % m.get("dur", 0), m["name"], "  ← " + m["note"] if m.get("note") else "", "  (طويل: يصلح خلفية أو موسيقى، حدد المدة [ث, قوة, مدة])" if float(m.get("dur") or 0) > 8 else ""))
         return
@@ -1374,7 +1400,7 @@ def beat_detect(path, offset=0.0, sr=11025, hop=256):
 def cmd_beat(work, args):
     src = args[0] if args else ""; at = 0.0
     if "--at" in args: at = float(args[args.index("--at") + 1])
-    if src.startswith("my") or src.startswith("mk"):
+    if src.startswith(("my", "mk", "cc-")):
         sfx = rj(J(work, "sfx.json"), {}) or {}; v = (sfx.get(src) or [[0]])[0]; at = float((v if isinstance(v, list) else [v])[0]); src = os.path.join(sfx_dir(), src + ".wav")
     if not src:
         for nme in ("bg-audio", "bg", "music"):
@@ -1406,6 +1432,13 @@ def flow_tips(work, ev, total, hs):
     trs = [L for L in hs.get("layers") or [] if L.get("type") == "fx" and L.get("fx") in ("curve", "push", "pull", "rack", "whip", "spin", "iris")]
     if len(set(L.get("fx") for L in trs)) > 3: tips.append({"t": 0, "k": "trmix", "msg": "فيه أكثر من 3 أنواع انتقال. خلّها نوعين أو ثلاثة بالكثير."})
     if len(set(L.get("dir") or hs.get("trDir") or "right" for L in trs if L.get("fx") in ("curve", "whip"))) > 1: tips.append({"t": 0, "k": "trdir", "msg": "الانتقالات تمشي باتجاهات مختلفة. خلّها اتجاه واحد بكل المقطع."})
+    ev_s = []   # 4.6: نفس الصوت أكثر من 3 مرات ورا بعض يتعب الأذن (قواعد المونتاج)
+    for k, v in (rj(J(work, "sfx.json"), {}) or {}).items():
+        if isinstance(v, list): ev_s += [(float(x[0] if isinstance(x, list) else x), k) for x in v]
+    ev_s.sort(); run_k = None; run_n = 0
+    for t0, k in ev_s:
+        run_n = run_n + 1 if k == run_k else 1; run_k = k
+        if run_n == 4: tips.append({"t": t0, "k": "sfxrep", "msg": "نفس الصوت (%s) 4 مرات ورا بعض. بدّل بينه وبين بديله، أو شيل واحد." % k}); break
     br = rj(J(work, "brief.json"), {}) or {}; want = cards_hint(total, br.get("cards", "some")) if br else 0
     have = sum(1 for L in hs.get("layers") or [] if not L.get("off") and (L.get("type") in ("split", "pip") or (L.get("type") == "viz" and L.get("kind") in ("card", "draw"))))
     if want and have < max(1, want // 2): tips.append({"t": 0, "k": "cards", "msg": "كروت الشرح %d، والمناسب لطول المقطع واختياره تقريباً %d." % (have, want)})
@@ -1522,6 +1555,12 @@ def cmd_selftest(work=None, engine=None):
         except Exception as e: chk("4.5: الإعادات وفحص قبل النشر", False, str(e)[:120])
         chk("البلقن: النسخة ونسخة السكل محدّثة", pj.get("version") == VERSION and os.path.isfile(sk) and open(sk, encoding="utf-8").read() == plugin_skill_text(), "شغّل: hs release")
     except Exception as e: chk("البلقن: النسخة ونسخة السكل محدّثة", False, str(e)[:120])
+    try:
+        L = sfx_lib(); cc = [x for x in L if x["id"].startswith("cc-")]; er = os.path.join(HERE, "engine", "references", "editing-rules.md")
+        chk("4.6: مكتبة CC0 (128 صوت بأسماء وأقسام وروابط) وقواعد المونتاج", len(cc) == 128 and len({x["id"] for x in L}) == len(L)
+            and all(x.get("ar") and x.get("use") and x.get("cat") in SFX_CAT and str(x.get("url", "")).startswith("https://raw.githubusercontent.com/kmilo93sd/agent-video-editor/8e32c0a") for x in cc)
+            and os.path.isfile(er) and "cc-pop-1" in open(er, encoding="utf-8").read(), "%d صوت cc" % len(cc))
+    except Exception as e: chk("4.6: مكتبة CC0 وقواعد المونتاج", False, str(e)[:120])
     chk("الرسم الحر بالمحرّك والاستوديو", "function drawLayer" in txt.get("ext.js", "") and "function drawStart" in txt.get("app.js", ""))
     if work and os.path.isdir(work):
         eng = find_engine(engine)
