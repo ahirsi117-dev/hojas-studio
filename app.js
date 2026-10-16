@@ -773,7 +773,7 @@ $('#brief').addEventListener('click',async e=>{ const el=e.target.closest('[data
   if(d.bchar){ BR.char.use=d.bchar; renderBrief(); return; }
   if(el.id==='bSave'){ if(BR.goal==='other'&&!(BR.goalText||'').trim()){ toast(t('bqGoalNeed')); return; } if(!BR.platform.length){ toast(t('bqPlatNeed')); return; } const a=JSON.parse(JSON.stringify(BR)); a.cap={...capStyle(a.look),y:POSY[a.pos]||76,on:true}; if(a.media.topicsText!==undefined){ a.media.topics=a.media.topicsText.split(/[،,]/).map(x=>x.trim()).filter(Boolean); delete a.media.topicsText; }
     if(a.char.use!=='none'&&!a.char.color) a.char.color={robo:'#8F73F5',sprout:'#43B072',star:'#F2B33D',cube:'#4C8DFF'}[a.char.use];
-    el.disabled=true; const r=await api('/hs/brief_save',{answers:a}); if(r.ok){ $('#brief').classList.remove('on'); toast(t('bSaved')); PULSE.brief='saved'; } else { el.disabled=false; toast(r.msg||t('failed')); } } });
+    el.disabled=true; const r=await api('/hs/brief_save',{answers:a}); if(r.ok){ $('#brief').classList.remove('on'); PULSE.brief='saved'; BRW=Date.now(); BRLAST=lastAct; stLoader('brief',t('brWaitSub')); } else { el.disabled=false; toast(r.msg||t('failed')); } } });
 $('#brief').addEventListener('input',e=>{ const d=e.target.dataset; if(d.bi) bset(d.bi,e.target.value); });
 $('#brief').addEventListener('change',e=>{ if(e.target.type==='color') renderBrief(); });
 $('#brief').addEventListener('change',e=>{ const d=e.target.dataset; if(d.bhk!==undefined){ BR.hook.text=BR.hook.variants[+d.bhk]; renderBrief(); } if(d.bdrop!==undefined){ const i=+d.bdrop; BR.cut.drop=e.target.checked?[...new Set([...BR.cut.drop,i])]:BR.cut.drop.filter(x=>x!==i); } });
@@ -920,6 +920,7 @@ function phoneFile(f){ let svg=''; const u=INFO.lan.replace('/?k=','/'+f+'?k=');
 
 /* ───── النبض: بث حي + إعادة تحميل لما Claude يعدّل ───── */
 async function pulse(){ let p; try{ p=await api('/hs/pulse?since='+lastAct); }catch(e){ return; } if(!p||!p.sig) return; PULSE=p;
+  if(BRW&&((p.act||[]).some(e=>e.kind&&e.kind!=='ask'&&e.kind!=='done'&&e.id>BRLAST)||(p.agent&&p.agent.running)||Date.now()-BRW>600000)){ BRW=0; stLoaderHide(); RTAB='claude'; markTabs(); renderRight(); toast(t('brStarted')); }
   if(p.act&&p.act.length){ ACT.push(...p.act); if(ACT.length>300) ACT=ACT.slice(-300); lastAct=ACT[ACT.length-1].id; if(RTAB==='claude'&&ST) renderFeed(); }
   else if(RTAB==='claude'&&ST){ const st=$('#pStages'); if(st) st.innerHTML=stagesHtml(); }
   const busy=p.agent.running?t('claudeWorking',p.agent.elapsed):p.job.running?t('jobWorking'):(p.vis&&p.vis.busy)?t(p.vis.what==='face'?'visFace':'visMask'):''; $('#busy').classList.toggle('on',!!busy); $('#busyTx').textContent=busy;
@@ -986,13 +987,15 @@ $('#proj').title=t('renameP');
 
 /* ───── 4.4: شاشة التحميل بعبارات تتبدّل ───── */
 const LDS={ boot:[['أفتح الاستوديو','Opening the studio'],['أجيب الفيديو','Loading the video'],['أرسم أول فريم','Drawing the first frame'],['أرتّب الكابشن والطبقات','Placing captions and layers'],['أضبط الأصوات','Tuning the sound'],['أجهّز التايم لاين','Building the timeline'],['تقريباً جاهز','Almost there']],
+  brief:[['وصلت إجاباتك','Got your answers'],['Claude يقرأها','Claude is reading them'],['يختار الكابشن والألوان','Picking captions and colors'],['يرسم خطة المونتاج','Planning the edit'],['يجهّز أول مشهد','Preparing the first scene'],['ثواني ويبدأ','Starting in a moment']],
   rebuild:[['أقص الفيديو','Cutting the video'],['أعيد ترتيب اللقطات','Re-stitching the shots'],['أزحّف الكابشن مع الصوت','Shifting captions with the audio'],['أضبط الطبقات على الوقت الجديد','Re-timing the layers'],['أرسم الفريمات من جديد','Redrawing frames'],['قربنا','Nearly done']] };
-let _ldK=null, _ldI=0, _ldT0=0;
+let _ldK=null, _ldI=0, _ldT0=0, BRW=0, BRLAST=0;
 function stLoader(k,sub){ const b=$('#boot'); if(!b) return; _ldK=k; _ldI=0; _ldT0=Date.now(); const x=LDS[k][0];
   b.innerHTML='<div><div class="bars"><i></i><i></i><i></i></div><div class="tx">'+esc(LANG==='en'?x[1]:x[0])+'</div>'+(sub?'<div class="sub" dir="auto">'+esc(sub)+'</div>':'')+'<div class="line"><i></i></div><div class="slow"></div></div>'; b.classList.add('on'); }
 function stLoaderHide(){ const b=$('#boot'); if(b) b.classList.remove('on'); _ldK=null; }
 setInterval(()=>{ if(!_ldK) return; const b=$('#boot'), tx=b&&b.querySelector('.tx'); if(!tx) return; _ldI++; const L=LDS[_ldK], x=L[_ldI%L.length]; tx.classList.add('out'); setTimeout(()=>{ tx.textContent=LANG==='en'?x[1]:x[0]; tx.classList.remove('out'); },320);
-  const sl=b.querySelector('.slow'); if(sl&&!sl.textContent&&Date.now()-_ldT0>(_ldK==='boot'?15000:90000)) sl.textContent=t(_ldK==='boot'?'ldSlowSt':'ldSlowRb'); },2400);
+  const sl=b.querySelector('.slow'); if(sl&&!sl.textContent&&Date.now()-_ldT0>(_ldK==='boot'?15000:_ldK==='brief'?75000:90000)){ sl.innerHTML=esc(t(_ldK==='boot'?'ldSlowSt':_ldK==='brief'?'brSlow':'ldSlowRb'))+(_ldK==='brief'?' <button class="sm" id="brHide">'+t('brHide')+'</button>':''); } },2400);
+document.addEventListener('click',e=>{ if(e.target.id==='brHide'){ BRW=0; stLoaderHide(); RTAB='claude'; markTabs(); renderRight(); } });
 stLoader('boot');
 
 /* ═══ 4.5: فحص الاحتفاظ · الإعادات · انشر (أغلفة، كاروسيل، ثريد، يوتيوب، أرقامك) · حارس الاستهلاك ═══ */

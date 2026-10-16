@@ -1,6 +1,6 @@
 /* Hojas Studio — نصوص الواجهة: [عربي, English] */
 const I18N={
-tab_pub:['انشر','Publish'], mv_pub:['انشر','Publish'], b_pub:['انشر','Publish'], b_youtube:['يوتيوب','YouTube'], b_snapchat:['سناب','Snapchat'],
+tab_pub:['انشر','Publish'], brWaitSub:['Claude يبدأ المونتاج على إجاباتك','Claude starts editing from your answers'], brStarted:['Claude بدأ، تقدر تتابعه هنا','Claude started, follow along here'], brSlow:['Claude ما بدأ للحين. لو محادثته مقفلة افتحها وقل له «كمّل».','Claude has not started yet. If its chat is closed, open it and say continue.'], brHide:['تابع البث','Watch the feed'], mv_pub:['انشر','Publish'], b_pub:['انشر','Publish'], b_youtube:['يوتيوب','YouTube'], b_snapchat:['سناب','Snapchat'],
 tokT:['هذا يستهلك من حدّك في Claude','This uses your Claude limit'], tokYes:['كمّل','Continue'], tokSkip:['لا تسألني مرة ثانية عن هذا','Don\'t ask again for this'], tokBadge:['يستهلك','Uses limit'],
 tokSize_big:['الاستهلاك: كثير','Usage: high'], tokSize_mid:['الاستهلاك: متوسط','Usage: medium'], tokSize_small:['الاستهلاك: قليل','Usage: low'],
 tok_ask:['Claude بيشتغل على طلبك داخل هالمقطع.','Claude will work on your request in this clip.'], tok_gen:['Claude بيولّد لك من حسابك.','Claude will generate from your account.'], tok_notes:['Claude بينفّذ ملاحظاتك على المقطع.','Claude will apply your notes.'],
