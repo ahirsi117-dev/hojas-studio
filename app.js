@@ -29,7 +29,7 @@ function lookApply(name){ snap(); const h=hs();
 function trAdd(f,at){ const h=hs(); return {type:'fx',fx:f,seam:r3(at),dir:h.trDir||'right',amount:0.6,auto:'trans',track:2}; }
 const ENTERS=['rise','pop','slide','drop','zoom','fade','words','none'];
 const CHARS=['robo','sprout','star','cube'];
-const RTABS=['sel','cap','tr','audio','check','pub','notes','claude','proj'];
+const RTABS=['sel','cap','plan','tr','audio','check','pub','notes','claude','proj'];
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt=x=>{ const m=Math.floor(x/60), s=(x%60).toFixed(2).padStart(5,'0'); return String(m).padStart(2,'0')+':'+s; };
 const key=c=>c.w.map(w=>w.t).join(' ');
@@ -47,7 +47,7 @@ const allFonts=()=>[...[...new Set(hs().fonts.map(f=>f.name))],...AR_FONTS,...EN
 /* ───── اللغة ───── */
 function applyLang(){ document.documentElement.lang=LANG; document.documentElement.dir=LANG==='ar'?'rtl':'ltr'; $$('.side,#top,#stageBtns,#live').forEach(e=>e.dir=LANG==='ar'?'rtl':'ltr');
   $$('[data-t]').forEach(e=>e.textContent=t(e.dataset.t)); $('#bLang').textContent=LANG==='ar'?'EN':'ع'; $('#pp').textContent=t(playing?'pause':'play');
-  $('#tabs').innerHTML=RTABS.map(k=>'<button data-tab="'+k+'">'+t('tab_'+k)+'</button>').join(''); markTabs(); if(typeof mTabs==='function') mTabs(); }
+  $('#tabs').innerHTML=RTABS.map(k=>'<button data-tab="'+k+'">'+t('tab_'+k)+'</button>').join(''); loadSteps(); markTabs(); if(typeof mTabs==='function') mTabs(); }
 function markTabs(){ $$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===RTAB)); { const cur=document.body.dataset.mv==='bin'?LTAB:RTAB; $$('#mtabs button').forEach(b=>b.classList.toggle('on',b.dataset.mv===cur)); } $$('#binTabs button').forEach(b=>b.classList.toggle('on',b.dataset.ltab===LTAB));
   $$('[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===TOOL)); $('#bMag').classList.toggle('on',MAG); $('#bSkim').classList.toggle('on',SKIM); $('#lane').classList.toggle('blade',TOOL==='blade'); }
 $('#bLang').onclick=()=>{ LANG=LANG==='ar'?'en':'ar'; try{ localStorage.setItem('hsLang',LANG); }catch(e){} applyLang(); if(ST){ buildTL(); renderAll(); } renderLive(); if($('#brief').classList.contains('on')) renderBrief(); };
@@ -79,10 +79,10 @@ async function live(){ const w=F.contentWindow; if(w&&w.hsSet){ await w.hsSet(ST
 async function hard(){ await initFrame(false); lastFrame=-1; drawT(T); dirty(); }
 async function redo(){ if(!FUT.length){ toast(t('nothingRedo')); return; } HIST.push(JSON.stringify({caps:ST.caps,theme:ST.theme,studio:ST.studio})); const o=JSON.parse(FUT.pop()); ST.caps=o.caps; ST.theme=o.theme; ST.studio=o.studio; hs(); await initFrame(false); buildTL(); renderAll(); drawT(T); dirty(); }
 /* 4.9: القص بالاستوديو يعيد بناء الفيديو، فالتراجع العادي ما يقدر يرجّعه. نحفظ علامة بالنسخة التلقائية «قبل القص» والتراجع يرجّعها */
-function cutUndoMark(p){ if(p&&p.err) return; const v=(INFO.versions||[]).find(x=>/^قبل القص/.test(x.name||'')); if(!v) return; HIST.length=0; FUT.length=0; HIST.push(JSON.stringify({cutUndo:v.id})); }
+function cutUndoMark(p){ if(p&&p.err) return; const v=(INFO.versions||[]).find(x=>/^قبل (القص|اختيار الجمل)/.test(x.name||'')); if(!v) return; HIST.length=0; FUT.length=0; HIST.push(JSON.stringify({cutUndo:v.id})); }
 async function cutUndo(id){ toast(t('cutUndoing')); const r=await api('/hs/ver_restore',{id}); if(r&&r.ok===false){ toast(r.msg||t('failed')); return; } HIST.length=0; FUT.length=0; if(r.rebuild){ stLoader('rebuild',t('rebuildSub')); pollJob(async()=>{ try{ await load(true); toast(t('cutUndone')); } finally{ stLoaderHide(); } }); } else { await load(true); toast(t('cutUndone')); } }
 async function undo(){ if(!HIST.length){ toast(t('nothingUndo')); return; } { const top=HIST[HIST.length-1]; if(top.startsWith('{"cutUndo"')){ HIST.pop(); return cutUndo(JSON.parse(top).cutUndo); } } FUT.push(JSON.stringify({caps:ST.caps,theme:ST.theme,studio:ST.studio})); const o=JSON.parse(HIST.pop()); ST.caps=o.caps; ST.theme=o.theme; ST.studio=o.studio; hs(); await initFrame(false); buildTL(); renderAll(); drawT(T); dirty(); }
-async function refreshCheck(){ if(!READY) return; refreshRet(); CHECK=await api('/hs/check'); drawCheck(); if(RTAB==='check') renderRight(); const b=$('#tabs [data-tab="check"]'); if(b) b.innerHTML=t('tab_check')+((CHECK.issues||(CHECK.reqs||[]).some(r=>!r.ok))?'<i class="dot"></i>':''); }
+async function refreshCheck(){ if(!READY) return; refreshRet(); loadSteps(); CHECK=await api('/hs/check'); drawCheck(); if(RTAB==='check') renderRight(); const b=$('#tabs [data-tab="check"]'); if(b) b.innerHTML=t('tab_check')+((CHECK.issues||(CHECK.reqs||[]).some(r=>!r.ok))?'<i class="dot"></i>':''); }
 
 /* ───── التشغيل ───── */
 /* 4.7.1: كل فريم كان يكتب بالصفحة ثم يقرأ مكان التمرير، فالمتصفح يعيد حساب التخطيط كامل 30 مرة بالثانية. الحين يقرأ أول ثم يكتب، وما يكتب إلا اللي تغيّر */
@@ -240,10 +240,82 @@ function localFace(f){ const id='lf-'+f.file; if(document.getElementById(id)) re
 function renderAll(){ markTabs(); renderLeft(); renderRight(); }
 
 /* ───── اليسار: النص + الملفات ───── */
-function renderLeft(){ const B=$('#lbody'), h=hs(); let o='';
-  if(LTAB==='text'){ o+='<div class="sec"><input type="search" id="q" placeholder="'+t('searchText')+'" value="'+esc(Q)+'"></div><p class="hint" style="margin-top:-8px">'+t('textHint')+'</p>';
+/* ═══ 4.10: خطوات المشروع · الفحص الجديد · الخطة قبل البناء ═══ */
+let STEPS=null, PLAN=null;
+async function loadSteps(){ try{ const r=await api('/hs/steps'); STEPS=r.steps||null; const el=$('#stepsbar'); if(el) el.outerHTML=stepsBar(); }catch(e){} }
+function stepsBar(){ if(!STEPS) return '<div id="stepsbar"></div>'; return '<div id="stepsbar" class="steps">'+STEPS.map(s=>'<button class="stp '+s.state+'" data-step="'+s.k+'"><i>'+(s.state==='done'?'<svg width="10" height="10" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>':s.n)+'</i>'+esc(s.label)+'</button>').join('')+'</div>'; }
+function stepGo(k){ if(k==='takes'||k==='caps'){ LTAB=k==='takes'?'takes':'text'; markTabs(); renderLeft(); if(LTAB==='takes') loadTakes(); return; } if(k==='build'){ LTAB='files'; markTabs(); renderLeft(); return; } RTAB=k==='plan'?'plan':'proj'; markTabs(); renderRight(); if(RTAB==='plan') loadPlan(); }
+function check410(c){ let o='';
+  if(c.unsure) o+='<div class="sec"><h4>'+t('chkUnsure')+'</h4><div class="item" data-step="caps"><span>'+t('loCount',c.unsure)+'</span></div><p class="hint">'+t('chkUnsureHint')+'</p></div>';
+  if((c.speechGaps||[]).length) o+='<div class="sec"><h4>'+t('chkSpeechGap')+'</h4>'+c.speechGaps.map(g=>'<div class="item" data-seek="'+g.s+'"><span>'+t('chkSpeechGapItem',(g.e-g.s).toFixed(1))+'</span><span class="st" style="flex:none;direction:ltr">'+fmt(g.s)+'</span></div>').join('')+'<p class="hint">'+t('chkSpeechGapHint')+'</p></div>';
+  if(c.cutSound) o+='<div class="sec"><h4>'+t('chkCutSound')+'</h4><p class="hint">'+t('chkCutSoundHint',c.cutSound)+'</p><button class="sm" data-cutsfix="1">'+t('chkCutSoundFix')+'</button></div>';
+  if((c.facts||[]).length) o+='<div class="sec"><h4>'+t('chkFacts')+'</h4>'+c.facts.map(f=>'<div class="item" data-seek="'+f.s+'"><span dir="rtl">'+esc(f.text.slice(0,90))+'<small style="display:block;color:var(--mut)">'+esc(f.why.join('، '))+'</small></span><span class="st" style="flex:none;direction:ltr">'+fmt(f.s)+'</span></div>').join('')+'<p class="hint">'+t('chkFactsHint')+'</p></div>';
+  return o; }
+async function loadPlan(){ PLAN=await api('/hs/plan'); if(RTAB==='plan') renderRight(); }
+function planPanel(){ if(!PLAN){ loadPlan(); return '<p class="hint">…</p>'; }
+  let o='<div class="sec"><h4>'+t('planTitle')+(PLAN.ok?'<span class="st '+(PLAN.approved?'ok':'')+'" style="font-size:12px">'+t(PLAN.approved?'planApproved':'planWaiting')+'</span>':'')+'</h4>';
+  if(!PLAN.ok) return o+'<p class="hint">'+t('planNone')+'</p></div>';
+  const items=PLAN.items||[], ngen=items.filter(x=>x.kind==='gen'&&!x.src).length;
+  o+='<div style="display:flex;flex-direction:column;gap:6px"><button class="'+(PLAN.approved?'sm ghost':'pri')+'" data-planok="'+(PLAN.approved?0:1)+'">'+t(PLAN.approved?'planUnapprove':'planApprove')+'</button>'+(ngen?'<button class="sm" data-plan2="1">'+t('planTwo')+'</button>':'')+'</div>';
+  o+='<textarea id="planAsk" rows="3" dir="auto" placeholder="'+t('planAskPh')+'" style="margin-top:8px">'+esc(PLAN.feedback||'')+'</textarea><button class="sm" data-planre="1" style="margin-top:6px">'+t('planRewrite')+'</button></div>';
+  items.forEach((it,i)=>{ o+='<div class="sec plc'+(it.built?' built':'')+'"><div class="plh"><b>'+(i+1)+'</b><span>'+esc(it.title||'')+'</span><span class="st" data-seek="'+(+it.s||0)+'" style="direction:ltr;cursor:pointer">'+fmt(+it.s||0)+'</span></div>'
+    +'<div class="plb">'+(it.src?'<div class="plimg" style="background-image:url('+esc(it.src)+')"></div>':'<div class="plimg e"><span>'+esc(it.kindAr||'')+'</span></div>')+'<div class="plt">'
+    +(it.speech?'<label>'+t('planSpeech')+'</label><p>'+esc(it.speech)+'</p>':'')+(it.show?'<label>'+t('planShow')+'</label><p>'+esc(it.show)+'</p>':'')+(it.motion?'<label>'+t('planMotion')+'</label><p>'+esc(it.motion)+'</p>':'')+(it.source||it.query?'<label>'+t('planSource')+'</label><p dir="auto">'+esc(it.source||it.query)+'</p>':'')+'</div></div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><span class="hint" style="margin:0">'+esc(it.kindAr||'')+(it.built?' · '+t('planBuilt'):'')+'</span><button class="sm ghost" data-planrm="'+esc(it.id)+'">'+t('planRm')+'</button></div></div>'; });
+  return o; }
+async function planClick(el){ const b=el.closest('[data-planok],[data-planrm],[data-planre],[data-plan2],[data-cutsfix],[data-step]'); if(!b) return false; const d=b.dataset;
+  if(d.step){ stepGo(d.step); return true; }
+  if(d.cutsfix){ await save(); const r=await api('/hs/cuts_fix',{}); if(!r.ok){ toast(r.msg||t('busyJob')); return true; } stLoader('rebuild',t('rebuildSub')); pollJob(async(p)=>{ try{ await load(true); cutUndoMark(p); } finally{ stLoaderHide(); } }); return true; }
+  if(d.planok!==undefined){ PLAN=await api('/hs/plan_set',{approve:d.planok==='1'}); renderRight(); loadSteps(); toast(t(d.planok==='1'?'planApprovedT':'planUnapprovedT')); return true; }
+  if(d.planrm){ PLAN=await api('/hs/plan_set',{rm:d.planrm}); renderRight(); return true; }
+  if(d.planre){ const tx=($('#planAsk')||{}).value||''; PLAN=await api('/hs/plan_set',{feedback:tx}); renderRight(); const r=await api('/hs/claude_fix',{what:'plan',text:tx}); toast((r&&r.msg)||t(r&&r.ok?'planSent':'failed')); return true; }
+  if(d.plan2){ const r=await api('/hs/claude_fix',{what:'plan2',text:($('#planAsk')||{}).value||''}); toast((r&&r.msg)||t(r&&r.ok?'planTwoSent':'failed')); return true; }
+  return false; }
+/* ═══ 4.10: اختيار الجمل — الإعادات والتلعثم من التسجيل الخام، و Claude يختار الأفضل ═══ */
+let TK=null, TKALL=false, TKAU=null;
+async function loadTakes(){ TK=await api('/hs/takes'); if(LTAB==='takes') renderLeft(); }
+const fmtm=x=>{ x=Math.max(0,x||0); const m=Math.floor(x/60), s=Math.floor(x%60); return m+':'+String(s).padStart(2,'0'); };
+const TKPLAY='<svg width="11" height="11" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg>';
+function takesRow(it,cls){ const lab=TK.labels||{}, tags=(it.tags||[]).map(g=>'<i class="tkt'+(it.drop?'':' k')+'">'+esc(lab[g]||g)+'</i>').join('');
+  let act=''; if(it.group) act=it.chosen?'<span class="tkc">'+t('tkChosen')+'</span>':'<button class="sm" data-tkact="use" data-tkid="'+it.id+'">'+t('tkUse')+'</button>';
+  else act='<button class="sm ghost" data-tkact="'+(it.drop?'keep':'drop')+'" data-tkid="'+it.id+'">'+t(it.drop?'tkKeep':'tkDrop')+'</button>';
+  let o='<div class="tkr'+(it.drop?' off':'')+(cls||'')+'"><button class="sm ghost tkpl" data-tkplay="'+it.s+','+it.e+'" title="'+t('tkListen')+'">'+TKPLAY+'</button><span class="t"'+(it.out!=null?' data-tkseek="'+it.out+'"':'')+'>'+fmtm(it.s)+'</span><div class="tx" dir="rtl"><span>'+esc(it.text)+'</span>'+tags+(it.why&&!it.drop?'<small>'+esc(it.why)+'</small>':'')+'</div><div class="acts">'+act+'</div></div>';
+  (it.trims||[]).forEach(tr=>{ o+='<div class="tkr tktr'+(tr.drop?' off':'')+'"><button class="sm ghost tkpl" data-tkplay="'+Math.max(0,tr.s-0.6)+','+(tr.e+0.9)+'">'+TKPLAY+'</button><span class="t">'+fmtm(tr.s)+'</span><div class="tx" dir="rtl"><i class="tkt'+(tr.drop?'':' k')+'">'+esc(lab[tr.kind]||tr.kind)+'</i><span>«'+esc(tr.text)+'»</span></div><div class="acts"><button class="sm ghost" data-tkact="'+(tr.drop?'keep':'drop')+'" data-tkid="'+tr.id+'">'+t(tr.drop?'tkKeep':'tkDrop')+'</button></div></div>'; });
+  return o; }
+function takesPanel(){
+  if(!TK) return '<div class="sec"><p class="hint">'+t('tkLoading')+'</p></div>';
+  if(!TK.ok) return '<div class="sec"><h4>'+t('tkTitle')+'</h4><p class="hint">'+t(TK.has?'tkNone':'tkNoStt')+'</p>'+(TK.has?'<button class="pri" data-tkscan="1" style="width:100%">'+t('tkScan')+'</button>':'')+'</div>';
+  const raw=TK.raw||1, items=TK.items||[];
+  let o='<div class="sec tkp"><h4>'+t('tkTitle')+'<button class="sm ghost" data-tkscan="1">'+t('tkRescan')+'</button></h4><p class="hint" style="margin:0 0 6px">'+t('tkRawCut',fmtm(raw),fmtm(TK.kept))+'</p>';
+  o+='<div class="tkstrip">'+items.map(it=>'<b class="'+(it.drop?'d':'k')+'" style="right:'+(100*it.s/raw).toFixed(2)+'%;width:'+Math.max(0.25,100*(it.e-it.s)/raw).toFixed(2)+'%"'+(it.out!=null?' data-tkseek="'+it.out+'"':'')+'></b>').join('')+'</div>';
+  o+='<div class="tksum"><p>'+esc(TK.note||TK.summary||'')+'</p><span>'+t('tkGone',(TK.gone||0).toFixed(1))+'</span>'+(TK.by==='claude'?'<span>'+t('tkByClaude')+'</span>':'<span>'+t('tkByAuto')+'</span>')+'</div>';
+  o+='<div class="seg" style="margin:8px 0"><button class="'+(TKALL?'':'on')+'" data-tkall="0">'+t('tkImportant')+'</button><button class="'+(TKALL?'on':'')+'" data-tkall="1">'+t('tkAll')+'</button></div><div class="tklist">';
+  let g=null, n=0;
+  items.forEach(it=>{ const show=TKALL||it.drop||(it.tags||[]).length||it.group||(it.trims||[]).length; if(!show) return;
+    if(it.group!==g){ if(g) o+='</div>'; g=it.group||null; if(g){ const m=items.filter(x=>x.group===g).length; o+='<div class="tkgrp"><div class="tkgh">'+t('tkGroupN',m)+'</div>'; } }
+    o+=takesRow(it); n++; });
+  if(g) o+='</div>';
+  if(!n) o+='<p class="hint">'+t('tkClean')+'</p>';
+  o+='</div><textarea id="tkAsk" rows="2" dir="auto" placeholder="'+t('tkAskPh')+'" style="margin-top:10px"></textarea><div class="row2" style="margin-top:6px"><button class="sm" data-tkclaude="1">'+t('tkClaude')+'</button><button class="sm" data-tkprev="1">'+t('tkPreview')+'</button></div>';
+  o+='<button class="pri" data-tkapply="1" style="width:100%;margin-top:8px"'+(TK.pending?'':' disabled')+'>'+t(TK.pending?'tkApply':'tkApplied')+'</button><p class="hint">'+t('tkApplyHint')+'</p></div>';
+  return o; }
+function tkAudio(src){ try{ if(TKAU){ TKAU.pause(); } }catch(e){} if(playing) stop(); TKAU=new Audio(src); TKAU.play().catch(()=>toast(t('failed'))); }
+async function takesClick(el){ const b=el.closest('[data-tkact],[data-tkplay],[data-tkseek],[data-tkscan],[data-tkall],[data-tkapply],[data-tkprev],[data-tkclaude]'); if(!b) return false; const d=b.dataset;
+  if(d.tkact){ const r=await api('/hs/takes_set',{id:d.tkid,action:d.tkact}); if(r&&r.ok!==false){ TK=r; renderLeft(); } else toast((r&&r.msg)||t('failed')); return true; }
+  if(d.tkplay){ const [s,e]=d.tkplay.split(',').map(Number); tkAudio('/hs/raw.m4a?s='+s.toFixed(2)+'&e='+(e+0.25).toFixed(2)); return true; }
+  if(d.tkseek!==undefined){ if(TKAU) TKAU.pause(); if(playing) stop(); seek(+d.tkseek); return true; }
+  if(d.tkall!==undefined){ TKALL=d.tkall==='1'; renderLeft(); return true; }
+  if(d.tkscan){ toast(t('tkScanning')); const r=await api('/hs/takes_scan',{}); if(r&&r.ok){ TK=r; renderLeft(); } else toast((r&&r.msg)||t('failed')); return true; }
+  if(d.tkprev){ toast(t('tkPrevBuilding')); tkAudio('/hs/takes_prev.m4a?v='+Date.now()); return true; }
+  if(d.tkclaude){ const tx=($('#tkAsk')||{}).value||''; const r=await api('/hs/claude_fix',{what:'takes',text:tx}); toast((r&&r.msg)||t(r&&r.ok?'tkClaudeSent':'failed')); return true; }
+  if(d.tkapply){ if(TKAU) TKAU.pause(); await save(); const r=await api('/hs/takes_apply',{}); if(!r.ok){ toast(r.msg||t('busyJob')); return true; } stLoader('rebuild',t('rebuildSub')); pollJob(async(p)=>{ try{ await load(true); cutUndoMark(p); await loadTakes(); } finally{ stLoaderHide(); } }); return true; }
+  return false; }
+function renderLeft(){ const B=$('#lbody'), h=hs(); let o=stepsBar();
+  if(LTAB==='takes'){ o+=takesPanel(); }
+  else if(LTAB==='text'){ o+='<div class="sec"><input type="search" id="q" placeholder="'+t('searchText')+'" value="'+esc(Q)+'"></div><p class="hint" style="margin-top:-8px">'+t('textHint')+'</p>';
+    { const nlo=ST.caps.cards.reduce((n,c)=>n+c.w.filter(w=>w.lo).length,0); o+='<div class="lobar"><span>'+(nlo?t('loCount',nlo):t('loNone'))+'</span>'+(nlo?'<button class="sm" data-loclaude="1">'+t('loClaude')+'</button>':'')+'<button class="sm ghost" data-lorefresh="1">'+t('loRefresh')+'</button></div>'; }
     ST.caps.cards.forEach((c,i)=>{ const k=key(c); if(Q&&!k.includes(Q)) return;
-      o+='<div class="card'+(SEL&&SEL.kind==='cap'&&+SEL.id===i?' on':'')+'" data-card="'+i+'"><span class="t" data-seek="'+c.s+'">'+fmt(c.s)+'</span><div class="ar" dir="rtl">'+c.w.map((w,j)=>'<span class="w'+(w.hot?' hot':'')+(blIdx(w)>=0?' bl':'')+'" data-w="'+i+':'+j+'">'+(Q&&w.t.includes(Q)?'<mark>'+esc(w.t)+'</mark>':esc(w.t))+'</span>').join(' ')+'</div><div class="acts"><button class="sm" data-edit="'+i+'">'+t('edit')+'</button><button class="sm ghost" data-drop="'+i+'">'+t('dropSentence')+'</button></div></div>'; }); }
+      o+='<div class="card'+(SEL&&SEL.kind==='cap'&&+SEL.id===i?' on':'')+'" data-card="'+i+'"><span class="t" data-seek="'+c.s+'">'+fmt(c.s)+'</span><div class="ar" dir="rtl">'+c.w.map((w,j)=>'<span class="w'+(w.hot?' hot':'')+(w.lo?' lo':'')+(blIdx(w)>=0?' bl':'')+'" data-w="'+i+':'+j+'"'+(w.lo?' title="'+t('loTip')+'"':'')+'>'+(Q&&w.t.includes(Q)?'<mark>'+esc(w.t)+'</mark>':esc(w.t))+'</span>').join(' ')+'</div><div class="acts"><button class="sm" data-edit="'+i+'">'+t('edit')+'</button><button class="sm ghost" data-drop="'+i+'">'+t('dropSentence')+'</button></div></div>'; }); }
   else { fontLink(); h.fonts.forEach(localFace);
     o+='<div class="sec"><h4>'+t('binClips')+'<button class="sm" data-up="broll">'+t('upload')+'</button></h4><div class="grid3">'+Object.keys(ST.studio.brNeed||{}).map(k=>'<div class="tile" data-add="broll:'+esc(k)+'"><div class="pv" style="background-image:url(/broll/'+esc(k)+'_0001.jpg)"></div><span>'+esc(k)+'</span></div>').join('')+'</div>'+(Object.keys(ST.studio.brNeed||{}).length?'':'<p class="hint">'+t('binClipsEmpty')+'</p>')+'</div>';
     o+=mediaHtml();
@@ -345,6 +417,10 @@ $('#lbody').addEventListener('input',e=>{ const el=e.target; if(el.id==='mq'||el
 $('#lbody').addEventListener('keydown',e=>{ if(e.target.id==='mq'&&e.key==='Enter'){ e.preventDefault(); mediaSearch(); } });
 $('#lbody').addEventListener('change',e=>{ if(e.target.dataset.hkact!==undefined){ snap(); hs().hooks.active=+e.target.dataset.hkact; live(); if(T>hs().hooks.dur) seek(0.6); } });
 $('#lbody').addEventListener('click',async e=>{ const el=e.target, d=el.dataset, tile=el.closest('[data-add]');
+  if(LTAB==='takes'&&await takesClick(el)) return;
+  { const sb=el.closest('[data-step]'); if(sb){ stepGo(sb.dataset.step); return; } }
+  if(d.loclaude){ const r=await api('/hs/claude_fix',{what:'unsure'}); toast((r&&r.msg)||t(r&&r.ok?'loSent':'failed')); return; }
+  if(d.lorefresh){ await save(); const r=await api('/hs/unsure',{}); if(r&&r.ok){ await load(true); toast(t('loCount',r.n)); } return; }
   if(d.seek!==undefined){ if(playing) stop(); seek(+d.seek+0.02); const c=el.closest('.card'); if(c) select({kind:'cap',id:+c.dataset.card}); return; }
   if(d.w){ snap(); const [i,j]=d.w.split(':').map(Number), w=ST.caps.cards[i].w[j]; w.hot=!w.hot; el.classList.toggle('hot',w.hot); drawT(T); dirty(); return; }
   if(d.edit!==undefined){ editCard(+d.edit); return; }
@@ -400,6 +476,7 @@ function aiNote(n){ const w=n.status==='ask';
   return '<div class="note ai'+(w?' wait':'')+'"><div style="flex:1;min-width:0"><span class="t" style="direction:ltr;color:var(--mut);font-size:11px;cursor:pointer" data-seek="'+n.t+'">'+fmt(n.t)+'</span> <span class="st ai">Claude</span> <span class="st">'+t('aik_'+(n.kind||'suggest'))+'</span>'+(w?'':' <span class="st '+n.status+'">'+t('ns_'+n.status)+'</span>')+'<p dir="auto">'+esc(n.text)+'</p>'+(n.answer?'<p class="rep" dir="auto" style="color:var(--note)">'+t('aiYou')+esc(n.answer)+'</p>':'')+(n.reply?'<p class="rep" dir="auto">'+esc(n.reply)+'</p>':'')+(w?'<div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">'+(n.kind==='question'?'':'<button class="sm pri" data-aians="'+n.id+'" data-v="yes">'+t('aiYes')+'</button><button class="sm" data-aians="'+n.id+'" data-v="no">'+t('aiNo')+'</button>')+'<input data-aitx="'+n.id+'" dir="auto" placeholder="'+esc(t('aiReplyPh'))+'" style="flex:1;min-width:120px"><button class="sm" data-aians="'+n.id+'" data-v="text">'+t('aiSend')+'</button></div>':'<button class="sm ghost" data-delnote="'+n.id+'">'+t('delete')+'</button>')+'</div></div>'; }
 function renderRight(){ const B=$('#body'), h=hs(); let o='';
   if(RTAB==='sel') o=inspector();
+  else if(RTAB==='plan') o=planPanel();
   else if(RTAB==='cap'){ fontLink(); h.fonts.forEach(localFace); const c=h.cap;
     o+=tog('cap.on',t('capFull'),t('capFullSub'),c.on);
     if(!c.on){ o+='<div class="sec"><h4>'+t('engineStyle')+'</h4><select id="capStyle">'+['card','shadow','big','underline','bar','type'].map(k=>'<option value="'+k+'"'+((ST.theme.capStyle||'card')===k?' selected':'')+'>'+t('cs_'+k)+'</option>').join('')+'</select><p class="hint">'+t('capOffHint')+'</p></div>'; }
@@ -434,7 +511,7 @@ function renderRight(){ const B=$('#body'), h=hs(); let o='';
       if(c.firstCap!=null&&c.firstCap>1) o+='<div class="item" data-seek="0"><span class="st bad">'+t('chkFirst',c.firstCap.toFixed(1))+'</span></div>';
       o+=c.gaps.map(g=>'<div class="item" data-seek="'+g.s+'"><span>'+t('chkGapItem',g.d.toFixed(1))+'</span><span class="st" style="flex:none;direction:ltr">'+fmt(g.s)+'</span></div>').join('')+c.longCaps.map(l=>'<div class="item" data-seek="'+ST.caps.cards[l.card].s+'"><span>'+t('chkLong',l.card+1,l.n)+'</span></div>').join('');
       if(!c.gaps.length&&!c.longCaps.length&&!(c.firstCap>1)) o+='<p class="hint">'+t('chkClean')+'</p>'; else o+='<p class="hint">'+t('chkGapHint')+'</p>';
-      o+='</div>'; { const om=(c.open&&c.open.miss)||[], ln=c.len||[];
+      o+='</div>'; o+=check410(c); { const om=(c.open&&c.open.miss)||[], ln=c.len||[];
         o+='<div class="sec"><h4>'+t('chkOpen')+'</h4>'+(om.length?om.map(k=>'<div class="item" data-seek="0"><span>'+t('chkOpen_'+k)+'</span></div>').join('')+'<p class="hint">'+t('chkOpenHint')+'</p>':'<p class="hint">'+t('chkOpenOk')+'</p>')+'</div>';
         if(ln.length) o+='<div class="sec"><h4>'+t('chkLen')+'</h4>'+ln.map(l=>'<div class="item"><span'+(l.k==='over'?' class="st bad"':'')+'>'+(l.k==='over'?t('chkLen_over',t('b_'+l.p),l.max,Math.round(c.total)):t('chkLen_'+l.k,t('b_'+l.p),l.lo,l.hi,Math.round(c.total)))+'</span></div>').join('')+'</div>'; }
       o+='<div class="sec" id="chkFil"><h4>'+t('chkFillers')+'</h4>'+(c.fillers.length?c.fillers.map((f,i)=>'<label class="item"><input type="checkbox" data-fil="'+f.card+':'+f.idx+'" checked><span dir="rtl">«'+esc(f.t)+'» · '+esc(key(ST.caps.cards[f.card]).slice(0,34))+'</span><span class="st" style="flex:none;direction:ltr" data-seek="'+f.s+'">'+fmt(f.s)+'</span></label>').join(''):'<p class="hint">'+t('chkNoFillers')+'</p>')+'</div>';
@@ -631,6 +708,7 @@ let _oT=0; function panelInput(e){ const el=e.target, k=el.dataset.k;
 $('#body').addEventListener('input',panelInput);
 $('#body').addEventListener('change',e=>{ const el=e.target; if(el.id==='capStyle'){ snap(); ST.theme.capStyle=el.value; hard(); } if(el.dataset.k==='cap.y'||el.dataset.k==='cap.stroke') renderRight(); if(el.dataset.k==='frame.cy') frameSync(); if(el.id==='postTx'){ INFO.post=el.value; api('/hs/post',{text:el.value}); } });
 async function panelClick(e){ const el=e.target, d=el.dataset;
+  if(await planClick(el)) return true;
   if(d.mgkind){ const L=selLayer(); if(!L||L.type!=='mg') return true; snap(); const D=MGDEF[d.mgkind]||{}; L.kind=d.mgkind; for(const k in D) if(L[k]==null||L[k]==='') L[k]=JSON.parse(JSON.stringify(D[k])); renderRight(); buildTL(); live(); return true; }
   if(d.mglogo){ const L=selLayer(); if(!L||L.type!=='mg') return true; const two=d.mglogo==='2', nm=String(two?L.name2:L.name||'').trim(); if(!nm) return true; toast(t('mgLogoGetting'));
     const r=await api('/hs/logo',{name:nm}); snap(); if(r.ok){ if(two) L.src2=r.src; else L.src=r.src; await (window.__hsLoadImg?window.__hsLoadImg(r.src):0); toast(t('mgLogoGot')); } else { if(two) L.src2=''; else L.src=''; toast(t('mgLogoNone')); } renderRight(); live(); return true; }
@@ -655,8 +733,8 @@ async function panelClick(e){ const el=e.target, d=el.dataset;
   if(d.c&&d.k){ snap(); setK(d.k,d.c); propagate(d.k,d.c); renderRight(); live(); return true; }
   if(d.v!==undefined&&d.k){ snap(); let v=d.v; if(v==='true') v=true; else if(v==='false') v=false; else if(/^\d+$/.test(v)) v=+v; if(d.k==='cap.chunk') hs().cap.mode='line'; setK(d.k,v); propagate(d.k,v); renderRight(); if(d.k==='B.mode'){ drawT(T); dirty(); } else if(d.k.startsWith('hooks.')){ renderLeft(); live(); } else live(); return true; }
   return false; }
-$('#tabs').addEventListener('click',e=>{ const b=e.target.closest('[data-tab]'); if(b){ RTAB=b.dataset.tab; markTabs(); renderRight(); } });
-$('#binTabs').addEventListener('click',e=>{ const b=e.target.closest('[data-ltab]'); if(b){ LTAB=b.dataset.ltab; markTabs(); renderLeft(); } });
+$('#tabs').addEventListener('click',e=>{ const b=e.target.closest('[data-tab]'); if(b){ RTAB=b.dataset.tab; markTabs(); renderRight(); if(RTAB==='plan') loadPlan(); } });
+$('#binTabs').addEventListener('click',e=>{ const b=e.target.closest('[data-ltab]'); if(b){ LTAB=b.dataset.ltab; markTabs(); renderLeft(); if(LTAB==='takes') loadTakes(); } });
 $('#body').addEventListener('click',async e=>{ const el=e.target, d=el.dataset; if(styleClick(el)) return; if(el.id==='oDel'){ outroSet(0); return; } if(el.id==='oSee'){ seek(total()+0.05); play(); return; } if(await panelClick(e)) return;
   if(d.up){ pickFile(d.up); return; }
   if(d.copy){ navigator.clipboard&&navigator.clipboard.writeText(d.copy); toast(t('copied')); return; }
@@ -880,10 +958,10 @@ async function genRm(id){ const r=await api('/hs/gen_rm',{id}); if(r.ok){ INFO.g
 function genClaude(id){ const r=genReq(id); if(r) runAgent(t('reqGen',r.id,r.kind==='image'?'ChatGPT (chatgpt.com)':'Gemini (gemini.google.com)'),true); }
 /* ═══════════ 3.4: واجهة الجوال (/m) ═══════════ */
 const MOBILE=document.body.classList.contains('m');
-const MVIEWS=[['notes','panel','notes'],['sel','panel','sel'],['text','bin','text'],['cap','panel','cap'],['tr','panel','tr'],['audio','panel','audio'],['files','bin','files'],['proj','panel','proj'],['check','panel','check'],['pub','panel','pub'],['claude','panel','claude']];
+const MVIEWS=[['notes','panel','notes'],['sel','panel','sel'],['takes','bin','takes'],['text','bin','text'],['cap','panel','cap'],['plan','panel','plan'],['tr','panel','tr'],['audio','panel','audio'],['files','bin','files'],['proj','panel','proj'],['check','panel','check'],['pub','panel','pub'],['claude','panel','claude']];
 let _mS={}; const _mSet=(id,v,html)=>{ if(_mS[id]===v) return; _mS[id]=v; const e=$('#'+id); if(e){ if(html) e.innerHTML=v; else e.textContent=v; } };
 function mSync(){ const sc=$('#mScrub'); if(!sc||!ST) return; _mSet('mNow',fmt(T).replace(/\.\d+$/,'')); _mSet('mDur',fmt(dur()).replace(/\.\d+$/,'')); _mSet('mPlay2',playing?'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg>',1); if(document.activeElement!==sc){ const mx=String(dur()||1); if(sc.max!==mx) sc.max=mx; sc.value=T; } _mSet('mTime',fmt(T)+' / '+fmt(dur())); _mSet('mPlay',t(playing?'pause':'play')); }
-function mView(k){ const v=MVIEWS.find(x=>x[0]===k)||MVIEWS[0]; document.body.dataset.mv=v[1]; if(v[1]==='bin') LTAB=v[2]; else RTAB=v[2]; $$('#mnav button,#mtabs button').forEach(b=>b.classList.toggle('on',b.dataset.mv===k)); if(ST){ markTabs(); renderLeft(); renderRight(); } mSync(); const sc=$('#mid'); if(sc) sc.scrollTop=0; }
+function mView(k){ const v=MVIEWS.find(x=>x[0]===k)||MVIEWS[0]; document.body.dataset.mv=v[1]; if(v[1]==='bin') LTAB=v[2]; else RTAB=v[2]; if(LTAB==='takes'&&v[1]==='bin') loadTakes(); $$('#mnav button,#mtabs button').forEach(b=>b.classList.toggle('on',b.dataset.mv===k)); if(ST){ markTabs(); renderLeft(); renderRight(); } mSync(); const sc=$('#mid'); if(sc) sc.scrollTop=0; }
 if(MOBILE){ $('#mnav').innerHTML=MVIEWS.map(v=>'<button data-mv="'+v[0]+'" data-t="mv_'+v[0]+'"></button>').join('');
   $('#mtabs').innerHTML=MVIEWS.map(v=>'<button data-mv="'+v[0]+'"></button>').join('');
   $('#mshBody').appendChild($('#bin')); $('#mshBody').appendChild($('#panel'));
@@ -895,7 +973,7 @@ if(MOBILE){ $('#mnav').innerHTML=MVIEWS.map(v=>'<button data-mv="'+v[0]+'" data-
   $('#mshClose').onclick=close; $('#msh').addEventListener('click',e=>{ if(e.target.id==='msh') close(); });
   $('#mList').onclick=()=>mView('notes'); $('#mKb').onclick=()=>openNote(); $('#mExport').onclick=()=>{ close(); $('#bExport').click(); };
   document.body.dataset.mv=''; setTimeout(()=>{ applyLang(); mTabs(); },0); }
-function mTabs(){ if(!MOBILE) return; $$('#mtabs button').forEach(b=>{ const k=b.dataset.mv; b.textContent=k==='notes'?t('mv_notes'):k==='text'?t('tabText'):k==='files'?t('tabFiles'):t('tab_'+k); }); }
+function mTabs(){ if(!MOBILE) return; $$('#mtabs button').forEach(b=>{ const k=b.dataset.mv; b.textContent=k==='notes'?t('mv_notes'):k==='text'?t('tabText'):k==='files'?t('tabFiles'):k==='takes'?t('tabTakes'):t('tab_'+k); }); }
 /* 4.3: أدوات الشريط (للجوال والكمبيوتر) */
 if(!MOBILE){ const st=$('#stage'), mt=$('#mtools'); if(st&&mt) st.insertBefore(mt,$('#stageBtns')); }
 $('#mPlay2').onclick=()=>play(); $('#mUndo').onclick=undo; $('#mRedo').onclick=redo;

@@ -149,3 +149,30 @@ def names_text(text):
     toks = str(text).split()
     if not toks: return text
     return " ".join(str(w["t"]) for w in english_names([{"t": x, "s": i, "e": i + 0.5} for i, x in enumerate(toks)]))
+
+
+def gloss_file():
+    import os
+    return os.path.join(os.path.expanduser("~"), ".hojas-studio", "glossary.json")
+
+
+def apply_gloss(words, G=None):
+    """قاموس المستخدم (يتعلّم من تصحيحاته بالاستوديو): الغلط ← الصح، كلمة أو عبارة لين 3 كلمات."""
+    import json, os
+    if G is None:
+        try: G = json.load(open(gloss_file(), encoding="utf-8")) if os.path.isfile(gloss_file()) else {}
+        except Exception: G = {}
+    if not G: return words
+    out, i, n = [], 0, len(words)
+    while i < n:
+        hit = None
+        for L in (3, 2, 1):
+            if i + L > n: continue
+            k = " ".join(_norm(w["t"]) for w in words[i:i + L])
+            if k in G: hit = (L, G[k]); break
+            if len(k) > 3 and k[0] == "و" and k[1:] in G: r_ = G[k[1:]]; hit = (L, ("و " if re.search(r"[A-Za-z]", r_) else "و") + r_); break
+        if hit:
+            L, rep = hit; w0, w1 = words[i], words[i + L - 1]; tail = re.search(r"[؟?!.،,]+$", str(w1["t"]))
+            nw = {**w0, "t": rep + (tail.group(0) if tail else ""), "e": w1["e"]}; nw.pop("lo", None); out.append(nw); i += L
+        else: out.append(words[i]); i += 1
+    return out

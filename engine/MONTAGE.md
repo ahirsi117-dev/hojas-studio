@@ -111,6 +111,14 @@ python3 -m whisper <work>/a.wav --language ar --model medium --word_timestamps T
 ```
 ياخذ دقايق — شغّله بالخلفية وقل له كم يتوقع. لو فشل: `tail -5 <work>/whisper.log`.
 
+### 4.5) اختيار الجمل ← إلزامي لو فيه إعادات (4.10)
+```bash
+python hs.py takes <work> scan          # إعادات · بدايات متعثرة · تلعثم · جمل اخترعها whisper · ضجيج
+python hs.py takes <work> list --all    # اقرأها كاملة واختار الأفضل بكل مجموعة بالمعنى (use/drop/keep --why)
+python hs.py takes <work> apply         # يحدّث cut.json، والكابشن (الخطوة 5) يتجاهل المحذوف لحاله
+```
+التفاصيل والقواعد في SKILL.md قسم 6ط.
+
 ### 5) التصحيح والكابشن
 اقرأ `a.json`، صحّح كل جملة (وِسبر يغلط بالعامية الخليجية)، واكتب `<work>/fixes.json`:
 ```json

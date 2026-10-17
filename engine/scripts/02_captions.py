@@ -104,11 +104,18 @@ for a,b in keep: off.append(acc); acc+=b-a
 def newt(t,si):
     a,b=keep[si]; return off[si]+(max(a,min(b,t))-a)
 
+# 4.10: اللي انحذف باختيار الجمل (إعادات، تلعثم، بداية متعثرة) ما يطلع له كابشن
+try: DROPS=json.load(open(os.path.join(W,"takes.json"))).get("applied") or []
+except Exception: DROPS=[]
 cards=[]
 for i,seg in enumerate(tr["segments"]):
     ws=seg.get("words",[]); f=FIX[i]
     if len(ws)!=len(f):
         sys.exit(f"❌ الجملة {i}: وِسبر {len(ws)} كلمة، fixes.json {len(f)} — لازم يتساوون")
+    if DROPS:
+        _k=[k for k,w in enumerate(ws) if not any(a<=(w["start"]+w["end"])/2<=b for a,b in DROPS)]
+        ws=[ws[k] for k in _k]; f=[f[k] for k in _k]
+        if not ws: continue
     # 4.7.1: كل كلمة على جزئها هي. قبل كانت الجملة كلها تنحسب على جزء واحد، فلو انقص بنصها سكتة
     # الكلمات اللي بعد القطعة تنضغط على حدّه وتطلع متأخرة أو متكدّسة
     o=[]; sis=[]
@@ -117,6 +124,7 @@ for i,seg in enumerate(tr["segments"]):
         s,e=newt(w["start"],si),newt(w["end"],si)
         if e<=s: e=s+0.12
         _w={"t":txt,"s":round(s,3),"e":round(e,3),"hot":txt in HOT or txt in FXMAP}
+        if float(w.get("probability",1) or 1)<0.5 and txt==str(w.get("word","")).strip(): _w["lo"]=True   # 4.10: ما تأكد منها التفريغ (وما صححتها) ← خط منقط بالاستوديو
         if txt in FXMAP: _w["fx"]=FXMAP[txt]
         o.append(_w)
     s0,s1=sis[0],sis[-1]; a,b=keep[s1]
@@ -129,7 +137,7 @@ for i in range(len(cards)-1):
 # كلمة أو كلمتين زيادة تروح للكابشن اللي بعده، و3 أو أكثر تصير سطر ثاني. HS_CAPS_RAW=1 يخليه جملة whisper زي ما هي
 if os.environ.get("HS_CAPS_RAW")!="1" and cards:
     sys.path.insert(0,os.path.dirname(os.path.abspath(__file__))); import capgroup
-    _ws=capgroup.english_names([w for c in cards for w in c["w"]])
+    _ws=capgroup.apply_gloss(capgroup.english_names([w for c in cards for w in c["w"]]))   # 4.10: وقاموسك من تصحيحاتك السابقة
     cards=capgroup.cards_of(capgroup.pack(_ws,wpl=int(os.environ.get("HS_WPL","5") or 5)),total=round(acc,3))
 json.dump({"total":round(acc,3),"cards":cards},open(os.path.join(W,"caps.json"),"w"),ensure_ascii=False,indent=1)
 print("كروت:",len(cards)," المدة:",round(acc,2))

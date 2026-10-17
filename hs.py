@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Hojas Studio 4.9 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
+"""Hojas Studio 4.10 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
 
   python hs.py open   <work> [--engine <مجلد المحرّك>] [--port 8800] [--no-browser]
         يشغّل الخادم بالخلفية ويفتح المتصفح. شغّله أول ما تبدأ المونتاج، حتى قبل ما يجهز أي ملف.
@@ -27,6 +27,9 @@
   python hs.py check  <work>                         فحص الاحتفاظ + الحشو + الجمل المعادة
   python hs.py remove <work> [--cards 3 7] [--ranges 4.2-5.1 …] [--fillers] [--force]    يقص من الفيديو والصوت (يرفض الكلام المهم وآخر المقطع بدون --force)
   python hs.py logo   <work> plan | auto | add <الاسم> <ملف|رابط>     شعار الشركة لما ينذكر اسمها، و«X أفضل من Y»
+  python hs.py takes  <work> scan | list [--all] | use <رقم> [--why …] | drop | keep | note | fit <ث> | preview | apply   اختيار الجمل (إعادات وتلعثم)
+  python hs.py plan   <work> show | check | wait | approve      خطة المقطع قبل البناء (plan.json)
+  python hs.py steps  <work> · facts <work> · cuts <work> [fix] · gloss list|add|rm     الخطوات · أرقام تتأكد منها · قطعات على صوت · قاموسك
   python hs.py fonts  list | install <zip|مجلد> | apply <work>         خطوطه الخاصة (تبقى على جهازه، ما تنرفع)
   python hs.py export <work> [--clean] [--hooks] [--frame 9:16|4:5|1:1|16:9]     التصدير النهائي (نفس زر الاستوديو)
   python hs.py pack   <work>                         حزمة النشر (فيديو + SRT عربي/إنجليزي + نص البوست)
@@ -68,9 +71,9 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.9"
+VERSION = "4.10"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
-SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json")
+SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json", "takes.json")
 TAG = '<script src="hs-ext.js"></script>'
 PY = sys.executable
 FILLERS = ["يعني", "اه", "آه", "أه", "اهه", "امم", "اممم", "ام", "إم", "ممم", "ايه", "إيه", "طيب", "يعنى", "هاه", "ااه", "اا"]
@@ -374,8 +377,10 @@ def check(work):
     score = max(0, 100 - 6 * len(gaps) - 4 * len(long_caps) - (15 if (first is not None and first > 1.0) else 0) - int(sum(g["d"] - gap for g in gaps) * 2))
     try: tips = flow_tips(work, ev, total, hs)
     except Exception: tips = []
+    try: xs = {"unsure": sum(1 for c in cards for w in c["w"] if w.get("lo")), "speechGaps": caps_gaps(work)[:12], "cutSound": len(cut_on_sound(work)[0]), "facts": facts(work)[:12]}   # 4.10
+    except Exception: xs = {"unsure": 0, "speechGaps": [], "cutSound": 0, "facts": []}
     return {"gap": gap, "words": maxw, "fillers": fillers, "dupes": dupes, "gaps": gaps, "longCaps": long_caps, "firstCap": first, "issues": issues, "score": score, "total": total, "tips": tips,
-            "open": open_check(first, ev, hs, total), "len": len_check(total, hs.get("platforms"))}
+            "open": open_check(first, ev, hs, total), "len": len_check(total, hs.get("platforms")), **xs}
 
 # ───────────────────────── قص مقاطع من الفيديو (حشو · إعادات · بليد) ─────────────────────────
 def snapshot(work, name):
@@ -411,6 +416,33 @@ def cutmap_mod():
         eng = find_engine(None) or sys.exit("ما لقيت مجلد engine")
         spec = importlib.util.spec_from_file_location("hs_cutmap", os.path.join(eng, "scripts", "cutmap.py")); _CM = importlib.util.module_from_spec(spec); spec.loader.exec_module(_CM)
     return _CM
+def retime_project(work, remap, total, new_total):
+    """بعد أي تغيير بالقص: المؤثرات والمشاهد والطبقات والكلمات المكتومة تمشي لوقتها الجديد. remap(t, mode) = الوقت الجديد أو None لو انشال."""
+    shift = lambda t: (lambda v: round(v, 3) if v is not None else round(remap(t, "prev"), 3))(remap(t))
+    inside = lambda t: remap(t) is None
+    sfx = rj(J(work, "sfx.json"), None)
+    if sfx is not None:
+        for k, v in list(sfx.items()):
+            if isinstance(v, list): sfx[k] = [([shift(t[0])] + list(t[1:])) if isinstance(t, list) else shift(t) for t in v if not inside(t[0] if isinstance(t, list) else t)]
+        wj(J(work, "sfx.json"), sfx)
+    st = load_studio(work); hs = hs_of(st)
+    def mv(arr):
+        o = []
+        for x in arr or []:
+            s0, e0 = remap(x.get("s", 0), "next"), remap(x.get("e", 0), "prev")
+            if s0 is not None and e0 is not None and e0 - s0 > 0.15: o.append({**x, "s": round(s0, 3), "e": round(e0, 3)})
+        return o
+    if st.get("scenes"):
+        sc = mv(st["scenes"])
+        if sc: sc[0]["s"] = 0
+        if sc and st["scenes"][-1].get("e", 0) >= total - 0.05: sc[-1]["e"] = new_total + 5
+        st["scenes"] = sc
+    for k in ("stickers", "brollClips"):
+        if st.get(k): st[k] = mv(st[k])
+    if hs.get("layers"): hs["layers"] = mv(hs["layers"])
+    if (hs.get("bleep") or {}).get("items"):   # 4.6: الكلمات المكتومة تزحف مع القص
+        hs["bleep"]["items"] = [{**x, "s": shift(float(x["s"])), "e": shift(float(x["e"]))} for x in hs["bleep"]["items"] if shift(float(x["e"])) - shift(float(x["s"])) >= 0.04]
+    st["behindOff"] = []; wj(J(work, "studio.json"), st)
 def remove_ranges(work, S, log, ranges=(), cards=(), words=(), rebuild=True):
     """يشيل مقاطع (بزمن الإخراج) من الفيديو والصوت، ويزحّف كل شي بعدها: الكابشن · المؤثرات · المشاهد · الطبقات."""
     caps = rj(J(work, "caps.json")); cs = caps["cards"]; total = caps["total"]; iv = []
@@ -443,32 +475,397 @@ def remove_ranges(work, S, log, ranges=(), cards=(), words=(), rebuild=True):
     kept = {"total": total, "cards": [{**c, "w": [w for j, w in enumerate(c["w"]) if (i, j) not in drop_words]} for i, c in enumerate(cs) if i not in drop_cards]}
     kept["cards"] = [c for c in kept["cards"] if c["w"]]
     wj(J(work, "caps.json"), cm.remap_caps(kept, remap, new_total))
-    sfx = rj(J(work, "sfx.json"), None)
-    if sfx is not None:
-        for k, v in list(sfx.items()):
-            if isinstance(v, list): sfx[k] = [([shift(t[0])] + list(t[1:])) if isinstance(t, list) else shift(t) for t in v if not inside(t[0] if isinstance(t, list) else t)]
-        wj(J(work, "sfx.json"), sfx)
-    st = load_studio(work); hs = hs_of(st)
-    def mv(arr):
-        o = []
-        for x in arr or []:
-            s0, e0 = remap(x.get("s", 0), "next"), remap(x.get("e", 0), "prev")
-            if s0 is not None and e0 is not None and e0 - s0 > 0.15: o.append({**x, "s": round(s0, 3), "e": round(e0, 3)})
-        return o
-    if st.get("scenes"):
-        sc = mv(st["scenes"])
-        if sc: sc[0]["s"] = 0
-        if sc and st["scenes"][-1].get("e", 0) >= total - 0.05: sc[-1]["e"] = new_total + 5
-        st["scenes"] = sc
-    for k in ("stickers", "brollClips"):
-        if st.get(k): st[k] = mv(st[k])
-    if hs.get("layers"): hs["layers"] = mv(hs["layers"])
-    if (hs.get("bleep") or {}).get("items"):   # 4.6: الكلمات المكتومة تزحف مع القص
-        hs["bleep"]["items"] = [{**x, "s": shift(float(x["s"])), "e": shift(float(x["e"]))} for x in hs["bleep"]["items"] if shift(float(x["e"])) - shift(float(x["s"])) >= 0.04]
-    st["behindOff"] = []; wj(J(work, "studio.json"), st)
+    retime_project(work, remap, total, new_total)
     log("انشال %.2f ثانية: المدة %.2f ← %.2f" % (gone, total, new_total))
     if rebuild: rebuild_video(work, S, log)
     return {"gone": round(gone, 2), "total": new_total}
+
+# ───────────────────────── 4.10: اختيار الجمل (الإعادات والتلعثم من التسجيل الخام) ─────────────────────────
+_TK = None
+def takes_mod():
+    """engine/scripts/takes.py"""
+    global _TK
+    if _TK is None:
+        eng = find_engine(None) or sys.exit("ما لقيت مجلد engine")
+        spec = importlib.util.spec_from_file_location("hs_takes", os.path.join(eng, "scripts", "takes.py")); _TK = importlib.util.module_from_spec(spec); spec.loader.exec_module(_TK)
+    return _TK
+def _src_dur(work):
+    cut = rj(J(work, "cut.json"), {}) or {}
+    if cut.get("src_dur"): return float(cut["src_dur"])
+    a = rj(J(work, "a.json"), {}) or {}; ws = [w for s in a.get("segments") or [] for w in s.get("words") or []]
+    return float(ws[-1]["end"]) if ws else 0.0
+def tk_base(work):
+    """قص السكتات قبل اختيار الجمل (ينحفظ أول مرة)."""
+    b = rj(J(work, "cut.base.json"), None)
+    if b and b.get("keep"): return [list(x) for x in b["keep"]]
+    cut = rj(J(work, "cut.json"), None)
+    if cut and cut.get("keep"): wj(J(work, "cut.base.json"), {"keep": cut["keep"], "total": cut.get("total"), "src_dur": cut.get("src_dur")}); return [list(x) for x in cut["keep"]]
+    d = _src_dur(work); return [[0.0, d]] if d else []
+def tk_scan(work):
+    T = takes_mod(); cm = cutmap_mod()
+    a = rj(J(work, "a.json"), None) or sys.exit("ما فيه a.json (التفريغ). فرّغ أول")
+    data = T.scan(T.words_of(a, rj(J(work, "fixes.json"), None)), cm.env(work))
+    tk_base(work); data.update(raw=round(_src_dur(work), 2), at=int(time.time()), by="auto", note="")
+    old = rj(J(work, "takes.json"), None)
+    if old and old.get("applied"): data["applied"] = old["applied"]
+    tk_farrep(data); data["summary"] = T.summary(data); wj(J(work, "takes.json"), data); return data
+def tk_load(work):
+    d = rj(J(work, "takes.json"), None)
+    return d if d and d.get("items") is not None else None
+def tk_find(data, iid):
+    for it in data["items"]:
+        if it["id"] == str(iid): return it, None
+        for t in it.get("trims") or []:
+            if t["id"] == str(iid): return it, t
+    return None, None
+def tk_set(work, iid, action, why="", by="user"):
+    """use = خلّ هذي المختارة من مجموعتها · drop = احذفها · keep = أرجعها."""
+    data = tk_load(work) or sys.exit("ما فيه takes.json. شغّل: hs takes <work> scan")
+    it, tr = tk_find(data, iid)
+    if not it: raise ValueError("ما لقيت الجملة %s" % iid)
+    if tr is not None: tr["drop"] = action == "drop"
+    elif action == "use" and it.get("group"):
+        g = next(x for x in data["groups"] if x["id"] == it["group"])
+        for x in data["items"]:
+            if x.get("group") == g["id"]: x["drop"] = x["id"] != it["id"]; x["chosen"] = x["id"] == it["id"]
+        g.update(pick=it["id"], by=by, why=why or g.get("why", ""))
+        if why: it["why"] = why
+    else:
+        it["drop"] = action == "drop"
+        if why: it["why"] = why
+    if by == "claude": data["by"] = "claude"
+    data["summary"] = takes_mod().summary(data); wj(J(work, "takes.json"), data); return it
+def tk_plan(work, data=None):
+    """القص الجديد بدون ما يطبّقه: (القص الحالي، الجديد، فترات الحذف، اللي انشال بره اختيار الجمل)."""
+    T = takes_mod(); cm = cutmap_mod(); data = data or tk_load(work)
+    base = tk_base(work); cut = rj(J(work, "cut.json"), {}) or {}; old = [list(x) for x in cut.get("keep") or base]
+    manual = T.missing(T.subtract(base, data.get("applied") or [], 0.0), old)   # حذفها بالاستوديو أو بالأوامر: تبقى محذوفة
+    dr = T.drops(data, cm.env(work), cm.quiet_point)
+    F = cm.fps_of(work, cut); new = [[cm.snap(a, F), cm.snap(b, F)] for a, b in T.subtract(base, dr + manual)]
+    return old, [x for x in new if x[1] - x[0] >= 0.12], dr, manual
+def _same_keep(a, b, tol=0.05):
+    """نفس القص تقريباً (فرق التقريب للفريمات ما يحسب تغيير)."""
+    if abs(sum(y - x for x, y in a) - sum(y - x for x, y in b)) > tol: return False
+    ia = [x for x in a if x[1] - x[0] > tol]; ib = [x for x in b if x[1] - x[0] > tol]
+    return len(ia) == len(ib) and all(abs(p[0] - q[0]) <= tol and abs(p[1] - q[1]) <= tol for p, q in zip(ia, ib))
+def apply_keep(work, old, new, S=None, log=print, rebuild=True, snap="قبل اختيار الجمل"):
+    """يطبّق قص جديد (بوقت التسجيل الأصلي): الكابشن بتصحيحاتك يمشي عليه، واللي رجع ينضاف من التفريغ، والطبقات والمؤثرات تتبعه، والفيديو ينبني."""
+    T = takes_mod(); cm = cutmap_mod(); cg = capgroup_mod()
+    snapshot(work, snap)
+    o_off, o_tot = cm.offsets(old); n_off, n_tot = cm.offsets(new)
+    cut = rj(J(work, "cut.json"), {}) or {}; cut.update(keep=new, total=round(n_tot, 3)); wj(J(work, "cut.json"), cut)
+    caps = rj(J(work, "caps.json"), None)
+    if caps and caps.get("cards"):
+        ws = []
+        for c in caps["cards"]:
+            for w in c["w"]:
+                ws.append({**w, "ss": cm.out_to_src(old, o_off, w["s"]), "se": cm.out_to_src(old, o_off, w["e"])})
+        back = T.missing(new, old)
+        if back:
+            fx = rj(J(work, "fixes.json"), None); allw = T.refine(T.words_of(rj(J(work, "a.json"), {}), fx), T.Energy(cm.env(work)))   # نفس ضبط التوقيت على الصوت
+            have = [(w["ss"], w["se"]) for w in ws]
+            raw = cg.english_names([{"t": w["t"], "s": w["s"], "e": w["e"]} for w in allw if any(a <= (w["s"] + w["e"]) / 2 <= b for a, b in back) and not any(x <= (w["s"] + w["e"]) / 2 <= y for x, y in have)])
+            ws += [{"t": gloss_word(w["t"]), "ss": w["s"], "se": w["e"], **({"en": w["en"]} if w.get("en") else {})} for w in raw]
+        out = []
+        for w in sorted(ws, key=lambda x: x["ss"]):
+            m = cm.src_to_out(new, n_off, (w["ss"] + w["se"]) / 2)
+            if m is None: continue
+            s = cm.src_to_out(new, n_off, w["ss"], "next"); e = cm.src_to_out(new, n_off, w["se"], "prev")
+            s = m if s is None or s > m else s; e = m if e is None or e < m else e
+            x = {k: v for k, v in w.items() if k not in ("ss", "se")}; x.update(s=round(s, 3), e=round(max(e, s + 0.08), 3)); out.append(x)
+        wpl = int((hs_of(load_studio(work)).get("cap") or {}).get("wpl") or 5)
+        wj(J(work, "caps.json"), {**caps, "total": round(n_tot, 3), "cards": cg.cards_of(cg.pack(out, wpl=wpl or 5), total=round(n_tot, 3)) if out else []})
+    remap = lambda t, mode=None: cm.src_to_out(new, n_off, cm.out_to_src(old, o_off, t), mode)
+    retime_project(work, remap, o_tot, round(n_tot, 3))
+    log("المدة %.1f ← %.1f ث" % (o_tot, n_tot))
+    if rebuild and S and os.path.isfile(J(work, "cutz.mp4")): rebuild_video(work, S, log)
+    return {"changed": True, "total": round(n_tot, 3), "was": round(o_tot, 3)}
+def tk_apply(work, S=None, log=print, rebuild=True):
+    data = tk_load(work) or sys.exit("ما فيه takes.json")
+    old, new, dr, manual = tk_plan(work, data)
+    if not new: raise ValueError("ما يبقى شي من الفيديو")
+    data["applied"] = dr
+    if _same_keep(old, new):
+        wj(J(work, "takes.json"), data); log("ما تغيّر شي بالقص."); return {"changed": False, "total": round(sum(b - a for a, b in new), 3)}
+    r = apply_keep(work, old, new, S, log, rebuild)
+    wj(J(work, "takes.json"), data); cut = rj(J(work, "cut.json"), {}); cut["takes"] = True; wj(J(work, "cut.json"), cut)
+    return r
+def tk_view(work):
+    """للاستوديو: الجمل بوسومها + مدة الخام وبعد القص + شريط المحذوف والباقي."""
+    data = tk_load(work)
+    if not data: return {"ok": False, "has": os.path.isfile(J(work, "a.json"))}
+    T = takes_mod(); raw = data.get("raw") or _src_dur(work)
+    try: old, new, dr, manual = tk_plan(work, data)
+    except Exception: old, new, dr, manual = [], [], [], []
+    cut = rj(J(work, "cut.json"), {}) or {}; cur = cut.get("keep") or []; o_off, _ = cutmap_mod().offsets(cur) if cur else ([], 0)
+    cm = cutmap_mod()
+    for it in data["items"]:
+        it["out"] = round(cm.src_to_out(cur, o_off, (it["s"] + it["e"]) / 2), 2) if cur and cm.src_to_out(cur, o_off, (it["s"] + it["e"]) / 2) is not None else None
+    pending = not _same_keep(cur, new)
+    return {"ok": True, **data, "raw": round(raw, 2), "kept": round(sum(b - a for a, b in new), 2), "now": round(sum(b - a for a, b in cur), 2), "keep": new, "pending": pending,
+            "gone": round(sum(b - a for a, b in dr), 1), "labels": T.TAGS}
+def raw_audio(work, s, e, out):
+    """مقطع من الصوت الأصلي (حتى المحذوف) عشان تسمع اللقطة قبل ما تقرر."""
+    src = J(work, "a.wav") if os.path.isfile(J(work, "a.wav")) else J(work, "src.mov")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "%.3f" % max(0.0, s), "-t", "%.3f" % max(0.1, e - s), "-i", src, "-vn", "-ac", "1", "-c:a", "aac", "-b:a", "96k", out], capture_output=True)
+    return out if os.path.isfile(out) and os.path.getsize(out) > 200 else None
+def tk_preview(work, out):
+    """تسمع النتيجة قبل القص: الصوت الأصلي بالقص الجديد."""
+    _, new, _, _ = tk_plan(work); src = J(work, "a.wav") if os.path.isfile(J(work, "a.wav")) else J(work, "src.mov")
+    if not new: return None
+    expr = "+".join("between(t,%.3f,%.3f)" % (a, b) for a, b in new)
+    fl = J(work, ".hs", "tkprev.txt"); os.makedirs(J(work, ".hs"), exist_ok=True); open(fl, "w").write("aselect='%s',asetpts=N/SR/TB" % expr)
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", src, "-vn", "-ac", "1", "-filter_script:a", fl, "-c:a", "aac", "-b:a", "96k", out], capture_output=True)
+    return out if os.path.isfile(out) and os.path.getsize(out) > 200 else None
+def cmd_takes(work, args):
+    sub = args[0] if args else "list"; T = takes_mod()
+    def show(data, every=False):
+        lab = T.TAGS; gpick = {g["id"]: g for g in data.get("groups") or []}
+        for it in data["items"]:
+            if not every and not (it["tags"] or it.get("group") or it.get("trims")): continue
+            st = "✗" if it.get("drop") else ("✓" if it.get("chosen") else "·")
+            tg = "، ".join(lab[t] for t in it["tags"]); g = ("[%s]" % it["group"]) if it.get("group") else ""
+            print(" %s %5s  %5.1fث  %-6s %s %s%s" % (st, it["id"], it["s"], g, it["text"][:80], ("  (" + tg + ")") if tg else "", ("  ← " + it["why"]) if it.get("why") and not it.get("drop") else ""))
+            for t in it.get("trims") or []: print("   %s %6s  %s «%s»" % ("✗" if t.get("drop") else "·", t["id"], lab[t["kind"]], t["text"]))
+        print("\n" + data.get("summary", "")); v = tk_view(work)
+        if v.get("ok"): print("الخام %.1f ث · بعد اختيار الجمل %.1f ث%s" % (v["raw"], v["kept"], " (ما تطبّق للحين: hs takes <work> apply)" if v.get("pending") else ""))
+    if sub == "scan":
+        data = tk_scan(work); show(data); print("\n✓ باقية · ✗ محذوفة · [g] نفس الجملة أكثر من مرة. راجع كل مجموعة واختار الأفضل بالمعنى: hs takes <work> use <رقم> --why \"ليش\"")
+    elif sub == "list": show(tk_load(work) or sys.exit("شغّل scan أول"), "--all" in args)
+    elif sub in ("use", "drop", "keep"):
+        ids = [x for x in args[1:] if not x.startswith("--")]; why = ""; by = "claude" if "--claude" in args or os.environ.get("CLAUDECODE") else "user"
+        if "--why" in args: i = args.index("--why"); why = args[i + 1] if i + 1 < len(args) else ""; ids = [x for x in ids if x != why]
+        for x in ids: it = tk_set(work, x, sub, why, by); print("%s %s: %s" % ({"use": "اخترت", "drop": "حذفت", "keep": "رجّعت"}[sub], x, it["text"][:70]))
+    elif sub == "note":
+        data = tk_load(work); data["note"] = " ".join(args[1:]).strip(); data["by"] = "claude"; wj(J(work, "takes.json"), data); print("انحفظ الملخص.")
+    elif sub == "apply":
+        r = tk_apply(work, find_engine(None) and os.path.join(find_engine(None), "scripts"), print, rebuild="--no-rebuild" not in args)
+        print("المدة صارت %.1f ث" % r["total"] if r.get("changed") else "ما تغيّر شي.")
+    elif sub == "preview":
+        out = tk_preview(work, J(work, "takes-preview.m4a")); print(out or "ما قدرت أطلع المعاينة")
+    elif sub == "fit":
+        tgt = float(args[1]) if len(args) > 1 else 60.0; out, tot = tk_fit(work, tgt)
+        print(("اقتراح حذف %d جملة عشان يوصل %.0f ث (يصير %.1f ث):\n" % (len(out), tgt, tot) + "\n".join("  ✗ %s  %5.1fث  %s" % (x["id"], x["s"], x["text"][:70]) for x in out) + "\nراجعها (keep <رقم> للي تبيه) وبعدها apply") if out else "المقطع %.1f ث، ما يحتاج تقصير." % tot)
+    else: sys.exit("takes: scan | list [--all] | use <رقم> [--why …] | drop <أرقام> | keep <أرقام> | note \"ملخص\" | fit <ثواني> | preview | apply [--no-rebuild]")
+
+# ───────────────────────── 4.10: عشر حلول لمشاكل متعبة ─────────────────────────
+def fmt_t(x): x = max(0.0, float(x or 0)); return "%d:%04.1f" % (int(x // 60), x % 60)
+# (1) كلمات ما تأكد منها التفريغ: تحتها خط منقط، وClaude يراجعها بالمعنى
+def caps_unsure(work, annotate=True, thr=0.5):
+    caps = rj(J(work, "caps.json"), None); a = rj(J(work, "a.json"), None)
+    if not caps or not caps.get("cards"): return []
+    if a and annotate:
+        cm = cutmap_mod(); keep = (rj(J(work, "cut.json"), {}) or {}).get("keep") or []; off, _ = cm.offsets(keep) if keep else ([], 0)
+        aw = sorted(((float(w["start"]), float(w["end"]), float(w.get("probability", 1) or 1)) for s in a.get("segments") or [] for w in s.get("words") or []))
+        starts = [x[0] for x in aw]; import bisect
+        for c in caps["cards"]:
+            for w in c["w"]:
+                if w.get("en"): w.pop("lo", None); continue
+                m = (w["s"] + w["e"]) / 2; sm = cm.out_to_src(keep, off, m) if keep else m; k = bisect.bisect_right(starts, sm) - 1; p = None
+                for j in (k, k + 1, k - 1):
+                    if 0 <= j < len(aw) and aw[j][0] - 0.12 <= sm <= aw[j][1] + 0.12: p = aw[j][2]; break
+                if p is not None and p < thr: w["lo"] = True
+                else: w.pop("lo", None)
+        wj(J(work, "caps.json"), caps)
+    out = []
+    for i, c in enumerate(caps["cards"]):
+        for j, w in enumerate(c["w"]):
+            if w.get("lo"): out.append({"card": i, "word": j, "t": w["t"], "s": w["s"], "ctx": " ".join(x["t"] for x in c["w"])})
+    return out
+# (2) قاموسك: التصحيحات اللي تسويها تنحفظ وتنطبق على مقاطعك الجاية
+_GL = {"m": None, "d": {}}
+def gloss_path(): return os.path.join(HOME_CFG, "glossary.json")
+def gloss_load():
+    p = gloss_path(); m = os.path.getmtime(p) if os.path.isfile(p) else 0
+    if _GL["m"] != m: _GL["m"] = m; _GL["d"] = rj(p, {}) or {}
+    return _GL["d"]
+def gloss_save(d): os.makedirs(HOME_CFG, exist_ok=True); wj(gloss_path(), d); _GL["m"] = None
+def _gkey(txt): return " ".join(_norm(x) for x in str(txt).split() if _norm(x))
+def gloss_word(t):
+    G = gloss_load(); k = _gkey(t)
+    if not G or not k: return t
+    tail = re.search(r"[؟?!.،,]+$", str(t)); tail = tail.group(0) if tail else ""
+    if k in G: return G[k] + tail
+    if len(k) > 3 and k[0] == "و" and k[1:] in G: return "و" + G[k[1:]] + tail
+    return t
+def gloss_apply_words(words):
+    """يبدّل الكلمات (والعبارات لين 3 كلمات) حسب قاموسك. يرجّع (الكلمات، عدد التبديلات)."""
+    G = gloss_load()
+    if not G: return words, 0
+    out, i, n, ch = [], 0, len(words), 0
+    while i < n:
+        hit = None
+        for L in (3, 2, 1):
+            if i + L > n: continue
+            k = " ".join(_norm(w["t"]) for w in words[i:i + L])
+            if k in G: hit = (L, G[k]); break
+            if len(k) > 3 and k[0] == "و" and k[1:] in G: r_ = G[k[1:]]; hit = (L, ("و " if re.search(r"[A-Za-z]", r_) else "و") + r_); break   # «وشات جي بي تي» ← «و ChatGPT»
+        if hit:
+            L, rep = hit; w0, w1 = words[i], words[i + L - 1]; tail = re.search(r"[؟?!.،,]+$", str(w1["t"]))
+            out.append({**w0, "t": rep + (tail.group(0) if tail else ""), "e": w1["e"], "lo": False}); out[-1].pop("lo"); i += L; ch += 1
+        else: out.append(words[i]); i += 1
+    return out, ch
+def gloss_learn(old_caps, new_caps):
+    """يقارن الكابشن قبل وبعد تعديلك: الكلمة اللي صححتها (اسم، أو كتابة قريبة من الغلط، أو كلمة ما تأكد منها التفريغ) تنحفظ بالقاموس."""
+    try:
+        A = [w for c in (old_caps or {}).get("cards") or [] for w in c.get("w") or []]; B = [w for c in (new_caps or {}).get("cards") or [] for w in c.get("w") or []]
+        if not A or not B or abs(len(A) - len(B)) > 40: return 0
+        na = [_norm(w["t"]) for w in A]; nb = [_norm(w["t"]) for w in B]; G = dict(gloss_load()); n = 0
+        for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, na, nb, autojunk=False).get_opcodes():
+            if op != "replace" or i2 - i1 > 3 or j2 - j1 > 3: continue
+            ok_ = " ".join(na[i1:i2]); new = " ".join(re.sub(r"[؟?!.،,]+$", "", B[j]["t"]) for j in range(j1, j2)).strip()
+            if len(ok_.replace(" ", "")) < 3 or re.search(r"\d", ok_ + new) or not new: continue
+            latin = bool(re.search(r"[A-Za-z]", new)); close = difflib.SequenceMatcher(None, ok_, " ".join(nb[j1:j2])).ratio() >= 0.6; lo = any(A[i].get("lo") for i in range(i1, i2))
+            if latin or close or lo: G[ok_] = new; n += 1
+        if n:
+            if len(G) > 600: G = dict(list(G.items())[-600:])
+            gloss_save(G)
+        return n
+    except Exception: return 0
+def cmd_gloss(args):
+    sub = args[0] if args else "list"; G = dict(gloss_load())
+    if sub == "list": print("\n".join("%s ← %s" % (v, k) for k, v in G.items()) or "القاموس فاضي. يتعلّم من تصحيحاتك بالاستوديو، أو: hs gloss add \"الغلط\" \"الصح\"")
+    elif sub == "add" and len(args) >= 3: G[_gkey(args[1])] = args[2]; gloss_save(G); print("انحفظ: %s ← %s" % (args[2], args[1]))
+    elif sub == "rm" and len(args) >= 2: G.pop(_gkey(args[1]), None); gloss_save(G); print("انشال.")
+    else: sys.exit("gloss: list | add \"الغلط\" \"الصح\" | rm \"الغلط\"")
+def caps_gloss(work):
+    caps = rj(J(work, "caps.json")); ch = 0
+    for c in caps["cards"]: c["w"], n = gloss_apply_words(c["w"]); ch += n
+    if ch: snapshot(work, "قبل تطبيق القاموس"); wj(J(work, "caps.json"), caps)
+    return ch
+# (3) القص ما ينزل على صوت: نقطة القص على كلام يقطع آخر حرف أو أول حرف
+def cut_on_sound(work):
+    cm = cutmap_mod(); T = takes_mod(); db = cm.env(work); keep = (rj(J(work, "cut.json"), {}) or {}).get("keep") or []
+    if not db or len(keep) < 2: return [], keep, keep
+    E = T.Energy(db); n = len(db); bad = []; new = [list(x) for x in keep]
+    loud = lambda i: 0 <= i < n and db[i] > E.thr + 3
+    for k, (a, b) in enumerate(keep):
+        for edge, tt in (("s", a), ("e", b)):
+            if (edge == "s" and k == 0) or (edge == "e" and k == len(keep) - 1): continue
+            if (edge == "s" and abs(a - keep[k - 1][1]) < 0.02) or (edge == "e" and abs(keep[k + 1][0] - b) < 0.02): continue   # جزئين متلاصقين: الصوت ما انقطع أصلاً
+            i = int(round(tt * 100))
+            if not (loud(i - 1) and loud(i)): continue
+            lim_lo = keep[k - 1][1] if edge == "s" else a; lim_hi = b if edge == "s" else keep[k + 1][0]
+            step = -1 if edge == "s" else 1; j = i; moved = None
+            for _ in range(14):
+                j += step
+                if not (lim_lo * 100 < j < lim_hi * 100): break
+                if db[j] <= E.thr: moved = j / 100.0; break
+            bad.append({"seg": k, "edge": edge, "t": round(tt, 3), "to": moved})
+            if moved is not None: new[k][0 if edge == "s" else 1] = moved
+    F = cm.fps_of(work); new = [[cm.snap(x, F), cm.snap(y, F)] for x, y in new]
+    return bad, keep, new
+# (7) كلام بدون كابشن: صوت كلام واضح ما له ولا كلمة بالكابشن (whisper نسيه)
+def caps_gaps(work, min_len=0.6):
+    cm = cutmap_mod(); T = takes_mod(); db = cm.env(work); keep = (rj(J(work, "cut.json"), {}) or {}).get("keep") or []; caps = rj(J(work, "caps.json"), None)
+    if not db or not keep or not caps: return []
+    E = T.Energy(db); off, _ = cm.offsets(keep); words = sorted((w["s"], w["e"]) for c in caps["cards"] for w in c["w"]); out = []
+    for (a, b), o in zip(keep, off):
+        runs = []
+        for i in range(int(a * 100), int(b * 100)):
+            if 0 <= i < len(db) and db[i] > E.thr + 2:
+                if runs and i - runs[-1][1] <= 15: runs[-1][1] = i
+                else: runs.append([i, i])
+        for r0, r1 in runs:
+            if (r1 - r0) / 100.0 < min_len: continue
+            s, e = o + r0 / 100.0 - a, o + r1 / 100.0 - a
+            cov = sum(max(0.0, min(e, y + 0.15) - max(s, x - 0.15)) for x, y in words if y > s - 0.2 and x < e + 0.2)
+            if cov < 0.35 * (e - s): out.append({"s": round(s, 2), "e": round(e, 2), "src": round(r0 / 100.0, 2)})
+    return out
+# (8) أرقام وأسماء تتأكد منها قبل النشر
+def facts(work):
+    caps = rj(J(work, "caps.json"), {"cards": []}) or {"cards": []}; out = []
+    for sn in _sentences(caps.get("cards") or [], gap=0.6, maxw=26):
+        txt = sn["text"]; why = []
+        if "رقم أو سعر" in cutmap_mod().important(txt): why.append("رقم أو سعر")
+        if re.search(r"[A-Za-z]{2,}\s?\d|\d+(\.\d+)", txt): why.append("نسخة أو موديل")
+        if re.search(r"(أفضل|اقوى|أقوى|أسرع|اسرع|أرخص|ارخص|الوحيد|أول|اول) ", txt) and re.search(r"[A-Za-z]{2,}", txt): why.append("مقارنة بين منتجات")
+        if why: out.append({"s": round(sn["s"], 2), "text": txt, "why": why})
+    return out
+# (4) و(5) و(9) بالجمل: الفكرة المكررة بمكان بعيد، التقصير لمدة، التحية بالبداية
+def tk_farrep(data):
+    T = takes_mod(); items = [it for it in data["items"] if not it.get("drop")]; n = 0
+    for i, b in enumerate(items):
+        tb = [T.key(T.norm(x)) for x in b["text"].split()]; cb = [x for x in tb if x not in T.STOP and len(x) >= 2]
+        if len(cb) < 5: continue
+        for a in items[:i]:
+            if b["s"] - a["e"] < 15: continue
+            ta = [T.key(T.norm(x)) for x in a["text"].split()]
+            if T.sim(ta, tb) >= 0.75 and "farrep" not in b["tags"]: b["tags"].append("farrep"); b["why"] = "قلتها قبل عند %d:%02d" % (int(a["s"] // 60), int(a["s"] % 60)); b["rep"] = a["id"]; n += 1; break
+    return n
+def tk_fit(work, target):
+    """يقترح جمل تنحذف عشان المقطع يوصل لمدة معينة: يبدأ بالأضعف (تحية، فكرة مكررة، جملة متروكة، بلا معلومة) ويخلي الهوك والختام."""
+    data = tk_load(work) or tk_scan(work); cm = cutmap_mod()
+    for it in data["items"]:
+        if "fit" in it["tags"]: it["tags"].remove("fit"); it["drop"] = False if not any(t in it["tags"] for t in ("retake", "stumble", "nospeech", "noise", "filler")) else it["drop"]
+    _, new, _, _ = tk_plan(work, data); total = sum(b - a for a, b in new)
+    kept = [it for it in data["items"] if not it.get("drop")]
+    if total <= target: wj(J(work, "takes.json"), data); return [], total
+    cand = []; head = kept[0]["s"] + 8.0 if kept else 0   # أول 8 ثواني (الهوك) وآخر جملتين ما نلمسها
+    for k, it in enumerate(kept):
+        if it["s"] < head or k >= len(kept) - 2: continue
+        why = cm.important(it["text"]); sc = 1.0 + 1.5 * ("رقم أو سعر" in why) + 1.2 * ("نصيحة أو مقارنة" in why) + 0.4 * ("اسم" in why)
+        sc -= 2.0 * ("farrep" in it["tags"]) + 1.6 * ("greet" in it["tags"]) + 1.2 * ("cutoff" in it["tags"])
+        cand.append((sc / max(0.6, it["e"] - it["s"]) ** 0.3, it))
+    cand.sort(key=lambda x: x[0]); out = []
+    for sc, it in cand:
+        if total <= target: break
+        it["drop"] = True; it["tags"].append("fit"); it["why"] = "عشان المقطع يوصل %d ث" % target; total -= (it["e"] - it["s"]) + 0.2; out.append(it)
+    data["summary"] = takes_mod().summary(data); wj(J(work, "takes.json"), data); return out, total
+# (6) الخطة قبل البناء: Claude يكتب وش يطلع بكل جزء، وتوافق أو تعدّل قبل ما يصرف وقت وتوليد
+PLAN_KINDS = {"web": "من النت", "archive": "أرشيف حقيقي", "gen": "صورة مولّدة", "overlay": "عنصر فوق الفيديو", "screen": "لقطة شاشة أو موقع", "text": "نص أو موشن", "none": "وجهك بس"}
+def plan_load(work): return rj(J(work, "plan.json"), None)
+def plan_view(work):
+    p = plan_load(work)
+    if not p: return {"ok": False}
+    st = load_studio(work); Ls = [L for L in hs_of(st).get("layers") or [] if not L.get("off") and L.get("type") != "fx"]   # التقريب والمؤثرات ما تحسب بناء
+    for it in p.get("items") or []:
+        it["built"] = bool(it.get("status") == "done" or any(L["s"] < float(it.get("e", 0)) and L["e"] > float(it.get("s", 0)) for L in Ls))
+        it["kindAr"] = PLAN_KINDS.get(it.get("kind"), it.get("kind", ""))
+    return {"ok": True, **p}
+def plan_check(work):
+    p = plan_load(work); total = (rj(J(work, "caps.json"), {}) or {}).get("total") or 0; bad = []
+    if not p: return ["ما فيه plan.json"]
+    for i, it in enumerate(p.get("items") or []):
+        if it.get("kind") not in PLAN_KINDS: bad.append("البند %d: النوع لازم واحد من %s" % (i + 1, ", ".join(PLAN_KINDS)))
+        if not (0 <= float(it.get("s", -1)) < float(it.get("e", 0)) <= total + 0.5): bad.append("البند %d: الوقت برا المقطع" % (i + 1))
+        if not it.get("show"): bad.append("البند %d: ناقص «وش يطلع»" % (i + 1))
+    return bad
+def cmd_plan(work, args):
+    sub = args[0] if args else "show"
+    if sub == "show":
+        v = plan_view(work)
+        if not v.get("ok"): sys.exit("ما فيه خطة. اكتب <work>/plan.json (شوف SKILL.md قسم الخطة)")
+        print("الخطة %s" % ("(موافق عليها)" if v.get("approved") else "(تنتظر موافقته)"))
+        for i, it in enumerate(v.get("items") or []): print("%2d %6.1f-%-6.1f %-16s %s%s" % (i + 1, float(it["s"]), float(it["e"]), it["kindAr"], it.get("show", "")[:70], "  ✓" if it["built"] else ""))
+        if v.get("feedback"): print("\nملاحظته: " + v["feedback"])
+    elif sub == "check":
+        bad = plan_check(work); print("\n".join(bad) if bad else "الخطة سليمة."); sys.exit(4 if bad else 0)
+    elif sub == "wait":
+        tmo = 540; t0 = time.time(); p0 = plan_load(work) or sys.exit("ما فيه خطة"); f0 = p0.get("feedback", "")
+        while True:
+            p = plan_load(work) or {}
+            if p.get("approved"): print("وافق على الخطة. ابدأ البناء."); return
+            if p.get("feedback", "") != f0: print("عدّل على الخطة:\n" + p["feedback"] + "\nعدّل plan.json على كلامه وأعد: hs plan <work> wait"); return
+            if time.time() - t0 > tmo: print("لسه ما وافق. أعد نفس الأمر وانتظره."); sys.exit(3)
+            time.sleep(2)
+    elif sub in ("approve", "unapprove"):
+        p = plan_load(work) or sys.exit("ما فيه خطة"); p["approved"] = sub == "approve"; wj(J(work, "plan.json"), p); print("تم.")
+    else: sys.exit("plan: show | check | wait | approve | unapprove")
+# (10) خطوات المشروع: وين وصل ووش الباقي
+def steps(work):
+    tk = tk_load(work); caps = rj(J(work, "caps.json"), None); p = plan_load(work); st = load_studio(work); Ls = [L for L in hs_of(st).get("layers") or [] if not L.get("off")]
+    ex = bool(glob.glob(J(work, "ad-*.mp4")) or glob.glob(J(work, "out", "*.mp4")))
+    try: tk_pending = bool(tk) and tk_view(work).get("pending")
+    except Exception: tk_pending = False
+    unsure = sum(1 for c in (caps or {}).get("cards") or [] for w in c["w"] if w.get("lo"))
+    S_ = [("takes", "الجمل", "done" if tk and not tk_pending else ("now" if os.path.isfile(J(work, "a.json")) else "todo")),
+          ("caps", "الكابشن", "done" if caps and not unsure else ("now" if caps else "todo")),
+          ("plan", "الخطة", "done" if p and p.get("approved") else ("now" if caps else "todo")),
+          ("build", "البناء", "done" if Ls and (not p or all(x.get("built") for x in plan_view(work).get("items") or [])) else ("now" if p and p.get("approved") else "todo")),
+          ("export", "التصدير", "done" if ex else ("now" if Ls else "todo"))]
+    cur = next((i for i, x in enumerate(S_) if x[2] != "done"), len(S_))
+    return [{"k": k, "label": l, "state": "done" if s == "done" else ("now" if i == cur else "todo"), "n": i + 1, "unsure": unsure if k == "caps" else 0} for i, (k, l, s) in enumerate(S_)]
 
 # ───────────────────────── المنصات والمقاسات (3.1) ─────────────────────────
 # safe = نسبة من كل حافة تغطيها واجهة المنصة [فوق، تحت، يسار، يمين]. أرقام تيك توك وانستقرام من أدلة المقاسات المنشورة، وإكس ولينكدإن تقدير محافظ.
@@ -1629,7 +2026,13 @@ def cmd_caps(work, args):
         print(("انشالت %d جملة مخترعة:\n" % len(g) + "\n".join("  · " + x for x in g)) if g else "ما فيه جمل مخترعة.")
     elif sub == "names":
         ch = caps_names(work); print(("صارت بالإنجليزي في %d جملة:\n" % len(ch) + "\n".join("  · " + x for x in ch[:30])) if ch else "ما فيه أسماء تتبدّل.")
-    else: sys.exit("caps: regroup [wpl=5 lines=2 pause=0.5 names=true] | names | clean [--dry]")
+    elif sub == "unsure":   # 4.10
+        u = caps_unsure(work); print(("%d كلمة ما تأكد منها التفريغ (تحتها خط منقط بالاستوديو):\n" % len(u) + "\n".join("  %s  «%s»  ← %s" % (fmt_t(x["s"]), x["t"], x["ctx"]) for x in u[:80])) if u else "كل الكلمات واضحة.")
+    elif sub == "gloss":
+        n = caps_gloss(work); print("انطبق القاموس على %d كلمة." % n if n else "ما فيه شي من قاموسك بهذا المقطع.")
+    elif sub == "gaps":
+        g = caps_gaps(work); print(("%d مكان فيه كلام بدون كابشن:\n" % len(g) + "\n".join("  %s ← %s (%.1f ث)" % (fmt_t(x["s"]), fmt_t(x["e"]), x["e"] - x["s"]) for x in g)) if g else "كل الكلام له كابشن.")
+    else: sys.exit("caps: regroup [wpl=5 lines=2 pause=0.5 names=true] | names | clean [--dry] | unsure | gloss | gaps")
 
 def looks_all(): return {k: v for k, v in (rj(os.path.join(HERE, "looks.json"), {}) or {}).items() if not k.startswith("_")}
 def look_apply(work, name):
@@ -1894,6 +2297,61 @@ def cmd_selftest(work=None, engine=None):
         gi = open(os.path.join(HERE, ".gitignore"), encoding="utf-8").read() if os.path.isfile(os.path.join(HERE, ".gitignore")) else ""
         chk("4.9: ملفات خط ثمانية مو موجودة بمجلد السكل (رخصته تمنع النشر) والخطوط محجوبة من git", (not fbad or not os.path.isdir(os.path.join(HERE, ".git"))) and "fonts/*.woff2" in gi, ", ".join(os.path.basename(b) for b in fbad[:4]))
     except Exception as e: chk("4.9: الكابشن والأسماء والقص الآمن والشعارات", False, str(e)[:160])
+    try:   # 4.10: اختيار الجمل والحلول العشر
+        T = takes_mod()
+        def mkw(lines):
+            out = []; tt = 0.0
+            for si, (gap, txt) in enumerate(lines):
+                tt += gap
+                for wi, x in enumerate(txt.split()):
+                    if x.startswith("|"): x = x[1:]; tt += 0.3
+                    out.append({"t": x, "s": round(tt, 3), "e": round(tt + 0.3, 3), "p": 0.9, "si": si, "wi": wi}); tt += 0.35
+            return out
+        d = T.scan(mkw([(0, "مساكم الله بالخير"), (0.8, "ترجمة نانسي قنقر"), (0.8, "كل يوم"), (0.6, "يطلع لك فيديو المحتوى"), (0.7, "كل يوم يطلع لك فيديو لصانع محتوى ناجح"),
+                        (0.7, "تعطيه الفيديو آ ويعدل لك"), (0.7, "النتائج قوية قوية يعني"), (0.8, "لازم تزور مقبرة الفشل"), (0.7, "تزور مقبرة"), (0.7, "لازم تزور مقبرة الفشل قبل لا تبدا"), (0.8, "وهذا |وهذا الشي اسمه الانحياز")]))
+        I = {it["text"]: it for it in d["items"]}
+        ok1 = ("greet" in I["مساكم الله بالخير"]["tags"] and not I["مساكم الله بالخير"]["drop"] and I["ترجمة نانسي قنقر"]["drop"] and "stumble" in I["كل يوم"]["tags"]
+               and I["يطلع لك فيديو المحتوى"]["drop"] and I["كل يوم يطلع لك فيديو لصانع محتوى ناجح"].get("chosen") and I["لازم تزور مقبرة الفشل قبل لا تبدا"].get("chosen") and I["تزور مقبرة"]["drop"]
+               and [t_["kind"] for t_ in I["تعطيه الفيديو آ ويعدل لك"]["trims"]] == ["hes"] and not I["النتائج قوية قوية يعني"]["trims"] and [t_["text"] for t_ in I["وهذا وهذا الشي اسمه الانحياز"]["trims"]] == ["وهذا"])
+        chk("4.10: اختيار الجمل (إعادة تختار الكاملة، بداية متعثرة، تلعثم وتردد، التأكيد يبقى، كلام مخترع، تحية اقتراح)", ok1, T.summary(d))
+        # مشروع صغير بصوت حقيقي: نبضات كلام وسكوت
+        td = tempfile.mkdtemp(prefix="hs-tk-"); sr = 16000; import math as _m, wave as _wv
+        bursts = [(0.2, 1.2), (1.6, 2.4), (2.8, 3.8), (4.2, 5.4), (5.8, 6.8)]; n_ = int(7.2 * sr); sm = bytearray()
+        for k in range(n_):
+            x = k / sr; v = 0.5 * _m.sin(2 * _m.pi * 220 * x) if any(a <= x <= b for a, b in bursts) else 0.0005 * _m.sin(2 * _m.pi * 50 * x)
+            sm += int(v * 32767).to_bytes(2, "little", signed=True)
+        with _wv.open(os.path.join(td, "a.wav"), "wb") as wf: wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(sr); wf.writeframes(bytes(sm))
+        segs = [("أهلا بكم اليوم", 0.2, 1.2), ("نتكلم عن", 1.6, 2.4), ("نتكلم عن الفشل", 2.8, 3.8), ("وكيف تتجاوزه بسرعة", 4.2, 5.4)]
+        aj = {"segments": [{"start": a, "end": b, "text": tx, "words": [{"word": " " + x, "start": round(a + k * (b - a) / len(tx.split()), 3), "end": round(a + (k + 1) * (b - a) / len(tx.split()), 3), "probability": 0.3 if x == "بسرعة" else 0.9} for k, x in enumerate(tx.split())]} for tx, a, b in segs]}
+        wj(os.path.join(td, "a.json"), aj); wj(os.path.join(td, "cut.json"), {"keep": [[0.0, 1.15], [1.5, 7.0]], "total": 6.65, "src_dur": 7.2, "fps": "30"})
+        ws0 = [{"t": w["word"].strip(), "s": round(w["start"] - (0.35 if w["start"] > 1.15 else 0), 3), "e": round(w["end"] - (0.35 if w["start"] > 1.15 else 0), 3)} for s_ in aj["segments"] for w in s_["words"]]
+        wj(os.path.join(td, "caps.json"), {"total": 6.65, "cards": [{"s": ws0[0]["s"], "e": ws0[-1]["e"], "w": ws0}]}); wj(os.path.join(td, "studio.json"), {"hs": {"layers": [{"id": "L1", "type": "text", "s": 3.0, "e": 4.0}]}})
+        bad_, o_, n_k = cut_on_sound(td); gaps_ = caps_gaps(td); un_ = caps_unsure(td)
+        chk("4.10: قطعة على صوت تنزل لأقرب سكتة · كلام بدون كابشن · كلمة مشكوك فيها", len(bad_) == 1 and bad_[0]["to"] is not None and 1.18 <= bad_[0]["to"] <= 1.3 and len(gaps_) == 1 and 5.0 < gaps_[0]["s"] < 6.6 and [u["t"] for u in un_] == ["بسرعة"], json.dumps([bad_, gaps_, [u["t"] for u in un_]], ensure_ascii=False)[:160])
+        tk_scan(td); dd = tk_load(td); st_ = next(it for it in dd["items"] if it["text"] == "نتكلم عن")
+        r1 = tk_apply(td, None, lambda *a: None, rebuild=False); c1 = rj(os.path.join(td, "caps.json")); t1 = [w["t"] for c in c1["cards"] for w in c["w"]]
+        tk_set(td, st_["id"], "keep"); r2 = tk_apply(td, None, lambda *a: None, rebuild=False); c2 = rj(os.path.join(td, "caps.json")); t2 = [w["t"] for c in c2["cards"] for w in c["w"]]
+        L1 = hs_of(load_studio(td))["layers"][0]
+        chk("4.10: القص من التسجيل الأصلي (المحذوف يروح كابشنه، والمرجّع يرجع من التفريغ، والطبقات تتبع)", st_["drop"] and t1.count("نتكلم") == 1 and r1["total"] < 6.0 and t2.count("نتكلم") == 2 and r2["total"] > r1["total"] and abs(L1["s"] - 3.0) < 0.05,
+            "%s | %s | %.2f %.2f" % (" ".join(t1), " ".join(t2), r1["total"], r2["total"]))
+        # الخطة والخطوات والأرقام والتقصير
+        wj(os.path.join(td, "plan.json"), {"approved": False, "items": [{"id": 1, "s": 0, "e": 2, "show": "صورة", "kind": "gen"}, {"id": 2, "s": 3, "e": 99, "show": "", "kind": "x"}]})
+        pb = plan_check(td); sp = steps(td); wj(os.path.join(td, "caps.json"), {"total": 30, "cards": [{"s": 1, "e": 3, "w": [{"t": x, "s": 1 + k * 0.3, "e": 1.2 + k * 0.3} for k, x in enumerate("Claude Opus 5.5 أفضل من GPT بسعر 20 دولار".split())]}]})
+        fc = facts(td); shutil.rmtree(td, ignore_errors=True)
+        chk("4.10: الخطة تنفحص · الخطوات · أرقام وموديلات تتأكد منها", len(pb) == 3 and [x["state"] for x in sp][:2] == ["done", "now"] and fc and "رقم أو سعر" in fc[0]["why"] and "نسخة أو موديل" in fc[0]["why"], json.dumps([pb, [x["state"] for x in sp], fc], ensure_ascii=False)[:160])
+        # القاموس (بمجلد مؤقت عشان ما نلمس قاموسه)
+        global HOME_CFG
+        old_home = HOME_CFG; HOME_CFG = tempfile.mkdtemp(prefix="hs-gl-"); _GL["m"] = None
+        try:
+            A_ = {"cards": [{"w": [{"t": "أفضل"}, {"t": "من"}, {"t": "شادي"}, {"t": "بيتي"}, {"t": "بكل"}, {"t": "شي"}]}]}; B_ = {"cards": [{"w": [{"t": "أفضل"}, {"t": "من"}, {"t": "ChatGPT"}, {"t": "بكل"}, {"t": "شي"}]}]}
+            C_ = {"cards": [{"w": [{"t": "كبير"}]}]}; D_ = {"cards": [{"w": [{"t": "ضخم"}]}]}
+            n1 = gloss_learn(A_, B_); n2 = gloss_learn(C_, D_); ww, nn = gloss_apply_words([{"t": "وشادي", "s": 0, "e": 1}, {"t": "بيتي؟", "s": 1, "e": 2}, {"t": "شادي", "s": 2, "e": 3}, {"t": "بيتي", "s": 3, "e": 4}])
+            G_ = gloss_load()
+        finally: shutil.rmtree(HOME_CFG, ignore_errors=True); HOME_CFG = old_home; _GL["m"] = None
+        chk("4.10: قاموسك يتعلّم التصحيح (الاسم) وما يتعلّم تغيير الصياغة، وينطبق على الجاي", n1 == 1 and n2 == 0 and [w["t"] for w in ww] == ["و ChatGPT؟", "ChatGPT"], json.dumps([n1, n2, [w["t"] for w in ww], G_], ensure_ascii=False)[:160])
+        ap = txt.get("app.js", "") or open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); shtml = open(os.path.join(HERE, "studio.html"), encoding="utf-8").read(); i18 = open(os.path.join(HERE, "i18n.js"), encoding="utf-8").read()
+        chk("4.10: الاستوديو فيه «الجمل» و«الخطة» وشريط الخطوات والخط المنقط", all(x in ap for x in ("function takesPanel", "function planPanel", "function stepsBar", "data-tkapply", "' lo'")) and 'data-ltab="takes"' in shtml and "tkTitle:" in i18 and "planTitle:" in i18 and ".w.lo" in shtml)
+    except Exception as e: chk("4.10: اختيار الجمل والحلول العشر", False, str(e)[:200])
     chk("الرسم الحر بالمحرّك والاستوديو", "function drawLayer" in txt.get("ext.js", "") and "function drawStart" in txt.get("app.js", ""))
     try:   # 4.6: كتم الكلمات
         m0, p0 = bleep_filters(bleep_of({})); ct = {"cards": [{"s": 0, "e": 2, "w": [{"t": "شركة", "s": 0.1, "e": 0.4}, {"t": "والشركه", "s": 0.5, "e": 0.9}, {"t": "شركات", "s": 1.0, "e": 1.3}]}]}
@@ -1936,7 +2394,9 @@ def cmd_text(work, args):
         return
     i = int(args[0]) - 1
     if not (0 <= i < len(caps["cards"])): sys.exit("رقم الجملة برّا المدى (1-%d)" % len(caps["cards"]))
-    apply_text(work, i, " ".join(args[1:])); print("تم: الجملة %d ← %s" % (i + 1, " ".join(args[1:])))
+    before = rj(J(work, "caps.json")); apply_text(work, i, " ".join(a_ for a_ in args[1:] if a_ != "--no-learn"))
+    if "--no-learn" not in args: gloss_learn(before, rj(J(work, "caps.json")))   # التصحيح ينحفظ بالقاموس (اسم، كتابة قريبة من الغلط، أو كلمة ما تأكد منها التفريغ)
+    print("تم: الجملة %d ← %s" % (i + 1, " ".join(a_ for a_ in args[1:] if a_ != "--no-learn")))
 def next_note_id(notes):
     return max([int(re.sub(r"\D", "", str(x.get("id"))) or 0) for x in notes] or [0]) + 1
 def cmd_notes(work, args):
@@ -2461,6 +2921,17 @@ def serve(work, port, engine):
                 k = os.path.splitext(os.path.basename(p))[0]
                 if sfx_have(k): return self._file(sfx_path(k), "audio/wav")
             if p == "/hs/sfxlib": return self._json(200, {"items": sfx_all(), "myDir": my_dir()})
+            if p == "/hs/takes": return self._json(200, tk_view(work))   # 4.10: اختيار الجمل
+            if p == "/hs/steps": return self._json(200, {"steps": steps(work)})
+            if p == "/hs/plan": return self._json(200, plan_view(work))
+            if p in ("/hs/raw.m4a", "/hs/takes_prev.m4a"):
+                os.makedirs(P(".hs"), exist_ok=True)
+                if p == "/hs/raw.m4a":
+                    s_, e_ = float((q.get("s") or ["0"])[0]), float((q.get("e") or ["1"])[0]); f = P(".hs", "raw-%d-%d.m4a" % (int(s_ * 100), int(e_ * 100)))
+                    f = f if os.path.isfile(f) else raw_audio(work, s_, min(e_, s_ + 60), f)
+                else: f = tk_preview(work, P(".hs", "takes-prev.m4a"))
+                if not f: return self.send_error(404)
+                self.path = "/.hs/" + os.path.basename(f); return self._ranged() if self._wants_range() else self._file(f, "audio/mp4")
             if p == "/hs/au.m4a":
                 f = audio_file()
                 if not f: return self.send_error(404)
@@ -2495,6 +2966,13 @@ def serve(work, port, engine):
             if not role: return self._deny()
             p = urllib.parse.urlparse(self.path).path
             if role == "review" and p not in ("/hs/review_comment", "/hs/review_approve"): return self._deny()
+            if p.startswith("/api/save"):   # 4.10: قاموسك يتعلّم من تصحيحاتك للكابشن
+                n_ = int(self.headers.get("Content-Length") or 0); raw_ = self.rfile.read(n_)
+                try:
+                    d_ = json.loads(raw_ or b"{}")
+                    if d_.get("caps"): gloss_learn(rj(P("caps.json"), None), d_["caps"])
+                except Exception: pass
+                import io as _io; self.rfile = _io.BytesIO(raw_); return super().do_POST()
             if not (p.startswith("/hs/") or p.startswith("/api/recut") or p.startswith("/api/drop") or p.startswith("/api/undo_cut") or p.startswith("/api/render")):
                 return super().do_POST()
             n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(n)
@@ -2595,12 +3073,56 @@ def serve(work, port, engine):
                     return self._json(200, {"ok": True, "rows": perf_get(item_id(work))})
                 if p == "/hs/claude_fix":   # 4.5: اختياري ويستهلك من حدّك (الواجهة تنبّهه قبلها)
                     what = str(data.get("what") or "retention"); items = [str(x)[:300] for x in (data.get("items") or [])][:12]
+                    if what in ("unsure", "plan", "plan2"):   # 4.10
+                        ask = str(data.get("text") or "").strip()[:800]
+                        if what == "unsure":
+                            task = ("راجع الكلمات اللي ما تأكد منها التفريغ بكابشن هذا المشروع: python hs.py caps \"%s\" unsure . صحّح الغلط منها بالمعنى من سياق الجملة (python hs.py text \"%s\" <رقم الجملة> \"النص الصح\")، "
+                                    "والأسماء المعروفة بالإنجليزي. لا تغيّر كلامه ولا أسلوبه، صحّح الإملاء والسماع بس. بعدها python hs.py caps \"%s\" unsure مرة ثانية.") % (work, work, work)
+                        elif what == "plan":
+                            task = ("أعد كتابة خطة المقطع بملف plan.json بمجلد المشروع على كلام المستخدم: «%s». كل بند: id، s، e، title، speech (كلامه بهذا الجزء)، show (وش يطلع)، motion (الحركة)، kind (web أو archive أو gen أو overlay أو screen أو text أو none)، query أو source. "
+                                    "خلّ approved=false و feedback فاضي، وتأكد: python hs.py plan \"%s\" check") % (ask or "خطة أوضح", work)
+                        else:
+                            task = ("من plan.json بهذا المشروع خذ أول بندين نوعهم gen واصنع صورهم (بالوصف نفسه وستايل واحد) من حساب المستخدم بالترتيب المكتوب بقسم الصور في SKILL.md، ثم python hs.py gen \"%s\" import … عند وقت كل بند، وحط src بالبند وstatus=done. "
+                                    "لا تصنع أكثر من صورتين. %s") % (work, ("ملاحظته: " + ask) if ask else "")
+                        ok, msg = agent_run(task, {"unsure": "Claude يراجع الكلمات", "plan": "Claude يعيد الخطة", "plan2": "Claude يصنع أول صورتين"}[what]); return self._json(200, {"ok": ok, "msg": msg})
+                    if what == "takes":   # 4.10: Claude يختار الأفضل بين الإعادات
+                        ask = str(data.get("text") or "").strip()[:600]
+                        task = ("راجع «اختيار الجمل» بهذا المشروع. شغّل: python hs.py takes \"%s\" list --all واقرأ كل المحاولات. بكل مجموعة إعادة اختار الأفضل بالمعنى (الكاملة، الصح بالمعلومة، الأوضح، وغالباً الأخيرة لكن مو دايم) بـ: "
+                                "python hs.py takes \"%s\" use <رقم> --why \"السبب بكلمتين\" --claude. واحذف أي بداية متروكة أو جملة قالها وأعادها بصياغة ثانية (drop <رقم> --why …)، ورجّع أي شي انحذف وهو مهم (keep). "
+                                "لا تحذف كلام فيه معلومة ما انقالت بمكان ثاني. بعدها: python hs.py takes \"%s\" note \"ملخص سطر\" ثم python hs.py takes \"%s\" apply. %s") % (work, work, work, work, ("طلب المستخدم: " + ask) if ask else "")
+                        ok, msg = agent_run(task, "Claude يختار الجمل"); return self._json(200, {"ok": ok, "msg": msg})
                     if what == "repurpose":
                         task = ("حسّن نصوص النشر بملف repurpose.json بمجلد المشروع بلهجة صاحب المقطع: عنوان يشد، 4 إلى 5 نقاط للكاروسيل (كل وحدة جملة قصيرة)، ثريد X، وعنوان ووصف يوتيوب. "
                                 "لا تغيّر شكل الملف ولا تلمس أي ملف ثاني. خلّ by = claude.")
                     else: task = "صلّح هالمشاكل بالمقطع (فحص الاحتفاظ). أقل تعديل يكفي، وبعدها قل وش سويت بسطرين:\n- " + "\n- ".join(items)
                     ok, msg = agent_run(task, "تحسين بـClaude: " + ("نصوص النشر" if what == "repurpose" else "فحص الاحتفاظ"))
                     return self._json(200, {"ok": ok, "msg": msg})
+                if p == "/hs/plan_set":   # 4.10: الخطة قبل البناء
+                    pl = plan_load(work) or {"items": []}
+                    if "approve" in data: pl["approved"] = bool(data["approve"])
+                    if data.get("rm") is not None: pl["items"] = [x for x in pl.get("items") or [] if str(x.get("id")) != str(data["rm"])]
+                    if data.get("feedback") is not None: pl["feedback"] = str(data["feedback"])[:1500]; pl["approved"] = False
+                    wj(P("plan.json"), pl); return self._json(200, plan_view(work))
+                if p == "/hs/unsure":
+                    u = caps_unsure(work); return self._json(200, {"ok": True, "n": len(u), "items": u[:200]})
+                if p == "/hs/cuts_fix":
+                    def go():
+                        bad, o_, n_ = cut_on_sound(work)
+                        if bad and not _same_keep(o_, n_, 0.005): apply_keep(work, o_, n_, S, base.log, snap="قبل تصليح القطعات")
+                        base.JOB["reload"] = True
+                    ok = base.job("remove", go); return self._json(200 if ok else 409, {"ok": ok, "msg": "" if ok else "فيه عملية شغالة"})
+                if p == "/hs/takes_set":
+                    try:
+                        for x in data.get("ids") or [data.get("id")]: tk_set(work, x, str(data.get("action") or "drop"), str(data.get("why") or ""))
+                    except Exception as e: return self._json(400, {"ok": False, "msg": str(e)[:200]})
+                    return self._json(200, tk_view(work))
+                if p == "/hs/takes_scan":
+                    try: tk_scan(work)
+                    except SystemExit as e: return self._json(400, {"ok": False, "msg": str(e)})
+                    return self._json(200, tk_view(work))
+                if p == "/hs/takes_apply":
+                    def go(): tk_apply(work, S, base.log); base.JOB["reload"] = True
+                    ok = base.job("remove", go); return self._json(200 if ok else 409, {"ok": ok, "msg": "" if ok else "فيه عملية شغالة"})
                 if p == "/hs/remove":
                     def go(): remove_ranges(work, S, base.log, ranges=data.get("ranges") or [], cards=data.get("cards") or [], words=data.get("words") or []); base.JOB["reload"] = True
                     ok = base.job("remove", go); return self._json(200 if ok else 409, {"ok": ok, "msg": "" if ok else "فيه عملية شغالة"})
@@ -5131,6 +5653,7 @@ def main():
     if cmd == "style": return cmd_style(a[1:])
     if cmd == "update": return cmd_update()
     if cmd == "fonts": return cmd_fonts(a[1:])
+    if cmd == "gloss": return cmd_gloss(a[1:])
     if cmd == "clips": return cmd_clips(a[1:])
     if cmd == "grab": return cmd_grab(a[1:])
     if cmd == "db": return cmd_db(a[1:])
@@ -5210,6 +5733,19 @@ def main():
     elif cmd == "caps": cmd_caps(work, rest)
     elif cmd == "look": cmd_look(work, rest)
     elif cmd == "logo": cmd_logo(work, rest)
+    elif cmd == "takes": cmd_takes(work, rest)
+    elif cmd == "plan": cmd_plan(work, rest)
+    elif cmd == "steps":
+        for s_ in steps(work): print("%s %d %s%s" % ({"done": "✓", "now": "←", "todo": "·"}[s_["state"]], s_["n"], s_["label"], ("  (%d كلمة تراجعها)" % s_["unsure"]) if s_.get("unsure") else ""))
+    elif cmd == "facts":
+        F_ = facts(work); print(("تأكد من هذي قبل النشر:\n" + "\n".join("  %s  %s  (%s)" % (fmt_t(x["s"]), x["text"][:90], "، ".join(x["why"])) for x in F_)) if F_ else "ما فيه أرقام ولا أسماء منتجات تحتاج تأكيد.")
+    elif cmd == "cuts":
+        bad, old_, new_ = cut_on_sound(work)
+        if not bad: print("ولا قطعة نازلة على صوت.")
+        elif "fix" in rest:
+            if _same_keep(old_, new_, 0.005): print("فيه %d قطعة على صوت بس ما لقيت سكتة قريبة تنزل عليها." % len(bad))
+            else: r_ = apply_keep(work, old_, new_, os.path.join(find_engine(None), "scripts"), print, "--no-rebuild" not in rest, snap="قبل تصليح القطعات"); print("صلّحت %d قطعة: المدة %.2f ث" % (sum(1 for b_ in bad if b_["to"] is not None), r_["total"]))
+        else: print("%d قطعة نازلة على صوت (تقص حرف):\n" % len(bad) + "\n".join("  مقطع %d %s عند %.2f%s" % (b_["seg"] + 1, "بدايته" if b_["edge"] == "s" else "نهايته", b_["t"], (" ← %.2f" % b_["to"]) if b_["to"] is not None else " (ما فيه سكتة قريبة)") for b_ in bad) + "\nصلّحها: hs cuts <work> fix")
     elif cmd == "beat": cmd_beat(work, rest)
     elif cmd == "pack": print("\n".join(pack(work))); print("→ " + J(work, ".hs", "pack.zip"))
     elif cmd == "brand": cmd_brand(work, rest)
