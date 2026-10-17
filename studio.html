@@ -142,20 +142,21 @@ mark{background:rgba(224,165,58,.4);color:inherit;border-radius:3px}
 #tm{font-variant-numeric:tabular-nums;color:var(--mut);white-space:nowrap}
 #zoom{width:120px}
 #scroller{overflow-x:auto;overflow-y:auto;direction:ltr;position:relative;min-height:0;touch-action:pan-x pan-y}
-#lane{position:relative;height:270px;min-width:100%}
+#lane{position:relative;height:calc(270px + var(--lo,0px));min-width:100%}
 #lane.blade{cursor:crosshair}
 .trk{position:absolute;left:0;right:0}
 .lbl{display:none}
 #ruler{top:0;height:20px;border-bottom:1px solid var(--bd);color:var(--mut);font-size:10.5px}
 #ruler span{position:absolute;top:3px;padding-left:4px;border-left:1px solid var(--bd);height:16px;font-variant-numeric:tabular-nums}
-#tL2{top:22px;height:19px}#tL1{top:43px;height:19px}#tL0{top:64px;height:19px}
-#tL2,#tL1,#tL0{background:rgba(255,255,255,.018)}
-#tCap{top:87px;height:24px}
-#tFx{top:114px;height:20px}
-#tFilm{top:137px;height:40px;background:var(--s2);overflow:hidden}
-#tAu{top:180px;height:32px}
-#tChk{top:214px;height:8px}
-#tMk{top:251px;height:16px}
+#tLs{top:22px;height:63px}
+.lrow{position:absolute;left:0;right:0;height:19px;background:rgba(255,255,255,.018)}
+.lrow.add{background:transparent;border:1px dashed rgba(255,255,255,.07);border-radius:5px}
+#tCap{top:calc(87px + var(--lo,0px));height:24px}
+#tFx{top:calc(114px + var(--lo,0px));height:20px}
+#tFilm{top:calc(137px + var(--lo,0px));height:40px;background:var(--s2);overflow:hidden}
+#tAu{top:calc(180px + var(--lo,0px));height:32px}
+#tChk{top:calc(214px + var(--lo,0px));height:8px}
+#tMk{top:calc(251px + var(--lo,0px));height:16px}
 .clip{position:absolute;top:0;bottom:0;border-radius:5px;overflow:hidden;white-space:nowrap;font-size:11px;line-height:19px;padding:0 7px;cursor:pointer;color:#fff;border:1.5px solid transparent;touch-action:none;user-select:none}
 .clip.cap{background:var(--cap);line-height:23px;direction:rtl;text-align:right}
 .clip.text{background:var(--lay)}.clip.image{background:#b9772f}.clip.char{background:var(--chr)}.clip.fx{background:#6d6d7c}
@@ -691,10 +692,10 @@ body.drawing #sideTools,body.drawing #giz,body.drawing #ticker,body.drawing #ges
       <span class="sp"></span>
       <input type="range" id="zoom" min="16" max="260" value="80">
     </div>
-    <div id="gut"><span style="top:43px;line-height:19px" data-t="trkLayers"></span><span style="top:87px;line-height:24px" data-t="trkCaps"></span><span style="top:114px;line-height:20px" data-t="trkFx"></span><span style="top:137px;line-height:40px" data-t="trkVideo"></span><span style="top:180px;line-height:32px" data-t="trkAudio"></span><span style="top:212px;line-height:13px" data-t="trkCheck"></span><span style="top:251px;line-height:16px" data-t="trkNotes"></span></div>
+    <div id="gut"><span style="top:22px;line-height:calc(63px + var(--lo,0px))" data-t="trkLayers"></span><span style="top:calc(87px + var(--lo,0px));line-height:24px" data-t="trkCaps"></span><span style="top:calc(114px + var(--lo,0px));line-height:20px" data-t="trkFx"></span><span style="top:calc(137px + var(--lo,0px));line-height:40px" data-t="trkVideo"></span><span style="top:calc(180px + var(--lo,0px));line-height:32px" data-t="trkAudio"></span><span style="top:calc(212px + var(--lo,0px));line-height:13px" data-t="trkCheck"></span><span style="top:calc(251px + var(--lo,0px));line-height:16px" data-t="trkNotes"></span></div>
     <div id="scroller"><div id="lane">
       <div class="trk" id="ruler"></div>
-      <div class="trk" id="tL2"></div><div class="trk" id="tL1"></div><div class="trk" id="tL0"></div>
+      <div class="trk" id="tLs"></div>
       <div class="trk" id="tCap"></div>
       <div class="trk" id="tFx"></div>
       <div class="trk" id="tFilm"></div>

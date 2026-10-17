@@ -142,13 +142,22 @@ async function play(){ if(playing){ stop(); return; } if(T>=dur()-0.05) T=0; pla
 
 /* ───── التايم لاين ───── */
 const lname=L=>L.type==='mg'?mgName(L):L.type==='draw'?t('type_draw'):L.type==='mark'?t('mk_'+(L.kind||'circle')):L.type==='cursor'?t('type_cursor'):L.type==='lt'?(L.text||t('type_lt')):L.type==='pip'?t('type_pip'):L.type==='collage'?t('type_collage'):L.type==='text'?(L.text||'').split('\n')[0]:L.type==='char'?t('char_'+(L.char||'custom')):L.type==='fx'?t('fx_'+L.fx):L.type==='split'?(L.title||t('type_split')):L.type==='viz'?(L.title||t('vk_'+L.kind)):L.type==='kinetic'?(String(L.text||'').replace(/^[*>+]\s*/gm,'').split('\n').join(' ').slice(0,40)||t('type_kinetic')):L.type==='desk'?((L.text||'')+' '+t('dk_'+(L.kind||'note'))).trim():L.type==='cover'?(L.text||t('type_cover')):L.type==='bg'?t('bg_'+(L.mode||'blur')):L.type==='behind'?(L.text||t('type_behind')):t('image');
+/* 4.12: كل طبقة تتداخل مع طبقة ثانية تاخذ سطر لحالها، والسطر الأعلى يطلع فوق بالفيديو. وفوقها سطر فاضي تسحب له الطبقة عشان تصير فوق الكل */
+let LROWS=[];
+function layerRows(){ const Ls=hs().layers||[], tracks=[...new Set(Ls.map(L=>L.track||0))].sort((a,b)=>b-a), rows=[{track:(tracks.length?tracks[0]:0)+1,sub:0,add:true}], where={};
+  for(const tr of tracks){ const subs=[]; Ls.forEach(L=>{ if((L.track||0)!==tr) return; let k=0; while(k<subs.length&&subs[k].some(([a,b])=>L.s<b-0.001&&L.e>a+0.001)) k++; (subs[k]=subs[k]||[]).push([L.s,L.e]); where[L.id]=[tr,k]; });
+    for(let k=subs.length-1;k>=0;k--) rows.push({track:tr,sub:k}); }
+  return {rows,where}; }
+function layerToRow(id,row,row0){ const h=hs(), R=LROWS[row], L=h.layers.find(x=>x.id===id); if(!R||!L) return;
+  L.track=R.track; const i=h.layers.indexOf(L); h.layers.splice(i,1); if(row<row0) h.layers.push(L); else h.layers.unshift(L); ST.studio.hs.layers=h.layers; }
 function buildTL(){ if(!ST) return; const D=dur(), Wd=Math.max(D*PX+80,$('#scroller').clientWidth); $('#lane').style.width=Wd+'px'; const h=hs();
   const step=PX>=120?1:PX>=50?2:PX>=28?5:10; let o='';
   for(let s=0;s<=D;s+=step) o+='<span style="left:'+(s*PX)+'px">'+(s<60?s+'s':Math.floor(s/60)+':'+String(s%60).padStart(2,'0'))+'</span>';
   $('#ruler').innerHTML=o;
   const on=(k,id)=>SEL&&SEL.kind===k&&String(SEL.id)===String(id)?' on':'';
   const box=(s,e)=>'left:'+(s*PX)+'px;width:'+Math.max(7,(e-s)*PX-1)+'px';
-  for(const tr of [0,1,2]) $('#tL'+tr).innerHTML=(tr===2?'<span class="lbl">'+t('trkLayers')+'</span>':'')+h.layers.filter(L=>(L.track||0)===tr).map(L=>'<div class="clip '+L.type+on('layer',L.id)+'" data-kind="layer" data-id="'+L.id+'" style="'+box(L.s,L.e)+(L.off?';opacity:.4':'')+'"><i class="hl"></i>'+esc(lname(L))+'<i class="hr"></i></div>').join('');
+  { const LR=layerRows(); LROWS=LR.rows; $('#tl').style.setProperty('--lo',(LR.rows.length*21-63)+'px'); $('#tLs').style.height=(LR.rows.length*21)+'px';
+    $('#tLs').innerHTML=LR.rows.map((r,i)=>'<div class="lrow'+(r.add?' add':'')+'" style="top:'+(i*21)+'px"'+(r.add?' title="'+esc(t('lrowAdd'))+'"':'')+'>'+h.layers.filter(L=>{ const w=LR.where[L.id]; return w&&w[0]===r.track&&w[1]===r.sub&&!r.add; }).map(L=>'<div class="clip '+L.type+on('layer',L.id)+'" data-kind="layer" data-id="'+L.id+'" style="'+box(L.s,L.e)+(L.off?';opacity:.4':'')+'"><i class="hl"></i>'+esc(lname(L))+'<i class="hr"></i></div>').join('')+'</div>').join(''); }
   $('#tCap').innerHTML='<span class="lbl">'+t('trkCaps')+'</span>'+ST.caps.cards.map((c,i)=>'<div class="clip cap'+on('cap',i)+'" data-kind="cap" data-id="'+i+'" style="'+box(c.s,c.e)+'"><i class="hl"></i>'+esc(key(c))+'<i class="hr"></i></div>').join('');
   let fx='<span class="lbl">'+t('trkFx')+'</span>';
   (ST.studio.scenes||[]).filter(s=>s.m&&s.m!=='R_FULL').forEach(s=>{ fx+='<div class="clip sc" style="'+box(s.s,Math.min(s.e,D))+'">'+esc(t('scene'))+'</div>'; });
@@ -200,7 +209,7 @@ function blade(el,x){ const pts=snapPts(null); x=snapTo(x,pts);
       if(kind==='outro'){ D={kind,x0:x,o:ST.outro,edge:e.target.classList.contains('hr'),moved:false}; if(!D.edge) seek(Math.min(dur()-0.05,total()+1.6)); dragging=true; sc.setPointerCapture(e.pointerId); return; }
       const mode=e.target.classList.contains('hl')?'l':e.target.classList.contains('hr')?'r':'move';
       if(kind==='sfx'){ const [k,j]=String(id).split(':'); D={kind,k,j:+j,x0:x,orig:ST.studio.sfx[k][+j],o:sxGet(k,+j),mode,moved:false}; }
-      else { const o=objOf(kind,id); D={kind,id,mode,x0:x,s:o.s,e:o.e,track:o.track||0,moved:false,pts:snapPts({kind,id}),words:kind==='cap'?o.w.map(w=>[w.s,w.e]):null,nb:kind==='cap'?capNb(+id):null}; }
+      else { const o=objOf(kind,id); D={kind,id,mode,x0:x,y0:e.clientY,s:o.s,e:o.e,track:o.track||0,moved:false,pts:snapPts({kind,id}),words:kind==='cap'?o.w.map(w=>[w.s,w.e]):null,nb:kind==='cap'?capNb(+id):null}; }
       dragging=true; sc.setPointerCapture(e.pointerId); return; }
     if(e.target.closest('#tAu .mus')){ select({kind:'music',id:0}); return; }
     if(e.target.closest('.vr')){ const i=+e.target.closest('.vr').dataset.vr; select({kind:'vr',id:i}); RTAB='sel'; markTabs(); renderRight(); return; }
@@ -215,7 +224,8 @@ function blade(el,x){ const pts=snapPts(null); x=snapTo(x,pts);
     if(D.kind==='vsel'){ if(!D.moved&&Math.abs(x-D.x0)*PX<4) return; D.moved=true; const s=r3(Math.max(0,Math.min(D.x0,x))), en=r3(Math.min(total(),Math.max(D.x0,x))); SEL={kind:'voice',s,e:en}; vrDraw(); return; }
     if(D.kind==='trim'){ D.x=D.side==='r'?clamp(snapTo(x,[T,...ST.caps.cards.flatMap(c=>[c.s,c.e])]),D.s+0.15,D.e):clamp(snapTo(x,[T,...ST.caps.cards.flatMap(c=>[c.s,c.e])]),D.s,D.e-0.15);
       const tm=$('#tFilm .trim'), a=D.side==='r'?[D.x,D.e]:[D.s,D.x]; if(tm){ tm.style.display='block'; tm.style.left=(a[0]*PX)+'px'; tm.style.width=((a[1]-a[0])*PX)+'px'; } drawT(D.x); return; }
-    const dt=x-D.x0; if(!D.moved&&Math.abs(dt)*PX<3) return; if(!D.moved){ D.moved=true; snap(); }
+    let dt=x-D.x0; const vy=D.kind==='layer'&&D.mode==='move'&&Math.abs(e.clientY-D.y0)>=6; if(!D.moved&&Math.abs(dt)*PX<3&&!vy) return; if(!D.moved){ D.moved=true; snap(); }
+    if(D.kind==='layer'&&D.mode==='move'&&Math.abs(dt)*PX<8) dt=0;   // سحب لفوق أو لتحت بس: الوقت ما يتغيّر
     if(D.kind==='outro'){ if(!D.edge) return; ST.outro=r3(clamp(D.o+dt,0.8,12)); const oe=document.querySelector('#tFilm .clip.outro'); if(oe) oe.style.width=Math.max(7,ST.outro*PX-1)+'px'; $('#lane').style.width=Math.max(dur()*PX+80,sc.clientWidth)+'px'; $('#tm').textContent=fmt(T)+' / '+fmt(dur()); return; }
     if(D.kind==='sfx'){ const o={...D.o}, pts=[T,...ST.caps.cards.flatMap(c=>c.w.map(w=>w.s))];
       if(D.mode==='move') o.t=r3(clamp(snapTo(D.o.t+dt,pts),0,total()));
@@ -225,17 +235,18 @@ function blade(el,x){ const pts=snapPts(null); x=snapTo(x,pts);
     const o=objOf(D.kind,D.id), len=D.e-D.s, lim=D.kind==='cap'?D.nb.lim:[0,total()];
     if(D.mode==='move'){ let s=D.s+dt; const s1=snapTo(s,D.pts), e1=snapTo(s+len,D.pts); if(s1!==s) s=s1; else if(e1!==s+len) s=e1-len; s=clamp(s,lim[0],Math.max(lim[0],lim[1]-len)); const d=s-D.s; o.s=r3(s); o.e=r3(s+len);
       if(D.kind==='cap'){ o.w.forEach((w,i)=>{ w.s=r3(D.words[i][0]+d); w.e=r3(D.words[i][1]+d); }); capPush(D,o); if(Math.abs(D.s+dt-s)*PX>24&&!D.told){ D.told=1; toast(t('capLimit')); } }
-      if(D.kind==='layer'){ const r=$('#lane').getBoundingClientRect(), y=e.clientY-r.top; const rows=[[2,22],[1,43],[0,64]]; for(const [k,tp] of rows) if(y>=tp+2&&y<=tp+17) o.track=k; } }
+      if(D.kind==='layer'){ const r=$('#tLs').getBoundingClientRect(), i=Math.floor((e.clientY-r.top)/21); if(D.row0==null){ const w=layerRows().where[D.id]; D.row0=Math.max(0,LROWS.findIndex(x=>!x.add&&w&&x.track===w[0]&&x.sub===w[1])); } D.row=clamp(i,0,LROWS.length-1); } }
     else if(D.mode==='l'){ let s=clamp(snapTo(D.s+dt,D.pts),lim[0],D.e-0.15); if(D.kind==='cap') s=Math.min(s,o.w[0].s); o.s=r3(s); if(D.kind==='cap') capPush(D,o); }
     else { let en=clamp(snapTo(D.e+dt,D.pts),D.s+0.15,lim[1]); if(D.kind==='cap') en=Math.max(en,o.w[o.w.length-1].e); o.e=r3(en); if(D.kind==='cap') capPush(D,o); }
     const dl=document.querySelector('#lane .clip[data-kind="'+D.kind+'"][data-id="'+D.id+'"]');
-    if(!dl||(D.kind==='layer'&&(o.track||0)!==D.track)){ D.track=o.track||0; buildTL(); } else { dl.style.left=(o.s*PX)+'px'; dl.style.width=Math.max(7,(o.e-o.s)*PX-1)+'px'; }
+    if(!dl) buildTL(); else { dl.style.left=(o.s*PX)+'px'; dl.style.width=Math.max(7,(o.e-o.s)*PX-1)+'px'; if(D.kind==='layer'&&D.row!=null) dl.style.transform='translateY('+((D.row-D.row0)*21)+'px)'; }
     if(!D.raf) D.raf=requestAnimationFrame(()=>{ if(D) D.raf=0; drawT(T); placeGiz(); }); });
   const end=()=>{ if(D&&D.kind==='vsel'){ const mv=D.moved, x0=D.x0; D=null; dragging=false;
       if(mv&&SEL&&SEL.kind==='voice'&&SEL.e-SEL.s>=0.05){ RTAB='sel'; markTabs(); renderRight(); }
       else { const b=shotBounds(); for(let i=0;i<b.length-1;i++){ if(x0>=b[i]&&x0<b[i+1]){ select({kind:'video',s:b[i],e:b[i+1],id:i}); break; } } } return; }
     if(D&&D.kind==='trim'){ const a=D.side==='r'?[D.x,D.e]:[D.s,D.x]; const tm=$('#tFilm .trim'); if(tm) tm.style.display='none'; D=null; dragging=false; if(a[1]-a[0]>=0.08) askRemove({ranges:[[r3(a[0]),r3(a[1])]]},fmt(a[0])+' ← '+fmt(a[1])); return; }
     if(D&&D.kind==='outro'){ const mv=D.moved; D=null; dragging=false; ALT=false; if(mv){ buildTL(); renderRight(); hard(); } return; }
+    if(D&&D.moved&&D.kind==='layer'&&D.row!=null&&D.row!==D.row0) layerToRow(D.id,D.row,D.row0);
     if(D&&D.moved){ buildTL(); if(D.kind==='layer') live(); else dirty(); if(D.kind!=='sfx') renderRight(); } D=null; dragging=false; ALT=false; };
   sc.addEventListener('pointerup',end); sc.addEventListener('pointercancel',end);
   sc.addEventListener('pointerleave',()=>{ if(SKIM&&!D){ $('#sk').style.display='none'; drawT(T); } });

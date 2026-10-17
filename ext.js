@@ -373,7 +373,8 @@
     if(L.frame==='ring'){ const r=Math.max(w,h)*0.74; X.lineWidth=Math.max(6,r*0.07); X.strokeStyle='rgba(255,255,255,0.26)'; X.beginPath(); X.arc(0,0,r,0,6.2832); X.stroke(); X.strokeStyle=L.ringColor||'#FFFFFF'; X.lineCap='round'; X.beginPath(); const a0=L.ringFull?0:t*5.2; X.arc(0,0,r,a0,a0+(L.ringFull?6.2832:2.3)); X.stroke(); }
     if(L.round||L.frame==='glass'){ rr(-w/2,-h/2,w,h,L.round||Math.max(w,h)*0.2); X.clip(); } X.drawImage(im,-w/2,-h/2,w,h); X.restore(); }
   const isUnder=L=>L.type==='image'&&(L.fit==='cover'||L.fit==='card')&&L.under!==false;
-  function layers(t,under){ const Ls=(HSX.layers||[]).filter(L=>L.type!=='fx'&&L.type!=='split'&&L.type!=='viz'&&L.type!=='cover'&&L.type!=='bg'&&L.type!=='behind'&&L.type!=='pip'&&L.type!=='collage'&&L.type!=='kinetic'&&L.type!=='desk'&&L.type!=='mg'&&!L.off&&t>=L.s&&t<L.e&&isUnder(L)===!!under&&(L.overKin||!kinAt(t))).sort((a,b)=>(b.track||0)-(a.track||0));
+  /* 4.12: الترتيب نفس التايم لاين: السطر الأعلى ينرسم آخر فيطلع فوق، وبنفس السطر الأحدث فوق */
+  function layers(t,under){ const Ls=(HSX.layers||[]).filter(L=>L.type!=='fx'&&L.type!=='split'&&L.type!=='viz'&&L.type!=='cover'&&L.type!=='bg'&&L.type!=='behind'&&L.type!=='pip'&&L.type!=='collage'&&L.type!=='kinetic'&&L.type!=='desk'&&L.type!=='mg'&&!L.off&&t>=L.s&&t<L.e&&isUnder(L)===!!under&&(L.overKin||!kinAt(t))).sort((a,b)=>(a.track||0)-(b.track||0));
     for(const L of Ls){ const K=enterK(L,t); X.save(); try{
         if(L.type==='text') textBlock(L,t,K); else if(L.type==='char') charLayer(L,t,K); else if(L.type==='image') imageLayer(L,t,K);
         else if(L.type==='mark') markLayer(L,t,K); else if(L.type==='draw') drawLayer(L,t,K); else if(L.type==='cursor') cursorLayer(L,t); else if(L.type==='lt') ltLayer(L,t,K);
@@ -1282,7 +1283,7 @@
   const MGK={stat:mgStat,slam:mgSlam,check:mgCheck,steps:mgSteps,callout:mgCallout,quote:mgQuote,ring:mgRing,compare:mgCompare,sting:mgSting,logo:mgLogo};
   window.__hsMg=Object.keys(MGK);
   const mgHide=L=>L.kind==='quote'||L.kind==='sting'||L.kind==='compare'||L.nocap;
-  function mgs(t){ if(t>=VEND) return; const Ls=(HSX.layers||[]).filter(L=>L.type==='mg'&&!L.off&&t>=L.s&&t<L.e&&MGK[L.kind]).sort((a,b)=>(b.track||0)-(a.track||0));
+  function mgs(t){ if(t>=VEND) return; const Ls=(HSX.layers||[]).filter(L=>L.type==='mg'&&!L.off&&t>=L.s&&t<L.e&&MGK[L.kind]).sort((a,b)=>(a.track||0)-(b.track||0));
     for(const L of Ls){ X.save(); try{ MGK[L.kind](L,t); }catch(e){ if(!window.__hsMgE){ window.__hsMgE=1; console.error('hs mg '+L.id+': '+e.message); } } X.restore(); X.setTransform(1,0,0,1,0,0); X.globalAlpha=1; X.shadowColor='transparent'; X.globalCompositeOperation='source-over'; } }
 
   /* 4.8: تسريب ضوء عضوي: حقل موجات دافي يلتوي على نفسه، والعتبة تنزل فتنتشر البقعة ثم ترجع بحقل ثاني. معادلتنا (الفكرة من انتقالات light leak الشائعة).

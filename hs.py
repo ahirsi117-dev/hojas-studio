@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Hojas Studio 4.12 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
+"""Hojas Studio 4.12.1 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
 
   python hs.py open   <work> [--engine <مجلد المحرّك>] [--port 8800] [--no-browser]
         يشغّل الخادم بالخلفية ويفتح المتصفح. شغّله أول ما تبدأ المونتاج، حتى قبل ما يجهز أي ملف.
@@ -73,7 +73,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.12"
+VERSION = "4.12.1"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json", "takes.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -2712,6 +2712,11 @@ def cmd_selftest(work=None, engine=None):
         chk("4.12: الاستوديو فيه زر صوت استوديو والمقارنة، وتحكم الصوت بالضغط (لقطة، جملة، موسيقى)، والنموذج موجود", all(x in ap for x in ("function svBlock", "data-svab", "function rngRow", "kind==='music'", "'#tAu .mus'")) and "svOn:" in i18 and "musTitle:" in i18
             and os.path.isfile(os.path.join(find_engine(None), "audio", "sh.rnnn")))
     except Exception as e: chk("4.12: صوت استوديو", False, str(e)[:200])
+    try:   # 4.12.1: كل طبقة بسطر
+        ap = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); ex = open(os.path.join(HERE, "ext.js"), encoding="utf-8").read(); sh_ = open(os.path.join(HERE, "studio.html"), encoding="utf-8").read()
+        chk("4.12.1: الطبقات المتداخلة كل وحدة بسطر، والسطر الأعلى ينرسم فوق", "function layerRows" in ap and "function layerToRow" in ap and 'id="tLs"' in sh_ and "var(--lo" in sh_
+            and "(a.track||0)-(b.track||0)" in ex and "(b.track||0)-(a.track||0)" not in ex)
+    except Exception as e: chk("4.12.1: كل طبقة بسطر", False, str(e)[:200])
     chk("الرسم الحر بالمحرّك والاستوديو", "function drawLayer" in txt.get("ext.js", "") and "function drawStart" in txt.get("app.js", ""))
     try:   # 4.6: كتم الكلمات
         m0, p0 = bleep_filters(bleep_of({})); ct = {"cards": [{"s": 0, "e": 2, "w": [{"t": "شركة", "s": 0.1, "e": 0.4}, {"t": "والشركه", "s": 0.5, "e": 0.9}, {"t": "شركات", "s": 1.0, "e": 1.3}]}]}
