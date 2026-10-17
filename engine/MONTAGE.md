@@ -242,6 +242,12 @@ bash scripts/06_encode.sh <work> <work>/ad-final.mp4
 ```
 عدّلت مشهداً بعد الرسم؟ أعد نافذته بس: `node scripts/04_render_frames.js <work> range 26.4 31.2` ثم جمّع. (`--force` مع `all` يعيد الكل؛ السكربت ينبّهك لو بقي فريم ناقص.)
 
+### 9.5) صوت استوديو (4.12) ← بعد القص والزوم (يحتاج cutz.mp4)
+```bash
+python hs.py voice <work> studio on     # ضجيج أقل، فراغ أهدى بين الكلام، جمل بمستوى متقارب. ينقل سطر الأرقام للتسليم
+```
+ما يلمس `cutz.mp4`، وأي قص جديد يتعالج لحاله. ينطبق بالتصدير من الاستوديو أو `hs export` (السكربت الخام `06_encode.sh` ما يطبّقه). التفاصيل في SKILL.md قسم 6ك.
+
 ### 10) معايرة الصوت (+ ملف صوتي بالخلفية)
 ```bash
 bash scripts/06b_master.sh <work> <work>/ad-final.mp4 <work>/ad-master.mp4

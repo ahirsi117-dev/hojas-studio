@@ -34,6 +34,9 @@ https://github.com/feitangyuan/onetake is licensed PolyForm Noncommercial 1.0.0.
 engine/vision contains MediaPipe Tasks Vision and two models (face detection, selfie segmentation). Copyright Google LLC. https://github.com/google-ai-edge/mediapipe
 License text: `LICENSES/Apache-2.0.txt`.
 
+## RNNoise speech model (rnnoise-models, not subject to copyright)
+engine/audio/sh.rnnn is the "somnolent-hogwash" model (recording noise, speech signal) from https://github.com/GregorR/rnnoise-models. Its README states the models are not creative work and not subject to copyright. It is loaded by FFmpeg's `arnndn` filter (RNNoise by Jean-Marc Valin, BSD-3-Clause, part of FFmpeg).
+
 ## qr.js, MIT License
 Copyright (c) 2009 Kazuhiko Arase. The license notice is at the top of `qr.js`.
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Hojas Studio 4.11 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
+"""Hojas Studio 4.12 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
 
   python hs.py open   <work> [--engine <مجلد المحرّك>] [--port 8800] [--no-browser]
         يشغّل الخادم بالخلفية ويفتح المتصفح. شغّله أول ما تبدأ المونتاج، حتى قبل ما يجهز أي ملف.
@@ -54,7 +54,7 @@
   python hs.py doctor [--engine …]
   python hs.py selftest [<work>]      فحص ذاتي: صياغة الملفات · النصوص العربية سليمة · كل مفاتيح الواجهة موجودة · الخادم يرد
 """
-import sys, os, json, time, re, shutil, subprocess, threading, secrets, base64, array, glob, zipfile, difflib, hashlib, tempfile
+import sys, os, json, time, re, shutil, subprocess, threading, secrets, base64, array, glob, zipfile, difflib, hashlib, tempfile, math
 import importlib.util, urllib.parse, urllib.request, urllib.error, socket
 
 # ويندوز: الخادم يشتغل بلا نافذة، فأي برنامج يشغّله (ffmpeg · node · bash) كان يفتح نافذة تيرمنال تومض.
@@ -73,7 +73,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.11"
+VERSION = "4.12"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json", "takes.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -710,6 +710,7 @@ def cmd_rmbg(work, args):
     if not r.get("ok"): sys.exit(5)
 def cmd_voice(work, args):
     """4.11: مستوى صوتك لأجزاء: mute <من> <إلى> · set <من> <إلى> <مستوى> · list · rm <رقم|all>"""
+    if args and args[0] == "studio": return cmd_studio_voice(work, args[1:])
     st = load_studio(work); hs = hs_of(st); vr = hs.setdefault("mix", {}).setdefault("vr", []); sub = args[0] if args else "list"
     if sub in ("mute", "set") and len(args) >= 3:
         s, e = sorted([float(args[1]), float(args[2])]); g = 0.0 if sub == "mute" else float(args[3]) if len(args) > 3 else 0.5
@@ -718,6 +719,245 @@ def cmd_voice(work, args):
     elif sub != "list": sys.exit("voice: list | mute <من> <إلى> | set <من> <إلى> <مستوى 0-3> | rm <رقم|all>")
     wj(J(work, "studio.json"), st)
     print("\n".join("%d  %s ← %s  %s" % (i + 1, fmt_t(r["s"]), fmt_t(r["e"]), "مكتوم" if r["g"] == 0 else "×%.2f" % r["g"]) for i, r in enumerate(vr)) or "صوتك بنفس المستوى بكل المقطع.")
+
+# ───────────────────────── 4.12: صوت استوديو (على جهازك، بلا رفع ولا اشتراك) ─────────────────────────
+# الخطوات: يصلّح القص (clipping) لو فيه ← يشيل الهمهمة ← يشيل الضجيج بنموذج RNNoise (يعرف الكلام من غيره)
+# ← يخفّض الفراغ بين الكلام (صدى الغرفة والنفس) ← يوزن مستوى كل جملة على مستوى جملك الوسط ← ضغط خفيف.
+# ما يلمس cutz.mp4: يطلع ملف صوت جنبه بزمن المقطع، والتصدير والمعاينة ياخذون منه. فما يتراكم التنظيف أبداً.
+SV_VER = 1
+SV_DIP = -12.0
+SVL = threading.Lock()
+_FFL = {}
+def ff_has(name):
+    """هل ffmpeg اللي بالجهاز فيه هالفلتر؟ (النسخ القديمة ما فيها arnndn)"""
+    if "t" not in _FFL:
+        try: _FFL["t"] = subprocess.run(["ffmpeg", "-hide_banner", "-filters"], capture_output=True, text=True, errors="replace").stdout or ""
+        except Exception: _FFL["t"] = ""
+    return re.search(r"\s%s\s" % re.escape(name), _FFL["t"]) is not None
+def sv_model():
+    eng = find_engine(None); p = os.path.join(eng, "audio", "sh.rnnn") if eng else ""
+    return p if p and os.path.isfile(p) else None
+def sv_mode(mix):
+    v = (mix or {}).get("studio")
+    return "ext" if v == "ext" else "local" if v else ""
+def _keep_key(work):
+    keep = (rj(J(work, "cut.json"), {}) or {}).get("keep") or []
+    return hashlib.md5(json.dumps([[round(a, 2), round(b, 2)] for a, b in keep]).encode()).hexdigest()[:10]
+def _cards_key(work):
+    cards = (rj(J(work, "caps.json"), {}) or {}).get("cards") or []
+    return hashlib.md5(json.dumps([[round(c["s"], 2), round(c["e"], 2)] for c in cards]).encode()).hexdigest()[:8]
+def sv_sig(work):
+    """يتغير لو تغيّر القص أو توقيت الجمل، فما يطلع صوت قديم."""
+    return "%s-%s-%d" % (vsig(work), _cards_key(work), SV_VER)
+def _db10(path):
+    """شدة الصوت كل 10ms بالديسيبل (numpy لو موجود، وإلا بايثون عادي)."""
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-vn", "-ac", "1", "-ar", "8000", "-f", "s16le", "-"], capture_output=True).stdout
+    try:
+        import numpy as np
+        a = np.frombuffer(raw[:len(raw) // 160 * 160], dtype="<i2").astype(np.float64).reshape(-1, 80)
+        return [float(x) for x in 10 * np.log10((a * a).mean(1) / 1073741824.0 + 1e-12)]
+    except ImportError: pass
+    import math
+    a = array.array("h"); a.frombytes(raw[:len(raw) // 2 * 2])
+    if sys.byteorder == "big": a.byteswap()
+    out = []; lg = math.log10
+    for i in range(0, len(a) - 79, 80):
+        s = 0
+        for x in a[i:i + 80]: s += x * x
+        out.append(10 * lg(s / 80 / 1073741824.0 + 1e-12))
+    return out
+def sv_speech(db, merge=15, pre=4, hold=12):
+    """وين الكلام؟ (كل 10ms) + الكلام مع هامش قبل الكلمة وبعدها، والفراغ أقصر من 150ms بين الكلمات ينحسب كلام."""
+    n = len(db); srt = sorted(db) or [0.0]; floor, top = srt[int(n * .1)], srt[min(n - 1, int(n * .95))]
+    thr = floor + max(6.0, (top - floor) * .3); v = [x > thr for x in db]; runs = []; i = 0
+    while i < n:
+        if not v[i]: i += 1; continue
+        j = i
+        while j < n and v[j]: j += 1
+        if runs and i - runs[-1][1] < merge: runs[-1][1] = j
+        else: runs.append([i, j])
+        i = j
+    m = [False] * n
+    for a, b in runs:
+        if b - a < 3: continue
+        for k in range(max(0, a - pre), min(n, b + hold)): m[k] = True
+    return v, m
+def sv_levels(db, v, cards):
+    """مستوى كل جملة (بس لحظات الكلام فيها)."""
+    import math
+    out = []
+    for c in cards:
+        p = [10 ** (db[k] / 10) for k in range(int(c["s"] * 100), min(len(db), int(c["e"] * 100) + 1)) if v[k]]
+        out.append(10 * math.log10(sum(p) / len(p)) if len(p) >= 15 else None)
+    return out
+def _spread(L):
+    x = sorted(y for y in L if y is not None)
+    return round(x[int(len(x) * .9)] - x[int(len(x) * .1)], 1) if len(x) >= 4 else 0.0
+def sv_plan(db, cards, dip=SV_DIP, amount=0.85, cap=6.0):
+    """الكسب لكل 10ms: (1) الفراغ بين الكلام ينزل dip ديسيبل على مهل  (2) كل جملة تتوزن على الجملة الوسط (لحد cap)."""
+    n = len(db)
+    if n < 50: return [1.0] * n, {}
+    v, m = sv_speech(db); lo = 10 ** (dip / 20.0); g = [1.0 if x else lo for x in m]
+    dn, up = (1 - lo) / 8.0, (1 - lo) / 3.0
+    for k in range(1, n): g[k] = max(g[k], g[k - 1] - dn)
+    for k in range(n - 2, -1, -1): g[k] = max(g[k], g[k + 1] - up)
+    L = sv_levels(db, v, cards); have = sorted(x for x in L if x is not None); lev = [0.0] * n
+    if len(have) >= 2:
+        tgt = have[len(have) // 2]
+        gd = [0.0 if x is None else max(-cap, min(cap, amount * (tgt - x))) for x in L]; gd = [0.0 if abs(x) < 1 else x for x in gd]
+        S = [c["s"] * 100 for c in cards]; E = [c["e"] * 100 for c in cards]
+        for i in range(len(cards) - 1):          # بين جملتين ملتصقتين: انتقال 100ms بالنص
+            if S[i + 1] - E[i] < 10:
+                mid = (E[i] + S[i + 1]) / 2; E[i] = max(S[i], mid - 5); S[i + 1] = min(E[i + 1], mid + 5)
+        pts = sorted(p for i in range(len(cards)) for p in ((S[i], gd[i]), (E[i], gd[i])))
+        j = 0
+        for k in range(n):
+            while j + 1 < len(pts) and pts[j + 1][0] <= k: j += 1
+            if k <= pts[0][0]: lev[k] = pts[0][1]
+            elif j + 1 >= len(pts): lev[k] = pts[-1][1]
+            else:
+                (x0, y0), (x1, y1) = pts[j], pts[j + 1]; lev[k] = y0 if x1 <= x0 else y0 + (y1 - y0) * (k - x0) / (x1 - x0)
+    return [g[k] * 10 ** (lev[k] / 20.0) for k in range(n)], {"mask": m, "voiced": v}
+def _ebur(path):
+    r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", path, "-vn", "-af", "ebur128=peak=sample", "-f", "null", "-"], capture_output=True, text=True, errors="replace").stderr or ""
+    I = re.findall(r"I:\s*(-?[\d.]+) LUFS", r); pk = re.findall(r"Peak:\s*(-?[\d.]+) dBFS", r)
+    return (float(I[-1]) if I else None), (float(pk[-1]) if pk else None)
+def sv_stats(work, out, info=None):
+    """قبل وبعد: كم صوتك أعلى من الضجيج، وكم الفرق بين أعلى جملة وأوطاها."""
+    cards = (rj(J(work, "caps.json"), {}) or {}).get("cards") or []
+    a, b = _db10(J(work, "cutz.mp4")), _db10(out); n = min(len(a), len(b)); a, b = a[:n], b[:n]
+    v, m = (info or {}).get("voiced") or sv_speech(a)[0], (info or {}).get("mask") or sv_speech(a)[1]
+    def med(x): x = sorted(x); return x[len(x) // 2] if x else 0.0
+    def snr(d): return round(med([d[k] for k in range(n) if v[k]]) - med([d[k] for k in range(n) if not m[k]]), 1) if any(v[:n]) and not all(m[:n]) else None
+    return {"snrBefore": snr(a), "snrAfter": snr(b), "spreadBefore": _spread(sv_levels(a, v, cards)), "spreadAfter": _spread(sv_levels(b, v, cards))}
+def sv_cur(work):
+    """ملف الصوت المعالج الحالي لو موجود وصالح (بدون ما يعالج)."""
+    f = J(work, ".hs", "sv-%s.wav" % sv_sig(work)); return f if os.path.isfile(f) else None
+def studio_voice(work, log=print, force=False):
+    """4.12: يعالج صوت المقطع على الجهاز ويرجع (ملف wav بزمن المقطع، الأرقام). ما يعيد الشغل لو القص والجمل ما تغيّرت."""
+    src = J(work, "cutz.mp4")
+    if not os.path.isfile(src): return None, {"ok": False, "msg": "ما فيه مقطع مقصوص"}
+    d = J(work, ".hs"); os.makedirs(d, exist_ok=True); sig = sv_sig(work); out = os.path.join(d, "sv-%s.wav" % sig); meta = os.path.join(d, "sv.json")
+    with SVL:
+        if os.path.isfile(out) and not force:
+            m = rj(meta, {}) or {}; return out, (m if m.get("sig") == sig else {"ok": True, "sig": sig})
+        t0 = time.time(); a1, env, a2, tmp = (os.path.join(d, x) for x in ("sv-a.wav", "sv-env.f32", "sv-b.wav", "sv-part.wav"))
+        vd = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", src, "-vn", "-af", "volumedetect", "-f", "null", "-"], capture_output=True, text=True, errors="replace").stderr or ""
+        mx = re.search(r"max_volume:\s*(-?[\d.]+)", vd); h0 = re.search(r"histogram_0db:\s*(\d+)", vd)
+        clip = bool(mx and float(mx.group(1)) > -0.1 and h0 and int(h0.group(1)) > 40 and ff_has("adeclip"))
+        model = sv_model() if ff_has("arnndn") else None
+        af = ("adeclip," if clip else "") + "highpass=f=75," + ("arnndn=m=sh.rnnn:mix=0.95," if model else "afftdn=nr=14:nf=-40,") + ("deesser=i=0.35," if ff_has("deesser") else "") + "aformat=sample_fmts=s16:channel_layouts=mono"
+        log("صوت استوديو: أشيل الضجيج…")
+        run(["ffmpeg", "-v", "error", "-y", "-i", os.path.abspath(src), "-vn", "-af", af, "-ar", "48000", "-c:a", "pcm_s16le", os.path.abspath(a1)], log, cwd=os.path.dirname(model) if model else None)
+        log("صوت استوديو: أوزن مستوى الجمل وأخفف صدى الغرفة بين الكلام…")
+        cards = (rj(J(work, "caps.json"), {}) or {}).get("cards") or []; db = _db10(a1); gains, info = sv_plan(db, cards)
+        e = array.array("f")
+        for k in range(len(gains)):
+            x0 = gains[k]; x1 = gains[k + 1] if k + 1 < len(gains) else x0
+            e.extend(x0 + (x1 - x0) * j / 10.0 for j in range(10))
+        e.extend([gains[-1] if gains else 1.0] * 2000)     # ذيل احتياط عشان آخر الصوت ما ينقص
+        if sys.byteorder == "big": e.byteswap()
+        with open(env, "wb") as f: e.tofile(f)
+        fc = ("[1:a]aresample=48000,aformat=sample_fmts=flt:channel_layouts=mono[e];[0:a]aformat=sample_fmts=flt:channel_layouts=mono[v];"
+              "[v]acompressor=threshold=-20dB:ratio=2:attack=12:release=200:makeup=1[c];[c][e]amultiply[o]")      # الضغط قبل، عشان ما يرفع الضجيج اللي خفّضناه
+        run(["ffmpeg", "-v", "error", "-y", "-i", a1, "-f", "f32le", "-ar", "1000", "-i", env, "-filter_complex", fc, "-map", "[o]", "-c:a", "pcm_f32le", a2], log)
+        I0, _ = _ebur(src); I1, pk = _ebur(a2)
+        gdb = min((I0 if I0 is not None else -16.0) - I1, -1.0 - pk) if I1 is not None and pk is not None else 0.0
+        run(["ffmpeg", "-v", "error", "-y", "-i", a2, "-t", "%.3f" % ffdur(src), "-af", "volume=%.2fdB" % gdb, "-c:a", "pcm_s16le", tmp], log)
+        for old in glob.glob(os.path.join(d, "sv-*.wav")) + glob.glob(os.path.join(d, "au-sv-*.m4a")):
+            if os.path.basename(old) not in (os.path.basename(tmp), os.path.basename(out)):
+                try: os.remove(old)
+                except OSError: pass
+        os.replace(tmp, out)
+        for x in (a1, env, a2):
+            try: os.remove(x)
+            except OSError: pass
+        st = {"ok": True, "sig": sig, "denoise": "rnnoise" if model else "fft", "declip": clip, "sec": round(time.time() - t0, 1)}
+        try: st.update(sv_stats(work, out, info))
+        except Exception as ex: log("تنبيه: ما قدرت أحسب أرقام قبل وبعد (%s)" % str(ex)[:80])
+        wj(meta, st); return out, st
+def sv_ext_file(work):
+    """صوت معالج من برا (Auphonic أو Adobe Podcast من حسابك): يشتغل بس لو القص ما تغيّر بعد ما صدّرته."""
+    f, m = J(work, ".hs", "sv-ext.wav"), rj(J(work, ".hs", "sv-ext.json"), {}) or {}
+    return f if os.path.isfile(f) and m.get("keep") == _keep_key(work) else None
+def voice_track(work, mix, log=print):
+    """الصوت اللي يدخل التصدير: (مسار أو None للأصلي، الطريقة)."""
+    mode = sv_mode(mix)
+    if mode == "ext":
+        f = sv_ext_file(work)
+        if f: return f, "ext"
+        log("تنبيه: الصوت اللي جبته من برا كان على قص قديم. أستخدم صوت الاستوديو اللي على جهازك بداله.")
+    if mode:
+        try:
+            f, _ = studio_voice(work, log); return (f, "local") if f else (None, "")
+        except Exception as ex: log("تنبيه: صوت الاستوديو ما اشتغل (%s). أكمل بالصوت الأصلي." % str(ex)[:160])
+    return None, ""
+def ffdur(path):
+    try: return float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path], capture_output=True, text=True).stdout.strip())
+    except Exception: return 0.0
+def sv_export(work):
+    """صوت القص الحالي كـ wav، ترفعه على Auphonic أو Adobe Podcast من حسابك."""
+    out = J(work, "voice-for-studio.wav")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", J(work, "cutz.mp4"), "-vn", "-ac", "1", "-ar", "48000", "-c:a", "pcm_s16le", out], capture_output=True)
+    if not os.path.isfile(out): raise RuntimeError("ما قدرت أطلّع الصوت")
+    os.makedirs(J(work, ".hs"), exist_ok=True); wj(J(work, ".hs", "sv-ext.json"), {"keep": _keep_key(work), "dur": round(ffdur(out), 3), "pending": True})
+    return out
+def sv_import(work, path):
+    """يرجّع الصوت المعالج من برا. لازم يكون نفس طول القص (فرق أقل من 0.15 ثانية)."""
+    p = path if os.path.isabs(path) else J(work, path)
+    if not os.path.isfile(p): raise RuntimeError("ما لقيت الملف: " + path)
+    want, got = ffdur(J(work, "cutz.mp4")), ffdur(p)
+    if not got: raise RuntimeError("الملف مو صوت")
+    if abs(want - got) > 0.15: raise RuntimeError("طول الملف %.2f ث والقص الحالي %.2f ث. صدّر الصوت من جديد (voice studio export) وعالجه مرة ثانية." % (got, want))
+    out = J(work, ".hs", "sv-ext.wav"); os.makedirs(J(work, ".hs"), exist_ok=True)
+    r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", p, "-vn", "-ac", "1", "-ar", "48000", "-t", "%.3f" % want, "-af", "apad", "-c:a", "pcm_s16le", out], capture_output=True, text=True)
+    if r.returncode or not os.path.isfile(out): raise RuntimeError("ما قدرت أقرأ الملف: " + (r.stderr or "")[-160:])
+    wj(J(work, ".hs", "sv-ext.json"), {"keep": _keep_key(work), "dur": round(want, 3), "from": os.path.basename(p)})
+    st = load_studio(work); hs_of(st).setdefault("mix", {})["studio"] = "ext"; wj(J(work, "studio.json"), st)
+    return out
+def sv_line(st):
+    if not st.get("ok"): return st.get("msg") or "ما اشتغل"
+    out = ["صوت الاستوديو جاهز."]
+    if st.get("snrBefore") is not None and st.get("snrAfter") is not None:
+        d = round(st["snrAfter"] - st["snrBefore"])
+        out.append("الضجيج بين كلامك نزل %d ديسيبل." % d if d >= 2 else "تسجيلك نظيف أصلاً، فالفرق بالضجيج بسيط.")
+    if st.get("spreadBefore"): out.append("الفرق بين أعلى جملة وأوطاها صار %s ديسيبل بدل %s." % (st["spreadAfter"], st["spreadBefore"]))
+    if st.get("declip"): out.append("وصلّحت التشويش اللي من ارتفاع الصوت.")
+    if st.get("denoise") == "fft": out.append("ffmpeg اللي عندك قديم وما فيه RNNoise، فاستخدمت تنظيف أبسط. حدّثه لنتيجة أحسن.")
+    return " ".join(out)
+def sv_info(work):
+    """للاستوديو: هل فيه صوت معالج جاهز، وأرقامه."""
+    m = rj(J(work, ".hs", "sv.json"), {}) or {}; cur = m.get("sig") == sv_sig(work) and bool(sv_cur(work))
+    return {"ready": cur, "line": sv_line(m) if cur else "", "ext": bool(sv_ext_file(work)), "rnn": bool(sv_model()) and ff_has("arnndn")}
+def music_file(work):
+    """موسيقى الخلفية بمجلد المشروع (نفس ترتيب 06b_master)."""
+    for n in ("bg-audio", "bg", "sound", "music"):
+        for e in ("mp3", "m4a", "wav", "aac"):
+            if os.path.isfile(J(work, n + "." + e)): return J(work, n + "." + e)
+    return None
+def cmd_studio_voice(work, args):
+    sub = args[0] if args else "status"; st = load_studio(work); mix = hs_of(st).setdefault("mix", {})
+    if sub in ("on", "off"):
+        mix["studio"] = sub == "on"; wj(J(work, "studio.json"), st)
+        if sub == "off": print("رجعت لصوتك الأصلي."); return
+        sub = "make"
+    if sub in ("make", "redo"):
+        try: f, s = studio_voice(work, log=lambda m: None, force=sub == "redo")
+        except RuntimeError as e: sys.exit(str(e))
+        print(sv_line(s)); return
+    if sub == "export":
+        f = sv_export(work); print("طلّعت صوت القص الحالي: %s\nارفعه على Auphonic أو Adobe Podcast من حسابك، نزّل النتيجة، وبعدها: voice %s studio import <الملف>" % (os.path.basename(f), os.path.basename(work.rstrip("/\\")))); return
+    if sub == "import":
+        if len(args) < 2: sys.exit("voice <work> studio import <ملف الصوت المعالج>")
+        try: sv_import(work, args[1])
+        except RuntimeError as e: sys.exit(str(e))
+        print("تمام. التصدير يستخدم الصوت اللي عالجته من برا. لو غيّرت القص بعدين، يرجع لصوت الاستوديو اللي على جهازك."); return
+    if sub == "status":
+        mode = sv_mode(mix); m = rj(J(work, ".hs", "sv.json"), {}) or {}
+        print({"": "مطفي (صوتك الأصلي).", "local": "شغّال على جهازك.", "ext": "يستخدم صوت من برا" + ("" if sv_ext_file(work) else " (قديم، القص تغيّر)")}[mode])
+        if mode == "local" and m.get("sig") == sv_sig(work): print(sv_line(m))
+        return
+    sys.exit("voice <work> studio on | off | redo | status | export | import <ملف>")
 
 # ───────────────────────── 4.10: عشر حلول لمشاكل متعبة ─────────────────────────
 def fmt_t(x): x = max(0.0, float(x or 0)); return "%d:%04.1f" % (int(x // 60), x % 60)
@@ -1355,10 +1595,12 @@ def vr_filters(mix):
 def encode(work, S, log, out_final, out_master, mix):
     caps = rj(J(work, "caps.json")); sfx = rj(J(work, "sfx.json"), {"outro": 0}) or {}
     dur = round(caps["total"] + sfx.get("outro", 0), 3); fade = round(dur - 0.6, 3)
-    voice = float(mix.get("voice", 1)); chain = (CLEAN_AF if mix.get("clean") else "") + VOICE_FX.get(mix.get("voiceFx") or "", "") + "volume=%.3f," % voice + vr_filters(mix)
-    has_sfx = os.path.exists(J(work, "sfx.wav")); ins = ["-framerate", "30", "-i", J(work, "out", "%05d.jpg"), "-i", J(work, "cutz.mp4")] + (["-i", J(work, "sfx.wav")] if has_sfx else [])
-    bm, bp = bleep_filters(bleep_of(hs_of(load_studio(work)))); a0 = "a0"
-    fc = "[0:v]scale=in_range=pc:out_range=tv:out_color_matrix=bt709,format=yuv420p[vo];[1:a]%s%sapad=pad_dur=8[a0];" % (chain, bm)
+    svf, svm = voice_track(work, mix, log)      # 4.12: صوت استوديو (يغني عن التنظيف العادي)
+    voice = float(mix.get("voice", 1)); chain = (CLEAN_AF if mix.get("clean") and not svf else "") + VOICE_FX.get(mix.get("voiceFx") or "", "") + "volume=%.3f," % voice + vr_filters(mix)
+    has_sfx = os.path.exists(J(work, "sfx.wav")); ins = ["-framerate", "30", "-i", J(work, "out", "%05d.jpg"), "-i", J(work, "cutz.mp4")] + (["-i", J(work, "sfx.wav")] if has_sfx else []) + (["-i", svf] if svf else [])
+    bm, bp = bleep_filters(bleep_of(hs_of(load_studio(work)))); a0 = "a0"; ain = "[%d:a]" % (3 if has_sfx else 2) if svf else "[1:a]"
+    if svf: log("الصوت: " + ("اللي عالجته من برا" if svm == "ext" else "صوت استوديو"))
+    fc = "[0:v]scale=in_range=pc:out_range=tv:out_color_matrix=bt709,format=yuv420p[vo];%s%s%sapad=pad_dur=8[a0];" % (ain, chain, bm)
     if bp: fc += "%s[bp];[a0][bp]amix=inputs=2:duration=first:normalize=0[a0b];" % bp; a0 = "a0b"
     fc += ("[%s][2:a]amix=inputs=2:duration=first:normalize=0[am];" % a0 if has_sfx else "[%s]anull[am];" % a0)
     fc += "[am]atrim=0:%s,asetpts=PTS-STARTPTS,afade=t=out:st=%s:d=0.6[ao]" % (dur, fade)
@@ -2448,6 +2690,28 @@ def cmd_selftest(work=None, engine=None):
         chk("4.11: الاستوديو فيه تعديل الأصوات (مستوى وقص وظهور واختفاء) وأجزاء الصوت وشيل الخلفية، والمكسر يطبّقها", all(x in ap for x in ("function sxGet", "function sxPut", "function vrDraw", "data-vact", "data-rmbg")) and "off=int(" in s5 and "_tg(v)" in s5
             and "DATA.root||''):'')+'</small>" not in hb and os.path.isfile(os.path.join(find_engine(None), "scripts", "23_rmbg.js")))
     except Exception as e: chk("4.11: تراك الصوت وشيل الخلفية", False, str(e)[:200])
+    try:   # 4.12: صوت استوديو والتحكم بأي صوت بضغطة
+        db_ = ([-30.0] * 60 + [-70.0] * 80) * 3 + [-36.0] * 60 + [-70.0] * 40
+        cards_ = [{"s": 0.0, "e": 0.6}, {"s": 1.4, "e": 2.0}, {"s": 2.8, "e": 3.4}, {"s": 4.2, "e": 4.8}]
+        g_, _ = sv_plan(db_, cards_); lg = lambda x: 20 * math.log10(max(x, 1e-9))
+        chk("4.12: صوت استوديو يخفّض الفراغ الطويل بين الكلام 12 ديسيبل ويرفع الجملة الواطية لمستوى البقية", abs(lg(g_[110]) + 12) < 0.5 and abs(lg(g_[30])) < 0.3 and 4.5 < lg(g_[450]) < 5.6, "%.1f %.1f %.1f" % (lg(g_[110]), lg(g_[30]), lg(g_[450])))
+        td = tempfile.mkdtemp(prefix="hs-sv-"); ok_sv = False; det = ""
+        try:
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "anoisesrc=d=4:c=pink:a=0.02", "-f", "lavfi", "-i", "sine=f=220:d=4", "-filter_complex", "[1:a]volume='if(lt(mod(t,1.4),0.6),0.5,0)':eval=frame[s];[0:a][s]amix=inputs=2:normalize=0", "-ar", "48000", "-ac", "1", "-c:a", "aac", os.path.join(td, "cutz.mp4")], capture_output=True)
+            wj(os.path.join(td, "caps.json"), {"total": 4, "cards": cards_[:3]}); f1, st1 = studio_voice(td, log=lambda m: None); m1 = os.path.getmtime(f1); f2, _ = studio_voice(td, log=lambda m: None)
+            ok_sv = bool(f1) and f1 == f2 and os.path.getmtime(f2) == m1 and abs(ffdur(f1) - ffdur(os.path.join(td, "cutz.mp4"))) < 0.06 and voice_track(td, {}, lambda m: None) == (None, "")
+            try: sv_import(td, f1.replace(".wav", "-x.wav")); ok_sv = False
+            except RuntimeError: pass
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", f1, "-t", "2", os.path.join(td, "short.wav")], capture_output=True)
+            try: sv_import(td, os.path.join(td, "short.wav")); ok_sv = False; det = "قبل ملف أقصر من القص"
+            except RuntimeError: pass
+            det = det or json.dumps({k: st1.get(k) for k in ("denoise", "snrBefore", "snrAfter")})
+        finally: shutil.rmtree(td, ignore_errors=True)
+        chk("4.12: صوت استوديو يطلع ملف بنفس طول المقطع، وما يعيد الشغل لو ما تغيّر شي، ويرفض صوت من برا على قص ثاني", ok_sv, det)
+        ap = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); i18 = open(os.path.join(HERE, "i18n.js"), encoding="utf-8").read()
+        chk("4.12: الاستوديو فيه زر صوت استوديو والمقارنة، وتحكم الصوت بالضغط (لقطة، جملة، موسيقى)، والنموذج موجود", all(x in ap for x in ("function svBlock", "data-svab", "function rngRow", "kind==='music'", "'#tAu .mus'")) and "svOn:" in i18 and "musTitle:" in i18
+            and os.path.isfile(os.path.join(find_engine(None), "audio", "sh.rnnn")))
+    except Exception as e: chk("4.12: صوت استوديو", False, str(e)[:200])
     chk("الرسم الحر بالمحرّك والاستوديو", "function drawLayer" in txt.get("ext.js", "") and "function drawStart" in txt.get("app.js", ""))
     try:   # 4.6: كتم الكلمات
         m0, p0 = bleep_filters(bleep_of({})); ct = {"cards": [{"s": 0, "e": 2, "w": [{"t": "شركة", "s": 0.1, "e": 0.4}, {"t": "والشركه", "s": 0.5, "e": 0.9}, {"t": "شركات", "s": 1.0, "e": 1.3}]}]}
@@ -2799,6 +3063,21 @@ def serve(work, port, engine):
                 if r.returncode or not os.path.exists(tmp): return None
                 os.replace(tmp, f)
         return f
+    def sv_audio_file():
+        """4.12: نفس الصوت بعد صوت الاستوديو (أو اللي عالجته من برا)، عشان تسمع اللي بيطلع بالتصدير."""
+        mix = hs_of(load_studio(work)).get("mix") or {}
+        src = (sv_ext_file(work) if sv_mode(mix) == "ext" else None) or studio_voice(work, log=lambda m: None)[0]
+        if not src: return None
+        f = os.path.join(D, "au-sv-%s.m4a" % hashlib.md5((src + str(os.path.getmtime(src))).encode()).hexdigest()[:10])
+        with AUL:
+            if not os.path.exists(f):
+                for old in glob.glob(os.path.join(D, "au-sv-*.m4a")):
+                    try: os.remove(old)
+                    except OSError: pass
+                tmp = f + ".part.m4a"; r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", src, "-vn", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", tmp], capture_output=True)
+                if r.returncode or not os.path.exists(tmp): return None
+                os.replace(tmp, f)
+        return f
 
     def versions():
         vd = os.path.join(D, "versions"); out = []
@@ -2981,7 +3260,7 @@ def serve(work, port, engine):
                 return self._json(200, {"version": VERSION, "vsig": vsig(work), "token": TOKEN, "lan": "http://%s:%d/?k=%s" % (LAN, port, TOKEN), "lanM": "http://%s:%d/m?k=%s" % (LAN, port, TOKEN), "review": "http://%s:%d/review?r=%s" % (LAN, port, RTOKEN),
                                         "work": work, "name": os.path.basename(work.rstrip("/\\")), "thumbsDone": BG["thumbsDone"], "versions": versions(), "exports": exports(), "exportMt": export_mt(), "hub": hub_url(), "title": (hs_of(load_studio(work)).get("title") or (hs_of(load_studio(work)).get("pod") or {}).get("title") or (hs_of(load_studio(work)).get("dahih") or {}).get("title") or ""),
                                         "brands": sorted(os.path.splitext(f)[0] for f in os.listdir(brand_dir())), "local": self._local(), "claude": bool(find_claude() or shutil.which("opencode")), "agent": "claude" if find_claude() else ("opencode" if shutil.which("opencode") else ""), "notify": bool(notify_cfg().get("on")), "tokenAsk": token_ask(), "gen": gen_view(gen_list(work)), "safe": safe_of((load_studio(work).get("hs") or {}).get("platforms"), *frame_of(load_studio(work).get("hs") or {})), "platforms": {k: {"safe": v["safe"], "frames": v["frames"], "best": v["best"], "max": v["max"]} for k, v in PLATFORMS.items()},
-                                        "assets": sorted(f for f in os.listdir(P("assets")) if os.path.splitext(f)[1].lower() in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg")) if os.path.isdir(P("assets")) else [], "seams": keep_seams(work), "looks": looks_all(), "beats": rj(P("beats.json")),
+                                        "assets": sorted(f for f in os.listdir(P("assets")) if os.path.splitext(f)[1].lower() in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg")) if os.path.isdir(P("assets")) else [], "seams": keep_seams(work), "looks": looks_all(), "beats": rj(P("beats.json")), "music": os.path.basename(music_file(work) or ""), "sv": sv_info(work),
                                         "post": open(P("post.txt"), encoding="utf-8").read() if os.path.exists(P("post.txt")) else "", "ready": ready(work),
                                         "finals": [f for f in sorted(os.listdir(work)) if re.match(r"ad-(master|clean|hook-\d+|\d+x\d+)\.mp4$", f)]})
             if p == "/hs/notify":
@@ -3029,7 +3308,7 @@ def serve(work, port, engine):
                 if not f: return self.send_error(404)
                 self.path = "/.hs/" + os.path.basename(f); return self._ranged() if self._wants_range() else self._file(f, "audio/mp4")
             if p == "/hs/au.m4a":
-                f = audio_file()
+                f = sv_audio_file() if (q.get("sv") or [""])[0] == "1" else audio_file()
                 if not f: return self.send_error(404)
                 self.path = "/.hs/" + os.path.basename(f); return self._ranged() if self._wants_range() else self._file(f, "audio/mp4")
             if p == "/hs/tools":
@@ -3198,6 +3477,10 @@ def serve(work, port, engine):
                     else: task = "صلّح هالمشاكل بالمقطع (فحص الاحتفاظ). أقل تعديل يكفي، وبعدها قل وش سويت بسطرين:\n- " + "\n- ".join(items)
                     ok, msg = agent_run(task, "تحسين بـClaude: " + ("نصوص النشر" if what == "repurpose" else "فحص الاحتفاظ"))
                     return self._json(200, {"ok": ok, "msg": msg})
+                if p == "/hs/sv":     # 4.12: صوت استوديو (يعالج مرة وحدة لكل قص)
+                    try: f, r = studio_voice(work, log=lambda m: None, force=bool(data.get("redo")))
+                    except Exception as ex: return self._json(200, {"ok": False, "msg": str(ex)[:300]})
+                    return self._json(200, {**(r or {}), "ok": bool(f), "line": sv_line(r or {}), "sig": sv_sig(work)})
                 if p == "/hs/rmbg":   # 4.11: شيل الخلفية من صورة مضافة
                     r = rmbg(work, str(data.get("src") or ""), str(data.get("mode") or "auto")); return self._json(200, r)
                 if p == "/hs/plan_set":   # 4.10: الخطة قبل البناء
