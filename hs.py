@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Hojas Studio 4.8 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
+"""Hojas Studio 4.9 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
 
   python hs.py open   <work> [--engine <مجلد المحرّك>] [--port 8800] [--no-browser]
         يشغّل الخادم بالخلفية ويفتح المتصفح. شغّله أول ما تبدأ المونتاج، حتى قبل ما يجهز أي ملف.
@@ -11,11 +11,11 @@
   python hs.py brief  <work> ask [--hooks "…" "…"] [--topics "…" "…"] [--note "…"] [--file q.json]
         يفتح للمستخدم صفحة أسئلة قبل المونتاج (بعد التفريغ). ثم:  brief <work> wait   ثم:  brief <work> apply
   python hs.py media  <work> search "query" [--n 8] | add <رقم> --at <ثانية> [--dur 3] [--fit card|cover]     صور برخص حرّة
-  python hs.py gen    <work> request image|video "وصف" [--at t] [--fit card|cover] | list | import <رقم> <ملف> [--at t] | rm <رقم>
+  python hs.py gen    <work> request image|video "وصف" [--at t] [--fit card|cover] | list | import <رقم> <ملف|رابط> [--at t] | rm <رقم> | moments [4]
         بلا مفاتيح API: الطلب ينحفظ، يتولّد من حساب المستخدم (ChatGPT للصور · Gemini للمقاطع)، ثم import يدخّله التايم لاين.
   python hs.py platform [tiktok instagram x linkedin]     وش تحتاج كل منصة (مقاس · مدة · مناطق آمنة · أسلوب)
   python hs.py auto   <work> zooms | transitions [type=curve dir=right] | beats | clear zooms|transitions|beats
-  python hs.py caps   <work> regroup [words=6 dur=2.5 pause=0.5] | clean [--dry]     الكابشن على أنفاس الكلام · شيل جمل whisper المخترعة
+  python hs.py caps   <work> regroup [wpl=5 lines=2] | names | clean [--dry]     الكابشن 5 كلمات بالسطر على الأنفاس · الأسماء بالإنجليزي · شيل جمل whisper المخترعة
   python hs.py look   <work> list | apply <اسم> | off           طابع جاهز (ملف سري · كينوت · سينما صامتة · مشربية …)
   python hs.py beat   <work> [ملف | my2] [--at ث]                 يقيس إيقاع الموسيقى (للقص على الضربة)
 
@@ -25,7 +25,9 @@
   python hs.py layer  <work> list | add type=text text="…" s=1 e=4 … | set <id> k=v … | rm <id>
   python hs.py hook   <work> set "صيغة 1" "صيغة 2" … | active <رقم> | off
   python hs.py check  <work>                         فحص الاحتفاظ + الحشو + الجمل المعادة
-  python hs.py remove <work> [--cards 3 7] [--ranges 4.2-5.1 …] [--fillers]    يقص من الفيديو والصوت
+  python hs.py remove <work> [--cards 3 7] [--ranges 4.2-5.1 …] [--fillers] [--force]    يقص من الفيديو والصوت (يرفض الكلام المهم وآخر المقطع بدون --force)
+  python hs.py logo   <work> plan | auto | add <الاسم> <ملف|رابط>     شعار الشركة لما ينذكر اسمها، و«X أفضل من Y»
+  python hs.py fonts  list | install <zip|مجلد> | apply <work>         خطوطه الخاصة (تبقى على جهازه، ما تنرفع)
   python hs.py export <work> [--clean] [--hooks] [--frame 9:16|4:5|1:1|16:9]     التصدير النهائي (نفس زر الاستوديو)
   python hs.py pack   <work>                         حزمة النشر (فيديو + SRT عربي/إنجليزي + نص البوست)
   python hs.py notes  <work> [list | done <id> "وش سويت" | reopen <id>]
@@ -66,7 +68,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.8"
+VERSION = "4.9"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -110,6 +112,77 @@ def fix_windows_path():
         if os.path.isfile(os.path.join(d, "bash.exe")):
             os.environ["PATH"] = d + os.pathsep + os.environ.get("PATH", ""); return
 
+# ───────────────────────── 4.9: خطوط هويتك (ثمانية) ─────────────────────────
+# ترخيص خط ثمانية يمنع رفعه أو توزيعه مع أي برنامج، فملفاته ما تنرفق بالنسخة العامة (.gitignore):
+# تنحط مرة على جهاز المستخدم (hs fonts install <zip>) وتنسخ لمجلد كل مشروع عشان الرسم والتصدير يشوفونها.
+BRAND_FONTS = {"Thmanyah Sans": "thmanyahsans", "Thmanyah Serif Display": "thmanyahserifdisplay", "Thmanyah Serif Text": "thmanyahseriftext"}
+CAP_BRAND, TITLE_BRAND = "Thmanyah Sans", "Thmanyah Serif Display"     # الكابشن · العنوان الثابت فوق (ما يستخدمه غيره)
+FONT_W = {"thin": 100, "extralight": 200, "light": 300, "regular": 400, "book": 400, "medium": 500, "semibold": 600, "bold": 700, "extrabold": 800, "heavy": 900, "black": 900}
+def font_dirs():
+    return [os.path.join(HOME_CFG, "fonts"), os.path.join(HERE, "fonts"), os.path.join(os.path.expanduser("~"), "Documents", "hojas-studio", "fonts")]
+def brand_fonts():
+    """{العائلة: [(الوزن، المسار)…]} للخطوط المركّبة على هالجهاز (woff2 أول، وإلا otf/ttf)."""
+    out = {}
+    for fam, pre in BRAND_FONTS.items():
+        got = {}
+        for d in font_dirs():
+            if not os.path.isdir(d): continue
+            for f in os.listdir(d):
+                m = re.match(re.escape(pre) + r"-([A-Za-z]+)\.(woff2|otf|ttf)$", f, re.I)
+                if not m or m.group(1).lower() not in FONT_W: continue
+                w = FONT_W[m.group(1).lower()]; rank = {"woff2": 0, "otf": 1, "ttf": 2}[m.group(2).lower()]
+                if w not in got or rank < got[w][0]: got[w] = (rank, os.path.join(d, f))
+        if got: out[fam] = sorted((w, p) for w, (r, p) in got.items())
+    return out
+def brand_fonts_install(src):
+    """من ملف zip أو مجلد: ينسخ ملفات الخط (woff2 و otf) لمجلد الخطوط الخاص بالجهاز ~/.hojas-studio/fonts."""
+    dst = os.path.join(HOME_CFG, "fonts"); os.makedirs(dst, exist_ok=True); n = 0; pat = re.compile(r"(%s)-[A-Za-z]+\.(woff2|otf|ttf)$" % "|".join(BRAND_FONTS.values()), re.I)
+    if os.path.isfile(src) and src.lower().endswith(".zip"):
+        with zipfile.ZipFile(src) as z:
+            for nm in z.namelist():
+                b = os.path.basename(nm)
+                if "__MACOSX" in nm or not pat.search(b): continue
+                open(os.path.join(dst, b), "wb").write(z.read(nm)); n += 1
+    elif os.path.isdir(src):
+        for root, _, fs in os.walk(src):
+            for b in fs:
+                if pat.search(b) and "__MACOSX" not in root: shutil.copy2(os.path.join(root, b), os.path.join(dst, b)); n += 1
+    else: raise RuntimeError("أعطني ملف zip أو مجلد الخط")
+    return n, dst
+def brand_fonts_project(work, fams=(CAP_BRAND, TITLE_BRAND)):
+    """ينسخ خطوط الهوية لمجلد المشروع ويسجّلها بـ studio.json (hs.fonts) بأوزانها. يرجّع True لو غيّر شي."""
+    bf = brand_fonts(); fams = [f for f in fams if f in bf]
+    if not fams: return False
+    os.makedirs(J(work, "fonts"), exist_ok=True); sp = J(work, "studio.json"); st = load_studio(work); hs = hs_of(st)
+    have = {(x.get("name"), x.get("file")) for x in hs.get("fonts") or []}; add = []
+    for fam in fams:
+        for w, p in bf[fam]:
+            b = os.path.basename(p); d = J(work, "fonts", b)
+            if not os.path.isfile(d) or os.path.getsize(d) != os.path.getsize(p): shutil.copy2(p, d)
+            if (fam, b) not in have: add.append({"name": fam, "file": b, "weight": w})
+    if add: hs["fonts"] = (hs.get("fonts") or []) + add; wj(sp, st)
+    return bool(add)
+def brand_fonts_defaults(hs):
+    """الافتراضي لو خط الهوية مركّب: الكابشن ثمانية سانس، والعنوان الثابت فوق ثمانية سيرف ديسبلاي."""
+    bf = brand_fonts(); ch = []
+    if CAP_BRAND in bf:
+        cap = hs.setdefault("cap", {}); ws = [w for w, _ in bf[CAP_BRAND]]
+        cap["font"] = CAP_BRAND; cap["weight"] = min(ws, key=lambda w: abs(w - int(cap.get("weight") or 700))); ch.append("الكابشن: " + CAP_BRAND)
+    if TITLE_BRAND in bf:
+        hk = hs.setdefault("hooks", {}); hk["font"] = TITLE_BRAND; ch.append("العنوان فوق: " + TITLE_BRAND)
+    return ch
+def cmd_fonts(args):
+    sub = args[0] if args else "list"
+    if sub == "install":
+        if len(args) < 2: sys.exit("fonts install <ملف zip أو مجلد الخط>")
+        n, d = brand_fonts_install(os.path.abspath(args[1])); print("انحطت %d ملف خط في %s (على جهازك بس، ما تنرفع مع السكل)" % (n, d))
+    elif sub == "apply":
+        if len(args) < 2: sys.exit("fonts apply <work>")
+        w = os.path.abspath(args[1]); st = load_studio(w); ch = brand_fonts_defaults(hs_of(st)); wj(J(w, "studio.json"), st); brand_fonts_project(w)
+        print("\n".join(ch) if ch else "خط الهوية مو مركّب. ركّبه: hs fonts install <zip>")
+    else:
+        bf = brand_fonts()
+        print("\n".join("%s: %s" % (k, " · ".join(str(w) for w, _ in v)) for k, v in bf.items()) if bf else "ما فيه خطوط هوية مركّبة. ركّبها: hs fonts install <zip>")
 def patch(work, quiet=False):
     """ينسخ الإضافة لمجلد الشغل ويضيف سطرها آخر compose.html. يرجّع True لو غيّر شي، None لو compose ما وُجد بعد."""
     comp = J(work, "compose.html")
@@ -118,6 +191,8 @@ def patch(work, quiet=False):
         sys.exit("ما فيه compose.html بمجلد الشغل: " + work)
     src_ext = os.path.join(HERE, "ext.js"); dst = J(work, "hs-ext.js")
     if not os.path.exists(dst) or open(src_ext, "rb").read() != open(dst, "rb").read(): shutil.copyfile(src_ext, dst)
+    try: brand_fonts_project(work)   # 4.9: خطوط الهوية المركّبة على الجهاز تنسخ للمشروع
+    except Exception: pass
     src = open(comp, encoding="utf-8").read()
     old = "T('والملف كامل يوصلك على الخاص',540,1370"   # 3.9: السطر الصغير بكرت الختام صار يتعدّل من الاستوديو
     if old in src: src = src.replace(old, "T(OUTRO_T.sub==null?'والملف كامل يوصلك على الخاص':OUTRO_T.sub,540,1370"); open(comp, "w", encoding="utf-8").write(src)
@@ -328,6 +403,14 @@ def rebuild_video(work, S, log):
         except FileNotFoundError: pass
     shutil.rmtree(J(work, "bt"), ignore_errors=True); shutil.rmtree(J(work, "out"), ignore_errors=True); vision_reset(work)
 
+_CM = None
+def cutmap_mod():
+    """engine/scripts/cutmap.py (خريطة القص المشتركة مع 10_script_edit)."""
+    global _CM
+    if _CM is None:
+        eng = find_engine(None) or sys.exit("ما لقيت مجلد engine")
+        spec = importlib.util.spec_from_file_location("hs_cutmap", os.path.join(eng, "scripts", "cutmap.py")); _CM = importlib.util.module_from_spec(spec); spec.loader.exec_module(_CM)
+    return _CM
 def remove_ranges(work, S, log, ranges=(), cards=(), words=(), rebuild=True):
     """يشيل مقاطع (بزمن الإخراج) من الفيديو والصوت، ويزحّف كل شي بعدها: الكابشن · المؤثرات · المشاهد · الطبقات."""
     caps = rj(J(work, "caps.json")); cs = caps["cards"]; total = caps["total"]; iv = []
@@ -345,46 +428,21 @@ def remove_ranges(work, S, log, ranges=(), cards=(), words=(), rebuild=True):
         b = ws[j + 1]["s"] if j + 1 < len(ws) else min(total, w["e"] + 0.04)
         a = min(a, w["s"]); b = max(b, w["e"]); a = max(a, w["s"] - 0.25); b = min(b, w["e"] + 0.25)
         if b > a: iv.append([a, b])
-    iv = sorted(x for x in iv if x[1] - x[0] > 0.03); merged = []
-    for a, b in iv:
-        if merged and a - merged[-1][1] < 0.05: merged[-1][1] = max(merged[-1][1], b)
-        else: merged.append([a, b])
-    merged = [[round(a * 30) / 30.0, round(b * 30) / 30.0] for a, b in merged if round(b * 30) > round(a * 30)]   # 4.7.1: على فريمات المقطع بالضبط
-    if not merged: raise ValueError("ما فيه شي ينشال")
-    gone = sum(b - a for a, b in merged)
-    if total - gone < 1.0: raise ValueError("بيبقى أقل من ثانية — ما أقدر أشيل كل هذا")
+    iv = sorted(x for x in iv if x[1] - x[0] > 0.03)
+    if not iv: raise ValueError("ما فيه شي ينشال")
+    # 4.9: الحذف يمر من خريطة القص: كل وقت ينحسب من مكانه بالأصل، وحدود القص على أهدأ نقطة، فالكابشن ما يتأخر ولا يبقى كابشن لكلام انشال
+    cm = cutmap_mod(); cut = rj(J(work, "cut.json")); keep = [list(x) for x in cut["keep"]]
+    guards = [(w["s"], w["e"]) for i, c in enumerate(cs) if i not in drop_cards for j, w in enumerate(c["w"]) if (i, j) not in drop_words and not any(a <= (w["s"] + w["e"]) / 2 <= b for a, b in iv)]
+    new_keep, remap, gone = cm.remove(work, keep, iv, guards)
+    new_total = round(sum(b - a for a, b in new_keep), 3)
+    if new_total < 1.0: raise ValueError("بيبقى أقل من ثانية — ما أقدر أشيل كل هذا")
     snapshot(work, "قبل القص (تلقائي)")
-    shift = lambda t: round(t - sum(min(t, b) - a for a, b in merged if a < t), 3)
-    inside = lambda t: any(a - 1e-6 <= t <= b + 1e-6 for a, b in merged)
-    cut = rj(J(work, "cut.json")); keep = [list(x) for x in cut["keep"]]; off = []; acc = 0.0
-    for a, b in keep: off.append(acc); acc += b - a
-    src_del = []
-    for ds, de in merged:
-        for i, (a, b) in enumerate(keep):
-            s0, s1 = off[i], off[i] + (b - a); lo, hi = max(ds, s0), min(de, s1)
-            if hi > lo: src_del.append([a + (lo - s0), a + (hi - s0)])
-    new_keep = []
-    for a, b in keep:
-        parts = [[a, b]]
-        for ds, de in src_del:
-            o = []
-            for x, y in parts:
-                if de <= x or ds >= y: o.append([x, y]); continue
-                if ds > x: o.append([x, ds])
-                if de < y: o.append([de, y])
-            parts = o
-        new_keep += [[round(p[0], 4), round(p[1], 4)] for p in parts if p[1] - p[0] >= 0.12]
-    cut["keep"] = new_keep; cut["total"] = round(sum(b - a for a, b in new_keep), 3); wj(J(work, "cut.json"), cut)
-    new_cards = []
-    for i, c in enumerate(cs):
-        if i in drop_cards: continue
-        ws = [w for j, w in enumerate(c["w"]) if (i, j) not in drop_words and not inside((w["s"] + w["e"]) / 2)]
-        if not ws: continue
-        ws = [{**w, "s": shift(w["s"]), "e": max(shift(w["e"]), shift(w["s"]) + 0.08)} for w in ws]
-        new_cards.append({"s": max(0.0, min(shift(c["s"]), ws[0]["s"])), "e": max(shift(c["e"]), ws[-1]["e"]), "w": ws})
-    for i in range(len(new_cards) - 1):
-        if new_cards[i]["e"] > new_cards[i + 1]["s"]: new_cards[i]["e"] = round(max(new_cards[i]["w"][-1]["e"], new_cards[i + 1]["s"] - 0.02), 3)
-    new_total = round(min(total - gone, cut["total"]), 3); wj(J(work, "caps.json"), {"total": new_total, "cards": new_cards})
+    shift = lambda t: (lambda v: round(v, 3) if v is not None else round(remap(t, "prev"), 3))(remap(t))
+    inside = lambda t: remap(t) is None
+    cut["keep"] = new_keep; cut["total"] = new_total; cut["edited"] = True; wj(J(work, "cut.json"), cut)
+    kept = {"total": total, "cards": [{**c, "w": [w for j, w in enumerate(c["w"]) if (i, j) not in drop_words]} for i, c in enumerate(cs) if i not in drop_cards]}
+    kept["cards"] = [c for c in kept["cards"] if c["w"]]
+    wj(J(work, "caps.json"), cm.remap_caps(kept, remap, new_total))
     sfx = rj(J(work, "sfx.json"), None)
     if sfx is not None:
         for k, v in list(sfx.items()):
@@ -394,8 +452,8 @@ def remove_ranges(work, S, log, ranges=(), cards=(), words=(), rebuild=True):
     def mv(arr):
         o = []
         for x in arr or []:
-            s, e = shift(x.get("s", 0)), shift(x.get("e", 0))
-            if e - s > 0.15: o.append({**x, "s": s, "e": e})
+            s0, e0 = remap(x.get("s", 0), "next"), remap(x.get("e", 0), "prev")
+            if s0 is not None and e0 is not None and e0 - s0 > 0.15: o.append({**x, "s": round(s0, 3), "e": round(e0, 3)})
         return o
     if st.get("scenes"):
         sc = mv(st["scenes"])
@@ -940,6 +998,8 @@ def brief_apply(work):
         b = rj(os.path.join(brand_dir(), a["brand"] + ".json"))
         if b: hs["cap"] = {**(hs.get("cap") or {}), **(b.get("cap") or {})}; hs["en"] = {**(hs.get("en") or {}), **(b.get("en") or {})}; done.append("الهوية: " + a["brand"])
     if a.get("cap"): hs["cap"] = {**{k: v for k, v in (hs.get("cap") or {}).items() if k not in CAP_STYLE_KEYS}, **a["cap"], "on": True}; done.append("إعدادات الكابشن")
+    try: done += brand_fonts_defaults(hs)   # 4.9: خط الهوية هو الافتراضي (الكابشن والعنوان فوق)
+    except Exception: pass
     plats = [x for x in (a.get("platform") or []) if x in PLATFORMS]; ar = a.get("frame") if a.get("frame") in FRAMES else "9:16"
     hs["frame"] = {**(hs.get("frame") or {}), "ar": ar}; hs["platforms"] = plats; done.append("المقاس " + ar)
     sz = safe_of(plats, ar, frame_of(hs)[1]); cy_ = float((hs.get("cap") or {}).get("y", 76))
@@ -1240,6 +1300,11 @@ def gen_prompt(r, frame="9:16"):
 def gen_import(work, rid, src, name=None, at=None, fit=None, log=print):
     q = gen_list(work); r = next((x for x in q if str(x["id"]) == str(rid)), None) if rid not in (None, "", "-", "new") else None
     name = name or os.path.basename(src); ext = os.path.splitext(name)[1].lower(); at = at if at is not None else (r or {}).get("at"); fit = fit or (r or {}).get("fit") or "card"
+    if re.match(r"https?://", str(src)):   # 4.9: رابط صورة أو مقطع من موقع التوليد مباشرة
+        u = str(src); ext = os.path.splitext(urllib.parse.urlparse(u).path)[1].lower() or ".png"; ext = ext if ext in IMG_EXT + VID_EXT else ".png"
+        tmp = J(work, ".hs", "dl-%s%s" % (time.strftime("%H%M%S"), ext)); os.makedirs(J(work, ".hs"), exist_ok=True)
+        with urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"}), timeout=90) as rr_, open(tmp, "wb") as f_: shutil.copyfileobj(rr_, f_)
+        src = tmp; name = os.path.basename(tmp); ext = os.path.splitext(name)[1].lower()
     if not os.path.isfile(src) or os.path.getsize(src) < 1500: raise RuntimeError("ما لقيت الملف أو إنه فاضي: " + src)
     tag = "gen%s-%s" % (r["id"] if r else "", time.strftime("%H%M%S"))
     if ext in IMG_EXT:
@@ -1355,6 +1420,113 @@ def cmd_media(work, args):
         dur = dur or 3; fit = fit or "card"
         lid, name = media_add(work, item, at, dur, fit); print("انضافت %s كطبقة %s عند %s ث (الرخصة: %s)" % (name, lid, at, item["lic"]))
     else: sys.exit("media: search \"query\" [--n 8] | add <n> --at <t> [--dur 3] [--fit card|cover]")
+# ───────────────────────── 4.9: شعار الشركة لما ينذكر اسمها ─────────────────────────
+# الشعارات من Simple Icons (CC0، github.com/simple-icons/simple-icons) وتنزل على الجهاز أول مرة.
+# شعار مو موجود هناك (OpenAI، Canva، Microsoft…)؟ يطلع حرف أول بدائرة، أو حط ملفه الرسمي: hs logo add <الاسم> <ملف|رابط>
+LOGO_SLUG = {"Claude": "claude", "Claude Code": "claude", "Anthropic": "anthropic", "Haiku": "claude", "Sonnet": "claude", "Opus": "claude", "Fable": "claude", "Mythos": "claude",
+             "Gemini": "googlegemini", "Google": "google", "Google Drive": "googledrive", "Drive": "googledrive", "Gmail": "gmail", "YouTube": "youtube", "TikTok": "tiktok",
+             "Instagram": "instagram", "WhatsApp": "whatsapp", "Telegram": "telegram", "Meta": "meta", "Facebook": "facebook", "Snapchat": "snapchat", "Twitter": "x", "X": "x",
+             "Apple": "apple", "iPhone": "apple", "iPad": "apple", "MacBook": "apple", "Samsung": "samsung", "Netflix": "netflix", "Tesla": "tesla", "Nvidia": "nvidia",
+             "Grok": "x", "xAI": "x", "DeepSeek": "deepseek", "Perplexity": "perplexity", "Mistral": "mistralai", "Notion": "notion", "Figma": "figma", "GitHub": "github",
+             "Cursor": "cursor", "Vercel": "vercel", "Supabase": "supabase", "Python": "python", "JavaScript": "javascript", "React": "react", "Zapier": "zapier",
+             "Spotify": "spotify", "Discord": "discord", "Reddit": "reddit", "Shopify": "shopify", "Netlify": "netlify", "Replit": "replit", "Higgsfield": "", "Kling": "",
+             "ChatGPT": "", "GPT": "", "OpenAI": "", "Codex": "", "Sora": "", "Canva": "", "Microsoft": "", "Copilot": "", "Amazon": "", "CapCut": "", "Slack": "", "LinkedIn": "",
+             "Midjourney": "", "Runway": "", "ElevenLabs": "", "Excel": "", "PowerPoint": "", "Photoshop": "", "Premiere": "", "After Effects": "", "Final Cut": "", "Salla": "", "Zid": ""}
+def logo_dir(): d = os.path.join(HOME_CFG, "logos"); os.makedirs(d, exist_ok=True); return d
+def logo_key(name): return re.sub(r"[^a-z0-9]+", "", str(name).lower()) or "logo"
+def logo_get(name):
+    """مسار ملف الشعار على الجهاز (svg أبيض أو صورة حطها المستخدم)، أو None."""
+    k = logo_key(name)
+    for ext in (".svg", ".png", ".webp", ".jpg"):
+        p = os.path.join(logo_dir(), k + ext)
+        if os.path.isfile(p) and os.path.getsize(p) > 60: return p
+    slug = LOGO_SLUG.get(name, logo_key(name))
+    if not slug: return None
+    for u in ("https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/%s.svg" % slug, "https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/%s.svg" % slug):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"}), timeout=12) as r: svg = r.read().decode("utf-8", "replace")
+            if "<svg" not in svg: continue
+            svg = re.sub(r"<svg ", '<svg width="128" height="128" fill="#FFFFFF" ', svg, count=1)
+            p = os.path.join(logo_dir(), k + ".svg"); open(p, "w", encoding="utf-8").write(svg); return p
+        except Exception: continue
+    return None
+def logo_to_project(work, name):
+    p = logo_get(name)
+    if not p: return ""
+    os.makedirs(J(work, "assets", "logos"), exist_ok=True); b = logo_key(name) + os.path.splitext(p)[1]; shutil.copy2(p, J(work, "assets", "logos", b)); return "assets/logos/" + b
+_CMP = r"(أفضل|افضل|أحسن|احسن|أقوى|اقوى|أسرع|اسرع|أذكى|اذكى|أرخص|ارخص|أغلى|اغلى|أدق|ادق|أضعف|اضعف|أبطأ|ابطأ|أسهل|اسهل)"
+def logos_plan(work, gap_same=25.0, gap_any=4.0, per_min=5):
+    """يلقى أسماء الشركات بالكابشن (بعد كتابتها بالإنجليزي) ويخطط شارات الشعار، و«X أفضل من Y» تصير شارتين متقابلتين."""
+    caps = rj(J(work, "caps.json"), {}) or {}; ws = [w for c in caps.get("cards") or [] for w in c["w"]]
+    st = load_studio(work); Ls = [L for L in hs_of(st).get("layers") or [] if not L.get("off") and L.get("auto") != "logos"]   # الشارات القديمة تنشال وتنعاد
+    busy = lambda a, b: any(L.get("type") in ("mg", "image", "split", "viz", "kinetic", "cover", "collage", "pip") and L["s"] < b and L["e"] > a for L in Ls)
+    def nm(w):
+        e = w.get("en") or (str(w["t"]).strip("؟?!.،, ") if re.fullmatch(r"[A-Za-z][A-Za-z0-9 .+\-]*", str(w["t"]).strip("؟?!.،, ")) else "")
+        return e if e in LOGO_SLUG else ""
+    plan, last = [], {}
+    # 1) المقارنات أول: «X … أفضل من Y» (X قبلها بـ 12 كلمة و 7 ث بالكثير)
+    for j, w in enumerate(ws):
+        if not re.fullmatch(_CMP + r"[؟?!.،,]*", str(w["t"]).strip()): continue
+        n2 = next(((nm(ws[k]), ws[k]) for k in range(j + 1, min(len(ws), j + 4)) if nm(ws[k])), None)
+        if not n2: continue
+        n1 = next((nm(ws[k]) for k in range(j - 1, max(-1, j - 13), -1) if nm(ws[k]) and nm(ws[k]) != n2[0] and w["s"] - ws[k]["s"] <= 7.0), "")
+        if not n1: continue
+        rel = " ".join(str(x["t"]).strip("؟?!.،,") for x in ws[j:j + 3] if not nm(x) and x["s"] < n2[1]["s"]) or "أفضل من"
+        s0 = max(0.0, w["s"] - 0.35); e0 = max(s0 + 3.0, n2[1]["e"] + 1.6)
+        if busy(s0, e0) or any(p["s"] < e0 + gap_any and p["e"] > s0 - gap_any for p in plan): continue
+        plan.append({"name": n1, "name2": n2[0], "rel": rel, "s": round(s0, 3), "e": round(e0, 3)}); last[n1] = last[n2[0]] = s0
+    # 2) الذكر العادي: أول ذكر لكل شركة له الأولوية، وبعدها لو رجع ينذكر بعد 25 ث. بين كل شارتين 4 ث، وبالكثير 5 بأي دقيقة
+    seen, cands = set(), []
+    for w in ws:
+        n1 = nm(w)
+        if n1: cands.append((w["s"], n1, n1 not in seen)); seen.add(n1)
+    for first in (True, False):
+        for t, n1, f in cands:
+            if f != first or any(n1 in (p["name"], p.get("name2")) and abs(p["s"] - t) < gap_same for p in plan): continue
+            s0 = round(max(0.0, t - 0.1), 3); e0 = round(s0 + 2.2, 3)
+            if any(p["s"] < e0 + gap_any and p["e"] > s0 - gap_any for p in plan) or busy(s0, e0): continue
+            if sum(1 for p in plan if t - 60 < p["s"] <= t) >= per_min or sum(1 for p in plan if t <= p["s"] < t + 60) >= per_min: continue
+            plan.append({"name": n1, "s": s0, "e": e0})
+    plan.sort(key=lambda p: p["s"])
+    return plan
+def logos_apply(work, dry=False):
+    plan = logos_plan(work)
+    if dry or not plan: return plan
+    st = load_studio(work); hs = hs_of(st); Ls = hs.setdefault("layers", []); Ls[:] = [L for L in Ls if L.get("auto") != "logos"]
+    for p in plan:
+        L = {"id": new_id(Ls), "type": "mg", "kind": "logo", "auto": "logos", "s": p["s"], "e": p["e"], "track": 1, "name": p["name"], "src": logo_to_project(work, p["name"])}
+        if p.get("name2"): L.update(name2=p["name2"], src2=logo_to_project(work, p["name2"]), rel=p["rel"])
+        Ls.append(L)
+    wj(J(work, "studio.json"), st); return plan
+def cmd_logo(work, args):
+    sub = args[0] if args else "plan"
+    if sub in ("plan", "auto"):
+        plan = logos_apply(work, dry=(sub == "plan"))
+        for p in plan: print("%6.2f  %s%s" % (p["s"], p["name"], ("  %s  %s" % (p.get("rel"), p["name2"])) if p.get("name2") else ""))
+        print(("انضافت %d شارة شعار" % len(plan)) if sub == "auto" else ("%d شارة مقترحة. طبّقها: hs logo <work> auto" % len(plan)) if plan else "ما لقيت أسماء شركات بالكابشن.")
+    elif sub == "add":
+        if len(args) < 3: sys.exit("logo add <الاسم بالإنجليزي> <ملف أو رابط>")
+        name, src = args[1], args[2]; ext = os.path.splitext(urllib.parse.urlparse(src).path if src.startswith("http") else src)[1].lower() or ".png"
+        dst = os.path.join(logo_dir(), logo_key(name) + ext)
+        if src.startswith("http"):
+            with urllib.request.urlopen(urllib.request.Request(src, headers={"User-Agent": "Mozilla/5.0"}), timeout=30) as r, open(dst, "wb") as f: shutil.copyfileobj(r, f)
+        else: shutil.copy2(src, dst)
+        print("انحفظ شعار %s: %s" % (name, dst))
+    else: sys.exit("logo: plan | auto | add <الاسم> <ملف|رابط>")
+def gen_moments(work, n=4, spacing=8.0):
+    """4.9: أهم الجمل اللي تستاهل صورة تخيلية (فكرة مهمة، رقم، مقارنة، قصة)، بعيدة عن الطبقات الموجودة وعن بعض."""
+    caps = rj(J(work, "caps.json"), {}) or {}; cm = cutmap_mod(); st = load_studio(work); Ls = hs_of(st).get("layers") or []
+    busy = lambda a, b: any(L.get("type") in ("image", "split", "viz", "kinetic", "cover", "collage", "mg") and L["s"] < b and L["e"] > a for L in Ls)
+    cands = []; ws = [w for c in caps.get("cards") or [] for w in c["w"]]
+    for i, g in enumerate(capgroup_mod().breaths(ws, pause=0.6, max_words=18, max_dur=7.0)):   # جمل كاملة، مو كروت
+        c = {"s": g[0]["s"], "e": g[-1]["e"], "w": g}; txt = " ".join(str(w["t"]) for w in g); why = cm.important(txt); score = sum({"رقم أو سعر": 2, "نصيحة أو مقارنة": 2, "اسم": 1}.get(x, 1) for x in why) + min(2, len(c["w"]) / 5)
+        if c["s"] < 2.5 or len(c["w"]) < 3: continue   # الهوك له عنوانه، والجمل القصيرة ما تحمل فكرة
+        if not busy(c["s"], c["e"] + 1.5): cands.append((score, c["s"], txt, why))
+    cands.sort(key=lambda x: -x[0]); out = []
+    for sc, s, txt, why in cands:
+        if len(out) >= n: break
+        if all(abs(s - o["at"]) >= spacing for o in out): out.append({"at": round(s, 2), "text": txt, "why": why})
+    return sorted(out, key=lambda o: o["at"])
 def cmd_gen(work, args):
     sub = args[0] if args else "list"
     def opt(name, d=None):
@@ -1377,6 +1549,8 @@ def cmd_gen(work, args):
             if len(args) < 3: sys.exit("gen: import <رقم الطلب أو -> <ملف> [--at t] [--fit card|cover]")
             print(json.dumps(gen_import(work, args[1], os.path.abspath(args[2]), at=at, fit=fit), ensure_ascii=False))
         elif sub == "rm": gen_rm(work, args[1]); print("انشال.")
+        elif sub == "moments":
+            for m in gen_moments(work, int(args[1]) if len(args) > 1 else 4): print("%6.2f  %s%s" % (m["at"], m["text"], ("   (" + "، ".join(m["why"]) + ")") if m["why"] else ""))
         else: sys.exit('gen: request image|video "وصف" [--at t] | list | import <رقم> <ملف> | rm <رقم>')
     except RuntimeError as e: sys.exit(str(e))
 def cmd_platform(names): print(platform_text([n for n in names if n in PLATFORMS] or None)); print("\nالمقاسات: " + " · ".join("%s = %d×%d" % (k, v[0], v[1]) for k, v in FRAMES.items()))
@@ -1397,32 +1571,39 @@ def audio_env(work, rate=50):
     raw = subprocess.run(["ffmpeg", "-v", "error", "-i", J(work, "cutz.mp4"), "-vn", "-ac", "1", "-ar", "8000", "-f", "s16le", "-"], capture_output=True).stdout
     a = array.array("h"); a.frombytes(raw[:len(raw) // 2 * 2]); hop = 8000 // rate
     return [sum(abs(x) for x in a[i:i + hop]) / hop for i in range(0, len(a), hop)], rate
-def caps_regroup(work, max_words=6, max_dur=2.5, pause=0.5, comma=0.25):
-    """يعيد تقسيم الكابشن على أنفاس الكلام بدل مقاطع whisper: قطع عند سكتة 0.5ث أو نهاية جملة أو فاصلة بعدها سكتة، 6 كلمات أو 2.5ث بالكثير، وما يترك كلمة يتيمة."""
-    caps = rj(J(work, "caps.json")); words = [w for c in caps["cards"] for w in c["w"]]
+_CG = None
+def capgroup_mod():
+    """engine/scripts/capgroup.py: تقسيم الكابشن والأسماء الإنجليزية (مشترك مع 02_captions)."""
+    global _CG
+    if _CG is None:
+        eng = find_engine(None) or sys.exit("ما لقيت مجلد engine")
+        spec = importlib.util.spec_from_file_location("hs_capgroup", os.path.join(eng, "scripts", "capgroup.py")); _CG = importlib.util.module_from_spec(spec); spec.loader.exec_module(_CG)
+    return _CG
+def caps_regroup(work, wpl=5, lines=2, pause=0.5, names=True):
+    """4.9: يعيد تقسيم الكابشن: 5 كلمات بالسطر، كلمة أو كلمتين زيادة للكابشن اللي بعده، 3 أو أكثر سطر ثاني. ويكتب الأسماء المعروفة بالإنجليزي."""
+    cg = capgroup_mod(); caps = rj(J(work, "caps.json")); words = [w for c in caps["cards"] for w in c["w"]]
     if not words: return 0, 0
-    groups, cur = [], []
-    for w in words:
-        if cur:
-            p = cur[-1]; gap = w["s"] - p["e"]; t = str(p["t"]).strip()
-            if gap >= pause or re.search(r"[.!?؟…]$", t) or (re.search(r"[،,؛;:]$", t) and gap >= comma) or len(cur) >= max_words or (w["e"] - cur[0]["s"]) > max_dur:
-                groups.append(cur); cur = []
-        cur.append(w)
-    if cur: groups.append(cur)
-    out = []
-    for g in groups:
-        if len(g) == 1 and out and len(out[-1]) <= max_words and g[0]["s"] - out[-1][-1]["e"] < pause and not re.search(r"[.!?؟]$", str(out[-1][-1]["t"]).strip()): out[-1] = out[-1] + g
-        else: out.append(g)
-    cards = []
-    for i, g in enumerate(out):
-        s = max(0.0, g[0]["s"] - 0.08); e = g[-1]["e"] + 0.6
-        if cards: s = max(s, cards[-1]["e"] + 0.02)
-        if i + 1 < len(out): e = min(e, out[i + 1][0]["s"] - 0.05)
-        cards.append({"s": round(min(s, g[0]["s"]), 3), "e": round(max(e, g[-1]["e"]), 3), "w": g})
-    for i in range(len(cards) - 1):
-        if cards[i]["e"] > cards[i + 1]["s"] - 0.02: cards[i]["e"] = round(max(cards[i]["w"][-1]["e"], cards[i + 1]["s"] - 0.02), 3)
+    if names: words = cg.english_names(words)
+    cards = cg.cards_of(cg.pack(words, wpl=wpl, lines=lines, pause=pause), total=caps.get("total"))
     snapshot(work, "قبل تقسيم الكابشن"); old = len(caps["cards"]); caps["cards"] = cards; wj(J(work, "caps.json"), caps)
+    st = load_studio(work); hs = hs_of(st); hs.setdefault("cap", {})["wpl"] = wpl
+    if names:
+        for it in (hs.get("hooks") or {}).get("items") or []:
+            if it.get("text"): it["text"] = cg.names_text(it["text"])
+    wj(J(work, "studio.json"), st)
     return old, len(cards)
+def caps_names(work):
+    """يكتب الأسماء المعروفة بالإنجليزي بالكابشن الموجود (بدون ما يغيّر التقسيم)."""
+    cg = capgroup_mod(); caps = rj(J(work, "caps.json")); ch = []
+    for c in caps["cards"]:
+        nw = cg.english_names(c["w"])
+        if [w["t"] for w in nw] != [w["t"] for w in c["w"]]: ch.append(" ".join(str(w["t"]) for w in nw)); c["w"] = nw
+    st = load_studio(work); hk = (hs_of(st).get("hooks") or {}).get("items") or []; hch = False   # والعنوان الثابت فوق
+    for it in hk:
+        if it.get("text") and cg.names_text(it["text"]) != it["text"]: ch.append(cg.names_text(it["text"])); it["text"] = cg.names_text(it["text"]); hch = True
+    if ch: snapshot(work, "قبل الأسماء الإنجليزية"); wj(J(work, "caps.json"), caps)
+    if hch: wj(J(work, "studio.json"), st)
+    return ch
 def caps_clean(work, dry=False):
     """يشيل جمل اخترعها whisper فوق السكوت (مثل «اشتركوا في القناة» أو «ترجمة نانسي قنقر»). يشيل الكابشن فقط، مو الفيديو."""
     caps = rj(J(work, "caps.json")); total = caps.get("total", 0); env, rate = audio_env(work)
@@ -1440,13 +1621,15 @@ def caps_clean(work, dry=False):
 def cmd_caps(work, args):
     sub = args[0] if args else ""
     if sub == "regroup":
-        kv = parse_kv(args[1:]); a, b = caps_regroup(work, int(kv.get("words", 6)), float(kv.get("dur", 2.5)), float(kv.get("pause", 0.5)))
-        print("الكابشن صار على أنفاس الكلام: %d جملة ← %d" % (a, b))
+        kv = parse_kv(args[1:]); a, b = caps_regroup(work, int(kv.get("wpl", kv.get("words", 5))), int(kv.get("lines", 2)), float(kv.get("pause", 0.5)), names=str(kv.get("names", "true")).lower() != "false")
+        print("الكابشن صار %s كلمات بالسطر على أنفاس الكلام: %d جملة ← %d" % (kv.get("wpl", kv.get("words", 5)), a, b))
         if (hs_of(load_studio(work)).get("en") or {}).get("map"): print("تنبيه: الترجمة كانت مربوطة بالجمل القديمة، أعد الترجمة (hs tr export/import).")
     elif sub == "clean":
         g = caps_clean(work, dry="--dry" in args)
         print(("انشالت %d جملة مخترعة:\n" % len(g) + "\n".join("  · " + x for x in g)) if g else "ما فيه جمل مخترعة.")
-    else: sys.exit("caps: regroup [words=6 dur=2.5 pause=0.5] | clean [--dry]")
+    elif sub == "names":
+        ch = caps_names(work); print(("صارت بالإنجليزي في %d جملة:\n" % len(ch) + "\n".join("  · " + x for x in ch[:30])) if ch else "ما فيه أسماء تتبدّل.")
+    else: sys.exit("caps: regroup [wpl=5 lines=2 pause=0.5 names=true] | names | clean [--dry]")
 
 def looks_all(): return {k: v for k, v in (rj(os.path.join(HERE, "looks.json"), {}) or {}).items() if not k.startswith("_")}
 def look_apply(work, name):
@@ -1666,7 +1849,7 @@ def cmd_selftest(work=None, engine=None):
         subprocess.run([PY, os.path.join(eng, "scripts", "01_cut_plan.py"), td], capture_output=True)
         kp = (rj(os.path.join(td, "cut.json"), {}) or {}).get("keep") or []
         aligned = all(abs(round(x * 30) - x * 30) < 1e-3 for seg in kp for x in seg)
-        chk("4.7.1: السكتة الطويلة تنقص لـ 0.22 ث والقصيرة تبقى، والقطعات على فريمات", len(kp) == 3 and aligned and 4.2 < sum(b2 - a2 for a2, b2 in kp) < 4.6, json.dumps(kp))   # كلام 3.65 + سكتة قصيرة 0.15 + سكتتين 0.22 + آخر 0.12
+        chk("4.9: السكتة الطويلة تنقص لـ 0.16 ث والقصيرة تبقى، والقطعات على فريمات", len(kp) == 3 and aligned and 4.1 < sum(b2 - a2 for a2, b2 in kp) < 4.5, json.dumps(kp))   # كلام 3.65 + سكتة قصيرة 0.15 + سكتتين 0.22 + آخر 0.12
         shutil.rmtree(td, ignore_errors=True)
     except Exception as e: chk("4.7.1: قص السكتات", False, str(e)[:120])
     try:
@@ -1680,7 +1863,7 @@ def cmd_selftest(work=None, engine=None):
     try:   # 4.8: الموشن الجاهز، النابض، والهوية
         ex = txt.get("ext.js", "") or open(os.path.join(HERE, "ext.js"), encoding="utf-8").read(); ap = txt.get("app.js", "") or open(os.path.join(HERE, "app.js"), encoding="utf-8").read()
         reg = re.search(r"const MGK=\{([^}]*)\}", ex); ks = [x.split(":")[0] for x in reg.group(1).split(",")] if reg else []
-        chk("4.8: تسع قوالب موشن بالمحرّك والاستوديو والأوامر", ks == list(MG_KINDS) and "['mg',mgs]" in ex and all(("mg:'+k" in ap or "'%s'" % k in ap) for k in MG_KINDS) and "function mgPanel" in ap, ",".join(ks))
+        chk("4.8: قوالب الموشن (ومعها شعار الشركة 4.9) بالمحرّك والاستوديو والأوامر", ks == list(MG_KINDS) and "['mg',mgs]" in ex and all(("mg:'+k" in ap or "'%s'" % k in ap) for k in MG_KINDS) and "function mgPanel" in ap, ",".join(ks))
         if shutil.which("node"):
             m = re.search(r"const SPW=\{\}; function spr\(k,z\)\{.*?\n.*?\}\n", ex, re.S)
             js = (m.group(0) if m else "") + "const a=[];for(let i=0;i<=200;i++)a.push(spr(i/200,1));const b=[];for(let i=0;i<=200;i++)b.push(spr(i/200,0.82));console.log(JSON.stringify({m1:Math.max(...a),e1:a[200],h1:a[100],m2:Math.max(...b),mono:a.every((v,i)=>!i||v>=a[i-1]-1e-9)}));"
@@ -1691,6 +1874,26 @@ def cmd_selftest(work=None, engine=None):
         hb = txt.get("hub.html", "") or open(os.path.join(HERE, "hub.html"), encoding="utf-8").read()
         chk("4.8: شعار هوجاس (الرمز + HJS) بملفات brand وشاشات التحميل", okb and "function hjsMark" in hb and "function hjsMark" in ap and "background:var(--cap);width:70%" not in hb and "hjsIn" in (txt.get("studio.html", "") or open(os.path.join(HERE, "studio.html"), encoding="utf-8").read()))
     except Exception as e: chk("4.8: الموشن الجاهز والهوية", False, str(e)[:160])
+    try:   # 4.9: الكابشن، الأسماء، الكلام المهم، الكابشن اليتيم، الشعارات، الخط الخاص
+        cg = capgroup_mod(); cm = cutmap_mod()
+        mk = lambda ts, t0=0.0, d=0.3: [{"t": x, "s": round(t0 + i * d, 3), "e": round(t0 + i * d + 0.25, 3)} for i, x in enumerate(ts)]
+        g6 = cg.pack(mk("و1 و2 و3 و4 و5 و6".split()) + mk("ب1 ب2 ب3".split(), 2.5), wpl=5, lines=2)
+        g8 = cg.pack(mk("و1 و2 و3 و4 و5 و6 و7 و8".split()), wpl=5, lines=2)
+        chk("4.9: الكابشن 5 كلمات، كلمة زايدة تروح للي بعده، و3 زايدة سطر ثاني", [len(g) for g in g6] == [5, 4] and g6[1][0]["t"] == "و6" and [len(g) for g in g8] == [8], "%s | %s" % ([len(g) for g in g6], [len(g) for g in g8]))
+        en = cg.english_names(mk("أفضل من شات جي بي تي والسونيت بجوجل درايف".split()))
+        chk("4.9: الأسماء المعروفة بالإنجليزي (ChatGPT · و Sonnet · ب Google Drive)", [w["t"] for w in en] == ["أفضل", "من", "ChatGPT", "و Sonnet", "ب Google Drive"] and en[2].get("en") == "ChatGPT", " | ".join(w["t"] for w in en))
+        chk("4.9: كاشف الكلام المهم (رقم، اسم، نصيحة) بدون إنذار كاذب", cm.important("عندنا خمس نماذج") and cm.important("لازم تجرب Claude") and not cm.important("أو مع الفريق حقك") and not cm.important("الفلسفة كانت حلوة"))
+        keep0 = [[0.0, 10.0]]; o0, _ = cm.offsets(keep0); new = [[0.0, 3.0], [5.0, 10.0]]; o1, t1 = cm.offsets(new)
+        rm_ = lambda t, mode=None: cm.src_to_out(new, o1, cm.out_to_src(keep0, o0, t), mode)
+        cc = cm.remap_caps({"cards": [{"s": 0.5, "e": 2.5, "w": mk(["أ", "ب"], 0.5)}, {"s": 3.2, "e": 4.6, "w": mk(["محذوف", "كله"], 3.4)}, {"s": 6.0, "e": 7.0, "w": mk(["باقي"], 6.0)}]}, rm_, t1)
+        chk("4.9: الحذف يشيل كابشنه معه (ما يبقى كابشن يتيم) والباقي يتحرك", len(cc["cards"]) == 2 and cc["cards"][1]["w"][0]["t"] == "باقي" and abs(cc["cards"][1]["w"][0]["s"] - 4.0) < 0.01 and cc["total"] == 8.0, json.dumps([[c["s"], [w["t"] for w in c["w"]]] for c in cc["cards"]], ensure_ascii=False))
+        td = tempfile.mkdtemp(prefix="hs-logo-"); ws9 = cg.english_names(mk("كلود أولاً تطبيق احترافي بالنسبة لي أفضل من شات جي بي تي".split(), 3.0, 0.4) + mk("وبعدين نستخدم كانفا للتصميم".split(), 30.0, 0.4))
+        wj(os.path.join(td, "caps.json"), {"total": 40, "cards": cg.cards_of(cg.pack(ws9))}); wj(os.path.join(td, "studio.json"), {"hs": {"layers": []}}); pl = logos_plan(td); shutil.rmtree(td, ignore_errors=True)
+        chk("4.9: شارة الشعار لما ينذكر الاسم، و«X أفضل من Y» شارتين", len(pl) == 2 and pl[0].get("name") == "Claude" and pl[0].get("name2") == "ChatGPT" and "أفضل" in pl[0].get("rel", "") and pl[1]["name"] == "Canva" and "mgLogo" in ex and "logo:mgLogo" in ex, json.dumps(pl, ensure_ascii=False)[:160])
+        fbad = [f for f in glob.glob(os.path.join(HERE, "**", "*"), recursive=True) if re.search(r"thmanyah", os.path.basename(f), re.I) and ".git" not in f and "_backup" not in f]
+        gi = open(os.path.join(HERE, ".gitignore"), encoding="utf-8").read() if os.path.isfile(os.path.join(HERE, ".gitignore")) else ""
+        chk("4.9: ملفات خط ثمانية مو موجودة بمجلد السكل (رخصته تمنع النشر) والخطوط محجوبة من git", (not fbad or not os.path.isdir(os.path.join(HERE, ".git"))) and "fonts/*.woff2" in gi, ", ".join(os.path.basename(b) for b in fbad[:4]))
+    except Exception as e: chk("4.9: الكابشن والأسماء والقص الآمن والشعارات", False, str(e)[:160])
     chk("الرسم الحر بالمحرّك والاستوديو", "function drawLayer" in txt.get("ext.js", "") and "function drawStart" in txt.get("app.js", ""))
     try:   # 4.6: كتم الكلمات
         m0, p0 = bleep_filters(bleep_of({})); ct = {"cards": [{"s": 0, "e": 2, "w": [{"t": "شركة", "s": 0.1, "e": 0.4}, {"t": "والشركه", "s": 0.5, "e": 0.9}, {"t": "شركات", "s": 1.0, "e": 1.3}]}]}
@@ -1799,7 +2002,7 @@ def cmd_set(work, args):
         for p in parts[:-1]: cur = cur.setdefault(p, {})
         cur[parts[-1]] = val
     wj(sp, st); print(json.dumps({k: v for k, v in hs.items() if k in ("cap", "en", "mix", "hooks", "check")}, ensure_ascii=False)[:900])
-MG_KINDS = ("stat", "slam", "check", "steps", "callout", "quote", "ring", "compare", "sting")
+MG_KINDS = ("stat", "slam", "check", "steps", "callout", "quote", "ring", "compare", "sting", "logo")
 def cmd_layer(work, args):
     sp = J(work, "studio.json"); st = load_studio(work); hs = hs_of(st); Ls = hs.setdefault("layers", []); sub = args[0] if args else "list"
     if sub == "list":
@@ -2378,6 +2581,15 @@ def serve(work, port, engine):
                     if data.get("save"):
                         R = rj(P("repurpose.json"), {}) or {}; R.update({k: v for k, v in data["save"].items() if k in ("title", "points", "cta", "thread", "yt", "tags")}); wj(P("repurpose.json"), R); return self._json(200, R)
                     return self._json(200, repurpose(work, fresh=True))
+                if p == "/hs/logo":   # 4.9: شعار شركة باسمها (ينزل أول مرة من Simple Icons وينحفظ بالجهاز)
+                    nm_ = str(data.get("name") or "").strip()[:60]; src_ = logo_to_project(work, nm_) if nm_ else ""
+                    return self._json(200, {"ok": bool(src_), "src": src_, "name": nm_})
+                if p == "/hs/logos":   # 4.9: يقترح شارات الشعار من الكابشن، والاستديو يضيفها كطبقات
+                    pl = logos_plan(work)
+                    for x_ in pl:
+                        x_["src"] = logo_to_project(work, x_["name"])
+                        if x_.get("name2"): x_["src2"] = logo_to_project(work, x_["name2"])
+                    return self._json(200, {"ok": True, "plan": pl})
                 if p == "/hs/perf":
                     perf_set(item_id(work), str(data.get("plat") or "all")[:20], **{k: data.get(k) for k in ("views", "likes", "comments", "shares", "saves", "watch", "ret", "posted", "url")})
                     return self._json(200, {"ok": True, "rows": perf_get(item_id(work))})
@@ -2844,6 +3056,27 @@ def clips_scan(src, d, model="medium", lang=None, log=print):
     for s in segs: L.append("[%s] %s" % (tfmt(s["start"]), s["text"].strip()))
     open(J(d, "transcript.txt"), "w", encoding="utf-8").write("\n".join(L)); wj(J(d, "clips.json"), cfg)
     pth.join(); return cfg
+def clip_bounds(A, a_, b_, src_dur=None, back=6.0, ahead=8.0):
+    """4.9: لو حد اللقطة طاح بنص جملة: البداية ترجع لأول الجملة، والنهاية تكمل لين آخرها (بحد 6 ث قبل و8 ث بعد).
+    قبل: المقطع كان ينتهي والمتكلم لسه يتكلم."""
+    segs = [s for s in (A.get("segments") or []) if s.get("end", 0) > s.get("start", 0)]
+    if not segs: return a_, b_
+    for s in segs:
+        if s["start"] < a_ < s["end"] - 0.15:
+            if a_ - s["start"] <= back: a_ = max(0.0, s["start"] - 0.12)
+            else:
+                ws = [w for w in s.get("words") or [] if w["start"] >= a_ - 0.05]
+                if ws: a_ = max(0.0, ws[0]["start"] - 0.1)
+            break
+    for s in segs:
+        if s["start"] + 0.15 < b_ < s["end"]:
+            if s["end"] - b_ <= ahead: b_ = s["end"] + 0.3
+            else:
+                ws = [w for w in s.get("words") or [] if w["end"] <= b_ + 0.05]
+                if ws: b_ = ws[-1]["end"] + 0.25
+            break
+    if src_dur: b_ = min(b_, src_dur)
+    return round(a_, 3), round(b_, 3)
 def clip_make(d, a_, b_, title="", credit="", name=None, style=None):
     cfg = clips_cfg(d)
     if not cfg.get("src"): raise RuntimeError("شغّل أول: hs clips scan <الفيديو> " + d)
@@ -2852,8 +3085,12 @@ def clip_make(d, a_, b_, title="", credit="", name=None, style=None):
     w = J(d, re.sub(r"[^\w\-]+", "-", name).strip("-") or "clip-%d" % n)
     while os.path.exists(J(w, "src.mov")): n += 1; w = J(d, "clip-%d" % n)
     os.makedirs(w, exist_ok=True)
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "%.3f" % a_, "-to", "%.3f" % b_, "-i", cfg["src"], "-c:v", "libx264", "-preset", "veryfast", "-crf", "17", "-c:a", "aac", "-b:a", "192k", J(w, "src.mov")], check=True)
-    A = rj(J(d, "long.json"), {}) or {}; segs = []; fix = []
+    A = rj(J(d, "long.json"), {}) or {}
+    a_, b_ = clip_bounds(A, a_, b_, probe_dur(cfg["src"]))   # 4.9: البداية والنهاية على حدود جملة، ما ينقطع وهو يتكلم
+    fo = max(0.0, b_ - a_ - 0.25)
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "%.3f" % a_, "-to", "%.3f" % b_, "-i", cfg["src"], "-c:v", "libx264", "-preset", "veryfast", "-crf", "17",
+                    "-af", "afade=t=in:st=0:d=0.06,afade=t=out:st=%.3f:d=0.25" % fo, "-c:a", "aac", "-b:a", "192k", J(w, "src.mov")], check=True)
+    segs = []; fix = []
     for s in A.get("segments") or []:
         ws = [x for x in (s.get("words") or []) if x["start"] >= a_ - 0.05 and x["end"] <= b_ + 0.05]
         if not ws: continue
@@ -3115,8 +3352,7 @@ def whisper_device():
 # ── 4.5.1: صفحة رمز الدخول من الجوال (6 خانات، لصق، إرسال تلقائي، رسالة واضحة لو غلط أو انقفل) ──
 LOGIN_CSS = """*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;height:100%}
 body{background:#0a0c11;color:#f1f4fa;font-family:"IBM Plex Sans Arabic",system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px 16px calc(24px + env(safe-area-inset-bottom))}
-.c{width:100%;max-width:380px;text-align:center}.logo{width:44px;height:44px;margin:0 auto 18px;display:grid;gap:4px;grid-template-rows:repeat(3,1fr)}
-.logo i{display:block;border-radius:4px}.logo i:nth-child(1){background:#8f73f5;width:70%}.logo i:nth-child(2){background:#4f7fd4}.logo i:nth-child(3){background:#3aa57e;width:55%}
+.c{width:100%;max-width:380px;text-align:center}.logo{width:44px;height:44px;margin:0 auto 18px;color:#f1f4fa}.logo svg{display:block;width:100%;height:100%}
 h1{font-size:24px;margin:0 0 8px;font-weight:700}p{color:#8b93a7;font-size:14.5px;line-height:1.8;margin:0 0 22px}
 .d{display:flex;gap:8px;justify-content:center;direction:ltr;margin-bottom:18px}
 .d input{width:46px;height:58px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#fff;font-size:26px;font-weight:600;text-align:center;outline:none;caret-color:#6aa2ff;font-family:inherit}
@@ -3128,7 +3364,7 @@ def login_html(action, where, n=6, err="", locked=False):
     msg = "انقفل الدخول من الجوال مؤقتاً بعد محاولات كثيرة غلط. جرّب بعد ربع ساعة، أو افتح من الكمبيوتر." if locked else err
     return ("<!doctype html><html lang=ar dir=rtl><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1,viewport-fit=cover'><meta name=theme-color content='#0a0c11'>"
             "<title>رمز الدخول · Hojas Studio</title><link href='https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap' rel=stylesheet><style>" + LOGIN_CSS.replace("%", "%%") + "</style></head><body>"
-            "<form class='c%s' method=get action='%s' id=f><div class=logo><i></i><i></i><i></i></div><h1>اكتب رمز الدخول</h1>"
+            "<form class='c%s' method=get action='%s' id=f><div class=logo><svg viewBox='0 0 260 260' aria-hidden=true><rect width=150.5 height=46.8 fill=currentColor /><rect x=62.5 y=106.6 width=197.5 height=46.8 fill=currentColor /><rect y=213.2 width=103.7 height=46.8 fill=currentColor /></svg></div><h1>اكتب رمز الدخول</h1>"
             "<p>الرمز من %d أرقام، تلقاه %s.</p><div class=d id=d>%s</div><input type=hidden name=k id=k>"
             "<div class=m id=m>%s</div><button id=b%s>دخول</button>"
             "<div class=h><b>وين ألقى الرمز؟</b><br>على الكمبيوتر افتح المكتبة ← <b>جهازك</b> ← «افتحه من جوالك». تلقى الرمز تحت رمز QR، ومسح الرمز يدخلك على طول بدون كتابة.<br>لازم الجوال والكمبيوتر على نفس الواي فاي.</div></form>"
@@ -4531,7 +4767,7 @@ def hub_serve(root, port):
             if (q.get("k") or [""])[0] == TOKEN and not self._local() and ("hs_k=" + TOKEN) not in (self.headers.get("Cookie") or ""):
                 self.send_response(302); self.send_header("Set-Cookie", "hs_k=%s; Path=/; Max-Age=2592000; SameSite=Lax" % TOKEN); self.send_header("Location", p or "/library"); self.send_header("Content-Length", "0"); self.end_headers(); return
             if p in ("/tele", "/tele/"):   # 4.5.2: الملقّن قريباً (tele.html موجود للتطوير وما ينفتح للحين)
-                b = login_html("/library", "", 6).split("<body>")[0] + "<body><div class=c><div class=logo><i></i><i></i><i></i></div><h1>الملقّن قريباً</h1><p>جاي بالتحديث الجاي.</p><a href=/library style='color:#6aa2ff'>ارجع للمكتبة</a></div></body></html>"
+                b = login_html("/library", "", 6).split("<body>")[0] + "<body><div class=c><div class=logo><svg viewBox='0 0 260 260' aria-hidden=true><rect width=150.5 height=46.8 fill=currentColor /><rect x=62.5 y=106.6 width=197.5 height=46.8 fill=currentColor /><rect y=213.2 width=103.7 height=46.8 fill=currentColor /></svg></div><h1>الملقّن قريباً</h1><p>جاي بالتحديث الجاي.</p><a href=/library style='color:#6aa2ff'>ارجع للمكتبة</a></div></body></html>"
                 return self._send(200, b.replace("%%", "%"), "text/html; charset=utf-8")
             if p in ("/library", "/library/"):
                 b = open(os.path.join(HERE, "hub.html"), "rb").read(); return self._send(200, b, "text/html; charset=utf-8", {"Set-Cookie": "hs_hub=1; Path=/; SameSite=Lax"})
@@ -4894,6 +5130,7 @@ def main():
     if cmd == "notify": return cmd_notify(a[1:])
     if cmd == "style": return cmd_style(a[1:])
     if cmd == "update": return cmd_update()
+    if cmd == "fonts": return cmd_fonts(a[1:])
     if cmd == "clips": return cmd_clips(a[1:])
     if cmd == "grab": return cmd_grab(a[1:])
     if cmd == "db": return cmd_db(a[1:])
@@ -4914,6 +5151,18 @@ def main():
         if cmd == "remove":
             cards = [int(x) - 1 for x in multi("--cards")]; rngs = [[float(y) for y in x.split("-")] for x in multi("--ranges")]
             words = [(f["card"], f["idx"]) for f in check(work)["fillers"]] if flag("--fillers") else []
+            if not flag("--force"):   # 4.9: الكلام المهم (رقم، اسم، نصيحة، آخر المقطع) ما ينشال بدون موافقته
+                cs_ = (rj(J(work, "caps.json"), {}) or {}).get("cards") or []; cm_ = cutmap_mod(); risky = []
+                for i in cards:
+                    if 0 <= i < len(cs_):
+                        why = cm_.important(card_key(cs_[i])) + (["آخر كلامك بالمقطع"] if i >= len(cs_) - 2 else [])
+                        if why: risky.append("  %d. %s   ← %s" % (i + 1, card_key(cs_[i]), "، ".join(why)))
+                for a2, b2 in rngs:
+                    for i, c in enumerate(cs_):
+                        if c["s"] < b2 and c["e"] > a2 and i not in cards:
+                            why = cm_.important(card_key(c))
+                            if why: risky.append("  %d. %s   ← %s (جزء منها بالمقطع المحذوف)" % (i + 1, card_key(c), "، ".join(why)))
+                if risky: print("⛔ ما حذفت شي. فيه كلام مهم:\n" + "\n".join(risky) + "\nاسأله أول (اعرض الجمل كما هي). لو وافق: أعد الأمر مع --force"); sys.exit(2)
             print(json.dumps(remove_ranges(work, S, log, ranges=rngs, cards=cards, words=words), ensure_ascii=False))
         else:
             miss = [r for r in brief_reqs(work) if not r["ok"]]
@@ -4960,6 +5209,7 @@ def main():
     elif cmd == "auto": cmd_auto(work, rest)
     elif cmd == "caps": cmd_caps(work, rest)
     elif cmd == "look": cmd_look(work, rest)
+    elif cmd == "logo": cmd_logo(work, rest)
     elif cmd == "beat": cmd_beat(work, rest)
     elif cmd == "pack": print("\n".join(pack(work))); print("→ " + J(work, ".hs", "pack.zip"))
     elif cmd == "brand": cmd_brand(work, rest)

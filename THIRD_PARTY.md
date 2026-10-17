@@ -44,6 +44,8 @@ engine/scripts/collage-assets: public domain images from Wikimedia Commons (sour
 - Sound library (`sfxlib.json`): links to Mixkit sound effects, downloaded from mixkit.co when first used, under the Mixkit Free License. The sound files are not included in this package.
 - Fonts in the studio and captions: loaded from Google Fonts (SIL Open Font License) when online.
 - Images and clips from `hs media`: fetched from Wikimedia Commons with their license recorded in the project's `credits.txt`.
+- Company logos (`hs logo`, motion kind `logo`): SVG icons from Simple Icons (https://github.com/simple-icons/simple-icons, CC0 1.0), downloaded on first use and cached in `~/.hojas-studio/logos`. Logos are trademarks of their owners and are shown only to identify the company being talked about. Brands not in Simple Icons show an initial unless the user adds the official file with `hs logo add`.
+- Brand fonts (Thmanyah): never bundled. Hojas Studio only uses them when the user has a licensed copy installed on their own device (`hs fonts install <zip>`, stored in `~/.hojas-studio/fonts`), and copies them into that user's local projects. Font files are excluded from the repository and the public package.
 
 ## Interface font
 The public package does not include a custom interface font. The studio uses IBM Plex Sans Arabic (SIL OFL 1.1). To use your own font, put it at `fonts/nt-panorama-naskh-long.otf` (any Arabic OTF file with that name) and make sure you have the right to use it.

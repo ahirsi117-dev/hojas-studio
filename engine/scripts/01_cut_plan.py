@@ -15,6 +15,7 @@ def _utf8_open(f, mode="r", *a, **k):
 _bi.open = _utf8_open
 # ──────────────────────────────────────────────────────────────────
 import subprocess, re, json, sys, os
+DB = None
 from fractions import Fraction
 W = os.path.abspath(sys.argv[1]); SRC = os.path.join(W, "src.mov")
 # 4.7.1: القص كان يخلي سكتات لين 0.6 ث (ما يشيل إلا اللي فوق 0.35 ث ويحط 0.13 قبل وبعد)، وعتبة الصمت ثابتة -32dB.
@@ -25,7 +26,7 @@ def _rj(n):
     except Exception: return {}
 _th, _br = _rj("theme.json"), _rj("brief.json")
 CALM = str(_th.get("pace") or _br.get("pace") or "").lower() == "calm"
-GAP = float(os.environ.get("HS_GAP") or (0.30 if CALM else 0.22))   # أطول سكتة تبقى بين جملتين
+GAP = float(os.environ.get("HS_GAP") or (0.24 if CALM else 0.16))   # أطول سكتة تبقى بين جملتين (4.9: أضيق، كانت 0.22)
 EDGE = 0.12                                                           # قبل أول كلمة وبعد آخر كلمة
 MINSEG = 0.25
 
@@ -66,6 +67,8 @@ def vad():
         if b - a < 8 and a > 0 and b < n: v[a:b] = True
     for a, b in runs(v, True):
         if b - a < 6: v[a:b] = False
+    global DB
+    DB = db
     return [(a / 100.0, b / 100.0) for a, b in runs(v, True)], thr, floor
 
 try:
@@ -85,6 +88,24 @@ except Exception as e:   # بلا numpy: الطريقة القديمة بعتب�
         cur = b
     if dur - cur > 0.01: speech.append((cur, dur))
     how = "عتبة ثابتة -32 dB (" + str(e)[:40] + ")"
+
+# 4.9: آخر الكلمة الهادية ما ينقص. قبل: آخر مقطع بالجملة لو انقال بصوت واطي كان تحت العتبة وينقص،
+# فكل مقطع كلام يمتد قدام لين 0.25 ث وورا 0.12 ث ما دام فيه صوت فوق أرضية ضجيج المكان بـ 6 dB.
+# (توقيت whisper ما نعتمد عليه هنا: أحياناً يمد الكلمة على سكتة ثانيتين)
+if DB is not None and speech:
+    soft = FLOOR + 6.0; grown = []
+    for a, b in speech:
+        ia, ib = int(a * 100), int(b * 100)
+        k = ib
+        while k < min(len(DB), ib + 25) and DB[k] > soft: k += 1
+        j = ia
+        while j > max(0, ia - 12) and DB[j - 1] > soft: j -= 1
+        grown.append((j / 100.0, k / 100.0))
+    merged = []
+    for a, b in grown:
+        if merged and a <= merged[-1][1] + 0.02: merged[-1] = (merged[-1][0], max(merged[-1][1], b))
+        else: merged.append((a, b))
+    speech = merged
 
 # نبني المقاطع: أي سكتة أطول من GAP تنقص لـ GAP بالضبط (نص قبلها ونص بعدها، والميل للي بعدها)
 keep = []

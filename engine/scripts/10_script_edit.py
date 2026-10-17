@@ -106,7 +106,7 @@ if CMD == "dupes":
 
 if CMD == "undo":
     n = 0
-    for f in ("cut.json", "caps.json", "sfx.json"):
+    for f in ("cut.json", "caps.json", "sfx.json", "studio.json"):
         if os.path.exists(P(f + ".bak")): shutil.copy(P(f + ".bak"), P(f)); n += 1
     print(f"↩️ رجّعت {n} ملفاً لآخر نسخة." if n else "ما فيه نسخة سابقة.")
     sys.exit(0)
@@ -134,78 +134,77 @@ if not drop: sys.exit("ما فيه جملة تنشال — بلا تغيير.")
 if len(drop) == len(cards): sys.exit("❌ هذا يشيل الفيديو كله — ألغيت.")
 
 # ── فترات الحذف على التايم-لاين الحالي ────────────────────────────────────
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import cutmap
+
+# 4.9: الكلام المهم ما ينحذف بدون موافقته. الجملة المعادة (لها نسخة باقية) مسموح حذفها.
+dup_of = {i: j for i, j, _ in find_dupes(cards)} | {j: i for i, j, _ in find_dupes(cards)}
+FORCE = "--force" in sys.argv
+risky = []
+for i in sorted(drop):
+    j = dup_of.get(i)
+    if j is not None and j not in drop: continue          # إعادة: النسخة الثانية باقية
+    why = cutmap.important(" ".join(w["t"] for w in cards[i]["w"]))
+    if i >= len(cards) - 2: why = why + ["آخر كلامك بالمقطع: المقطع بينتهي بدونه"]
+    if why: risky.append((i, why))
+try: _brief = json.load(open(P("brief.json"), encoding="utf-8"))
+except Exception: _brief = {}
+plain = [i for i in drop if not (dup_of.get(i) is not None and dup_of.get(i) not in drop)]
+if not FORCE and (risky or (_brief.get("length") == "keep" and plain)):
+    print("⛔ ما حذفت شي. هذي الجمل فيها كلام مهم" + (" (واختار بالأسئلة «خله نفس الطول»)" if _brief.get("length") == "keep" else "") + ":")
+    for i, why in risky: print("   " + line(i, cards[i]).strip() + "   ← " + "، ".join(why))
+    if _brief.get("length") == "keep":
+        for i in plain:
+            if i not in dict(risky): print("   " + line(i, cards[i]).strip())
+    print("اسأله أول (اعرض الجمل كما هي). لو وافق: أعد نفس الأمر مع --force")
+    sys.exit(2)
+
 iv = []
 for i in sorted(drop):
     c = cards[i]
     a = max(0.0, c["w"][0]["s"] - PAD_L)
     b = min(caps["total"], c["w"][-1]["e"] + PAD_R)
-    if i + 1 < len(cards):                       # لا تاكل بداية الجملة اللي بعدها
-        b = min(b, cards[i + 1]["w"][0]["s"] - 0.02)
+    if i + 1 < len(cards): b = min(b, cards[i + 1]["w"][0]["s"] - 0.02)
+    if i > 0: a = max(a, cards[i - 1]["w"][-1]["e"] + 0.02)
     if b > a: iv.append([a, b])
-iv.sort(); merged = []
-for a, b in iv:
-    if merged and a - merged[-1][1] < 0.05: merged[-1][1] = max(merged[-1][1], b)
-    else: merged.append([a, b])
-merged = [[round(a * 30) / 30.0, round(b * 30) / 30.0] for a, b in merged if round(b * 30) > round(a * 30)]   # 4.7.1: على فريمات المقطع بالضبط
-gone = sum(b - a for a, b in merged)
+guards = [(w["s"], w["e"]) for k, c in enumerate(cards) if k not in drop for w in c["w"]]
+cut = load("cut.json"); keep = [list(x) for x in cut["keep"]]
+try: new_keep, remap, gone = cutmap.remove(W, keep, iv, guards)
+except ValueError as e: sys.exit("❌ " + str(e))
 
-def shift(t):                                    # وقت جديد بعد الحذف
-    return t - sum(min(t, b) - a for a, b in merged if a < t)
-def inside(t):
-    return any(a - 1e-6 <= t <= b + 1e-6 for a, b in merged)
+def shift(t):
+    v = remap(t); return v if v is not None else remap(t, "prev")
+def inside(t): return remap(t) is None
 
 print("راح ينشال:")
 for i in sorted(drop): print("  ✂️ " + line(i, cards[i]).strip())
 print(f"المدة: {caps['total']:.2f} → {caps['total']-gone:.2f} ثانية (‎-{gone:.2f})")
 if DRY: sys.exit(0)
 
-# ── 1) cut.json: نقل فترات الحذف لزمن الفيديو الأصلي ─────────────────────
-cut = load("cut.json"); keep = [list(x) for x in cut["keep"]]
-off, acc = [], 0.0
-for a, b in keep: off.append(acc); acc += b - a
-src_del = []
-for ds, de in merged:
-    for i, (a, b) in enumerate(keep):
-        s0, s1 = off[i], off[i] + (b - a)
-        lo, hi = max(ds, s0), min(de, s1)
-        if hi > lo: src_del.append([a + (lo - s0), a + (hi - s0)])
-new_keep = []
-for a, b in keep:
-    parts = [[a, b]]
-    for ds, de in src_del:
-        out = []
-        for x, y in parts:
-            if de <= x or ds >= y: out.append([x, y]); continue
-            if ds > x: out.append([x, ds])
-            if de < y: out.append([de, y])
-        parts = out
-    new_keep += [p for p in parts if p[1] - p[0] >= MIN_SEG]
-cut["keep"] = new_keep
+cut["keep"] = new_keep; cut["edited"] = True
 cut["total"] = round(sum(b - a for a, b in new_keep), 3)
 save("cut.json", cut)
+kept_caps = {**caps, "cards": [c for i, c in enumerate(cards) if i not in drop]}
+save("caps.json", cutmap.remap_caps(kept_caps, remap, cut["total"]))
 
-# ── 2) caps.json: شيل الجُمل وازحف الباقي ────────────────────────────────
-new_cards = []
-for i, c in enumerate(cards):
-    if i in drop: continue
-    ws = [{**w, "s": round(shift(w["s"]), 3), "e": round(shift(w["e"]), 3)} for w in c["w"]]
-    new_cards.append({"s": round(shift(c["s"]), 3), "e": round(shift(c["e"]), 3), "w": ws})
-for i in range(len(new_cards) - 1):              # لا تتداخل الكروت بعد الزحف
-    if new_cards[i]["e"] > new_cards[i + 1]["s"]:
-        new_cards[i]["e"] = round(new_cards[i + 1]["s"] - 0.02, 3)
-# المدة النهائية = طول الفيديو الفعلي بعد القص (لا الحساب النظري) حتى ما يطلع فريم زايد
-new_total = round(min(caps["total"] - gone, cut["total"]), 3)
-save("caps.json", {"total": new_total, "cards": new_cards})
+if os.path.exists(P("studio.json")):     # الطبقات والمؤثرات تتبع وقتها بالأصل
+    st = load("studio.json"); hs = (st.get("hs") if isinstance(st.get("hs"), dict) else st)
+    moved = []
+    for L in hs.get("layers") or []:
+        s2, e2 = remap(L.get("s", 0), "next"), remap(L.get("e", 0), "prev")
+        if s2 is not None and e2 is not None and e2 - s2 > 0.15: moved.append({**L, "s": round(s2, 3), "e": round(e2, 3)})
+    if hs.get("layers") is not None: hs["layers"] = moved; save("studio.json", st)
 
-# ── 3) sfx.json: أوقات المؤثرات ──────────────────────────────────────────
 if os.path.exists(P("sfx.json")):
     sfx = load("sfx.json"); moved = 0; killed = 0
     for k, v in list(sfx.items()):
         if not isinstance(v, list): continue
         out = []
         for t in v:
-            if inside(t): killed += 1
-            else: out.append(round(shift(t), 3)); moved += 1
+            tv = t[0] if isinstance(t, list) else t
+            if not isinstance(tv, (int, float)): out.append(t); continue
+            if inside(tv): killed += 1
+            else: out.append(([round(shift(tv), 3)] + list(t[1:])) if isinstance(t, list) else round(shift(tv), 3)); moved += 1
         sfx[k] = out
     save("sfx.json", sfx)
     print(f"المؤثرات: {moved} انزاحت · {killed} انشالت")

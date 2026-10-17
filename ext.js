@@ -15,7 +15,7 @@
     'Bebas Neue':[400],'Oswald':[400,500,600,700],'Space Grotesk':[400,500,600,700],
     'IBM Plex Mono':[400,500,600,700],'Playfair Display':[400,700,900] };
   window.__hsFonts=GF;
-  const DEF={ on:false, font:'Cairo', weight:800, size:64, color:'#FFFFFF', active:'#F2B33D', bg:'none',
+  const DEF={ on:false, font:'Cairo', weight:800, size:56, wpl:5, color:'#FFFFFF', active:'#F2B33D', bg:'none',
               stroke:0, strokeColor:'#000000', shadow:true, y:76, width:760, lines:2, gap:16, mode:'line',
               enter:'rise', bgColor:'#000000', bgOpacity:0.62,
               hl:'color', chunk:0, actScale:1, fill:'solid', shadowColor:'#000000' };
@@ -26,11 +26,13 @@
   const fstr=(o,size)=>nearest(o.font,o.weight)+' '+size+'px "'+o.font+'"';
   function loadFont(fam){
     if(!fam) return Promise.resolve();
-    const loc=LOCAL.find(f=>f.name===fam);
-    if(loc){ if(!document.getElementById('hsf-'+loc.file)){ const st=document.createElement('style'); st.id='hsf-'+loc.file;
-        st.textContent='@font-face{font-family:"'+fam+'";src:url("fonts/'+encodeURIComponent(loc.file)+'");font-weight:100 900;font-display:block}';
+    /* 4.9: الخط المحلي ممكن يكون ملف لكل وزن (ثمانية: 300 400 500 700 900) */
+    const locs=LOCAL.filter(f=>f.name===fam);
+    if(locs.length){ for(const loc of locs){ if(document.getElementById('hsf-'+loc.file)) continue; const st=document.createElement('style'); st.id='hsf-'+loc.file;
+        st.textContent='@font-face{font-family:"'+fam+'";src:url("fonts/'+encodeURIComponent(loc.file)+'");font-weight:'+(loc.weight?loc.weight:'100 900')+';font-display:block}';
         document.head.appendChild(st); }
-      return document.fonts.load('700 60px "'+fam+'"').catch(()=>{}); }
+      const ws=[...new Set(locs.map(l=>l.weight).filter(Boolean))]; if(ws.length) GF[fam]=ws.sort((a,b)=>a-b);
+      return Promise.all((ws.length?ws:[700]).map(w=>document.fonts.load(w+' 60px "'+fam+'"','اب Ab'))).catch(()=>{}); }
     const ws=GF[fam]; if(!ws) return document.fonts.load('700 60px "'+fam+'"').catch(()=>{});
     const id='hsg-'+fam.replace(/\s+/g,'-');
     const wait=()=>Promise.all(ws.map(w=>document.fonts.load(w+' 60px "'+fam+'"','اب Ab'))).catch(()=>{});
@@ -48,11 +50,12 @@
     const Ls42=hs.layers||[], dk=hs.dahih&&hs.dahih.on, desk=dk||Ls42.some(L=>L.type==='desk'), kin=Ls42.some(L=>L.type==='kinetic');
     if(desk) ['IBM Plex Mono',(hs.dahih&&hs.dahih.font)||'Cairo',(hs.dahih&&hs.dahih.numFont)||'Cairo'].forEach(f=>jobs.push(loadFont(f)));
     /* 4.8: خطوط قوالب الموشن */
-    Ls42.forEach(L=>{ if(L.type!=='mg') return; jobs.push(loadFont(L.font||(hs.cap&&hs.cap.font)||'Cairo')); jobs.push(loadFont('IBM Plex Mono')); if(L.kind==='quote') jobs.push(loadFont(L.font||(/[\u0600-\u06FF]/.test(L.text||'')?'Noto Naskh Arabic':'Playfair Display'))); });
+    Ls42.forEach(L=>{ if(L.type!=='mg') return; jobs.push(loadFont(L.font||(hs.cap&&hs.cap.font)||'Cairo')); jobs.push(loadFont('IBM Plex Mono')); if(L.kind==='quote') jobs.push(loadFont(L.font||(/[\u0600-\u06FF]/.test(L.text||'')?'Noto Naskh Arabic':'Playfair Display'))); if(L.src2) jobs.push(loadImg(L.src2)); });
     if(kin){ jobs.push(loadFont((hs.kin&&hs.kin.font)||'Cairo')); jobs.push(loadFont('IBM Plex Mono')); Ls42.forEach(L=>{ if(L.type==='kinetic'&&L.font) jobs.push(loadFont(L.font)); }); }
     [hs.dahih&&hs.dahih.avatar,hs.dahih&&hs.dahih.logo,hs.kin&&hs.kin.avatar].forEach(s=>{ if(s&&s!=='claude'&&s!=='none') jobs.push(loadImg(s)); });
     return Promise.all(jobs); }
   const IMG={};
+  window.__hsLoadImg=s=>loadImg(s);
   function loadImg(src){ if(IMG[src]&&IMG[src].ok) return Promise.resolve();
     return new Promise(res=>{ const im=new Image(); IMG[src]=im; im.onload=()=>{im.ok=true; (im.decode?im.decode():Promise.resolve()).then(res,res);}; im.onerror=()=>res(); im.src=src; setTimeout(res,6000); }); }
   /* ═══ 3.5: فريم الفيديو ما يختفي أبداً ═══
@@ -163,6 +166,8 @@
       const glue=(k+1<it.length&&isNum(i))?it[k+1].w+gap:0;       /* الرقم ووحدته بسطر واحد */
       if(cw+add+glue>maxw&&c.length){ L.push({items:c,w:cw}); c=[i]; cw=i.w; } else { c.push(i); cw+=add; } }
     if(c.length) L.push({items:c,w:cw}); return L; }
+  /* 4.9: كل سطر عدد كلمات ثابت (5 افتراضياً). لو الكلمات الخمس أعرض من السطر بكثير ينكسر على العرض */
+  function wrapCount(ws,font,maxw,gap,n){ const out=[]; for(let i=0;i<ws.length;i+=n) out.push(...wrapWords(ws.slice(i,i+n),font,maxw*1.15,gap)); return out; }
   function wrapText(txt,font,maxw){ X.font=font; const words=String(txt).split(/\s+/).filter(Boolean); const L=[]; let cur='';
     for(const w of words){ const tr=cur?cur+' '+w:w; if(X.measureText(tr).width>maxw&&cur){ L.push(cur); cur=w; } else cur=tr; }
     if(cur) L.push(cur); return L; }
@@ -231,7 +236,7 @@
     let L;
     const CH=CAP.mode==='word'?1:Math.max(0,CAP.chunk|0);
     if(CH>0){ let ix=0; for(let k=0;k<c.w.length;k++) if(t>=c.w[k].s) ix=k; const g=Math.floor(ix/CH)*CH; L=wrapWords(c.w.slice(g,g+CH),font,CAP.width,gap); }
-    else { L=wrapWords(c.w,font,CAP.width,gap);
+    else { L=(CAP.wpl|0)>0?wrapCount(c.w,font,CAP.width,gap,CAP.wpl|0):wrapWords(c.w,font,CAP.width,gap);
       const ML=Math.max(1,CAP.lines|0);
       if(L.length>ML){ const pages=[]; for(let i=0;i<L.length;i+=ML) pages.push(L.slice(i,i+ML));
         let pg=pages.find(p=>{ const f=p[0].items[0], l=p[p.length-1].items[p[p.length-1].items.length-1]; return t>=f.s&&t<l.e; });
@@ -1098,7 +1103,8 @@
      قوالب حركة للمقاطع العمودية. التوقيتات من مكتبة HyperFrames (Apache-2.0)، والنابض معادلة النابض المخمّد المعروفة (نفس منحنى spring في Remotion)، مكتوبة من جديد على الكانفس.
      كل قالب دالة نقية للوقت: نفس t يعطي نفس الفريم بدون حالة تتراكم، فالتقديم والترجيع والتصدير متطابقة وما يعلّق التايم لاين.
      kind: stat رقم يعدّ · slam عنوان يضرب · check قائمة تنكشف مع الكلام · steps مراحل · callout إشارة على شي بالصورة
-           quote اقتباس · ring نسبة بدائرة · compare مقارنة كرتين · sting ختم الشعار (شعارك أو شعار هوجاس) */
+           quote اقتباس · ring نسبة بدائرة · compare مقارنة كرتين · sting ختم الشعار (شعارك أو شعار هوجاس)
+           logo (4.9) شارة شعار شركة، ومع name2 مقارنة هادية «X أفضل من Y» */
   const xo=k=>k>=1?1:1-Math.pow(2,-10*k), sio=k=>-(Math.cos(Math.PI*k)-1)/2, p2io=k=>k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2, PR=(t,a,d)=>cl((t-a)/Math.max(0.001,d),0,1);
   /* معادلة النابض المخمّد بصيغتها المغلقة، ممدودة عشان يستقر عند k=1 بالضبط. z=1 بدون تجاوز (الافتراضي)، 0.8 تجاوز 1.5% يحسّس بالحياة، وما ننزل تحت 0.55 */
   const SPW={}; function spr(k,z){ z=z==null?1:Math.max(0.55,z); if(k<=0) return 0; if(k>=1) return 1; let w=SPW[z]; if(!w) w=SPW[z]=z>=1?7.43:Math.log(200/Math.sqrt(1-z*z))/z;
@@ -1247,7 +1253,33 @@
     if(L.ring!==false&&box){ const kr=PR(lt,hitAt,0.4); if(kr>0&&kr<1){ const r=Math.max(box.w,box.h)*0.5*(0.34+2.06*p3o(kr)); X.save(); X.globalAlpha=0.92*(1-kr); X.strokeStyle=ink; X.lineWidth=6; X.beginPath(); X.arc(540,cy,r,0,6.2832); X.stroke(); X.restore(); } }
     if(L.flash!==false&&lt>=hitAt&&lt<hitAt+1/30+1e-4){ X.fillStyle='rgba(255,255,255,0.85)'; X.fillRect(0,0,1080,1920); } }
 
-  const MGK={stat:mgStat,slam:mgSlam,check:mgCheck,steps:mgSteps,callout:mgCallout,quote:mgQuote,ring:mgRing,compare:mgCompare,sting:mgSting};
+  /* ── 4.9: شارة شعار لما ينذكر اسم شركة، و«X أفضل من Y» شارتين متقابلتين. هادية: بدون تعتيم ولا وميض، فوق الكابشن مباشرة ── */
+  /* فوق أعلى سطر كابشن ممكن (بعدد الأسطر كامل)، عشان الشارة ما تتحرك لو الكابشن صار سطر أو سطرين */
+  function capTopStable(){ const fs=CAP.size||56, ML=Math.max(1,CAP.lines|0), BX=CAP.bg==='box'||CAP.bg==='bar'||CAP.bg==='lines'||CAP.bg==='glass', pY=BX?Math.round(fs*(CAP.bg==='lines'?0.08:0.38)):0;
+    return Math.round(1920*(CAP.y==null?76:+CAP.y)/100)-ML*Math.round(fs*1.36)-pY-(CAP.actScale>1?fs*(CAP.actScale-1)*0.5:0); }
+  function logoPill(name,src,h,fam,ring){ const im=src&&IMG[src]&&IMG[src].ok?IMG[src]:null, ic=h*0.54, pad=h*0.3, fs=h*0.4, f=mgF(700,fs,fam);
+    X.font=f; const tw=mw(name), w=pad+ic+h*0.2+tw+pad*1.15;
+    return { w, draw(x,y){ X.fillStyle='rgba(17,17,17,0.84)'; rr(x,y-h/2,w,h,h/2); X.fill(); X.strokeStyle=ring||'rgba(255,255,255,0.12)'; X.lineWidth=ring?3:1.5; rr(x+0.75,y-h/2+0.75,w-1.5,h-1.5,h/2); X.stroke();
+      const ix=x+pad;
+      if(im){ const r=im.naturalWidth&&im.naturalHeight?im.naturalWidth/im.naturalHeight:1, iw=r>=1?ic:ic*r, ih=r>=1?ic/r:ic; _di.call(X,im,ix+(ic-iw)/2,y-ih/2,iw,ih); }
+      else { X.fillStyle='#F5F5F3'; X.beginPath(); X.arc(ix+ic/2,y,ic/2,0,6.2832); X.fill(); X.fillStyle='#111111'; X.font=mgF(800,ic*0.56,fam); X.textAlign='center'; X.textBaseline='middle'; X.direction='ltr'; X.fillText((name.match(/[A-Za-z0-9]/)||['?'])[0].toUpperCase(),ix+ic/2,y+1); }
+      X.font=f; X.fillStyle='#F5F5F3'; X.textAlign='left'; X.textBaseline='middle'; X.direction='ltr'; X.fillText(name,ix+ic+h*0.2,y+1); } }; }
+  function mgLogo(L,t){ const lt=t-L.s, fam=mgFam(L), h=L.size||88, ko=mgExit(L,t,0.3), cy=L.y!=null?+L.y*1920:Math.max(220,capTopStable()-28-h/2);
+    const A=logoPill(String(L.name||'').trim()||'Logo',L.src,h,fam,null);
+    const enter=(k)=>{ const s=spr(k,0.8); return {a:Math.min(1,k*2.2)*(1-p2i(ko)), sc:0.82+0.18*s, dy:18*(1-s)+14*p2i(ko)}; };
+    if(!L.name2){ const e=enter(PR(lt,0,0.55)); X.save(); X.globalAlpha=e.a; X.translate(540,cy+e.dy); X.scale(e.sc,e.sc); A.draw(-A.w/2,0); X.restore(); return; }
+    const rel=String(L.rel||'أفضل من').trim(), neg=/أضعف|اضعف|أبطأ|ابطأ|أغلى|اغلى|أسوأ|اسوأ/.test(rel), acc=L.accent||ACC;
+    const A2=logoPill(String(L.name||'').trim(),L.src,h,fam,neg?null:acc), B=logoPill(String(L.name2).trim(),L.src2,h,fam,neg?acc:null);
+    const rf=mgF(700,h*0.36,fam); X.font=rf; const rw=mw(rel)+h*0.8, tot=A2.w+rw+B.w, sc0=Math.min(1,960/tot), x0=-tot/2;
+    X.save(); X.translate(540,cy); X.scale(sc0,sc0);
+    /* عربي: الأول على اليمين، والعلاقة بالنص، والثاني يسار */
+    const eA=enter(PR(lt,0,0.55)), eR=p3o(PR(lt,0.3,0.4)), eB=enter(PR(lt,0.55,0.55));
+    X.save(); X.globalAlpha=eA.a; X.translate(-x0-A2.w/2,eA.dy); X.scale(eA.sc,eA.sc); A2.draw(-A2.w/2,0); X.restore();
+    if(eR>0){ X.save(); X.globalAlpha=eR*(1-p2i(ko)); X.font=rf; X.fillStyle='#FFFFFF'; X.textAlign='center'; X.textBaseline='middle'; X.direction='rtl'; mgSh(8,0.5); X.fillText(rel,x0+B.w+rw/2,1+8*(1-eR)); X.restore(); }
+    X.save(); X.globalAlpha=eB.a; X.translate(x0+B.w/2,eB.dy); X.scale(eB.sc,eB.sc); B.draw(-B.w/2,0); X.restore();
+    X.restore(); }
+
+  const MGK={stat:mgStat,slam:mgSlam,check:mgCheck,steps:mgSteps,callout:mgCallout,quote:mgQuote,ring:mgRing,compare:mgCompare,sting:mgSting,logo:mgLogo};
   window.__hsMg=Object.keys(MGK);
   const mgHide=L=>L.kind==='quote'||L.kind==='sting'||L.kind==='compare'||L.nocap;
   function mgs(t){ if(t>=VEND) return; const Ls=(HSX.layers||[]).filter(L=>L.type==='mg'&&!L.off&&t>=L.s&&t<L.e&&MGK[L.kind]).sort((a,b)=>(b.track||0)-(a.track||0));

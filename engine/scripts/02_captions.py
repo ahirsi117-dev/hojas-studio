@@ -125,6 +125,12 @@ for i,seg in enumerate(tr["segments"]):
     cards.append({"s":round(cs,3),"e":round(ce,3),"w":o})
 for i in range(len(cards)-1):
     if cards[i]["e"]>cards[i+1]["s"]: cards[i]["e"]=round(cards[i+1]["s"]-0.02,3)
+# 4.9: الأسماء المعروفة تنكتب بالإنجليزي (Claude · ChatGPT · Google Drive) والكابشن 5 كلمات بالسطر:
+# كلمة أو كلمتين زيادة تروح للكابشن اللي بعده، و3 أو أكثر تصير سطر ثاني. HS_CAPS_RAW=1 يخليه جملة whisper زي ما هي
+if os.environ.get("HS_CAPS_RAW")!="1" and cards:
+    sys.path.insert(0,os.path.dirname(os.path.abspath(__file__))); import capgroup
+    _ws=capgroup.english_names([w for c in cards for w in c["w"]])
+    cards=capgroup.cards_of(capgroup.pack(_ws,wpl=int(os.environ.get("HS_WPL","5") or 5)),total=round(acc,3))
 json.dump({"total":round(acc,3),"cards":cards},open(os.path.join(W,"caps.json"),"w"),ensure_ascii=False,indent=1)
 print("كروت:",len(cards)," المدة:",round(acc,2))
 for c in cards: print(f"{c['s']:6.2f}-{c['e']:6.2f}  "+" ".join(x['t'] for x in c['w']))

@@ -1,6 +1,8 @@
 demo/
 fonts/*.otf
 fonts/*.ttf
+fonts/*.woff2
+fonts/*.woff
 __pycache__/
 *.pyc
 node_modules/

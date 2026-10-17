@@ -24,6 +24,7 @@
 | `ring` | دائرة نسبة تتعبى مع رقم يعدّ | أي نسبة من 100 | `value` `label` `size` |
 | `compare` | كرتين مايلين مع «ضد» بالنص، والفيديو يعتم | قبل وبعد، خيارين | `title` `aLabel` `aValue` `aSub` `bLabel` `bValue` `bSub` `win` (a أو b) |
 | `sting` | ختم الشعار: ضربة وحدة ودائرة تتوسع وفريم أبيض واحد ثم ثبات | آخر المقطع أو بدايته | `brand` (`hjs` أو `text` أو `logo` مع `src`) `bg` (`none` فوق الفيديو) `sub` `flash` |
+| `logo` (4.9) | شارة شعار شركة فوق الكابشن: نابض دخول، 2.2 ث. ومع `name2` مقارنة هادية «X أفضل من Y» بدون تعتيم، 3 ث | لما ينذكر اسم شركة أو يقارن بين شركتين | `name` `src` (من `hs logo`) `name2` `src2` `rel` (كلمة المقارنة) `size` `y` (فاضي = فوق أعلى سطر كابشن) |
 
 ```bash
 hs layer <work> add type=mg kind=stat s=56.9 e=60.5 value=100 prefix=$ "label=كريدت مع الاشتراك" max=100
@@ -31,6 +32,7 @@ hs layer <work> add type=mg kind=check s=17.5 e=24 "title=هايكو" "text=إج
 hs layer <work> add type=mg kind=steps s=12 e=24 "text=هايكو\nسونيت\nأوبوس\nفيبل"
 hs layer <work> add type=mg kind=compare s=26 e=31 aLabel=هايكو aValue=أسرع bLabel=سونيت bValue=أدق win=b
 hs layer <work> add type=mg kind=sting s=… e=… brand=logo src=assets/logo.png bg=#111111
+hs logo <work> auto      # شارات الشعار من الكابشن (أو بالأمر: type=mg kind=logo name=Claude src=assets/logos/claude.svg)
 ```
 
 - **التوقيت من الكلام:** `check` و`steps` يقرون توقيت الكلمات بنفسهم. حط أول كلمة بكل عنصر نفس الكلمة المنطوقة («هايكو» تلقى «الهايكو»).
