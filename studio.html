@@ -131,7 +131,7 @@ mark{background:rgba(224,165,58,.4);color:inherit;border-radius:3px}
 #live .in{max-width:860px;margin:0 auto;display:grid;grid-template-columns:1fr 240px;gap:26px}
 #live h2{margin:0 0 4px;font-size:20px}
 #livePrev{width:100%;border-radius:10px;background:#000;display:block}
-#tl{border-top:1px solid var(--bd);background:var(--s1);display:grid;grid-template-rows:38px minmax(0,1fr);grid-template-columns:66px minmax(0,1fr);min-height:0;direction:ltr}
+#tl{position:relative;border-top:1px solid var(--bd);background:var(--s1);display:grid;grid-template-rows:38px minmax(0,1fr);grid-template-columns:66px minmax(0,1fr);min-height:0;direction:ltr}
 #tlbar{grid-column:1/3}
 #gut{position:relative;overflow:hidden;border-right:1px solid var(--bd);font-size:10.5px;color:var(--mut)}
 #gut span{position:absolute;left:0;right:0;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 3px}
@@ -513,6 +513,12 @@ body.m #mtools{gap:6px;padding:10px 12px 4px}body.m #mtools .ic{width:42px;heigh
 #tAu .vr.m{border-color:rgba(201,83,63,.8);background:rgba(201,83,63,.2);color:#f0b2a6}#tAu .vr.on{outline:2px solid var(--tx)}
 #tAu .vsel{position:absolute;top:0;bottom:0;background:rgba(255,255,255,.14);border-inline:2px solid #fff;pointer-events:none;z-index:3}
 .clip.sfx.mute{opacity:.45}
+#tlGrip{position:absolute;left:0;right:0;top:-4px;height:8px;cursor:ns-resize;z-index:20;touch-action:none}
+body.m #tlGrip{display:none}
+#tAu .aclip{position:absolute;top:0;bottom:0;border-left:1px solid rgba(0,0,0,.6);pointer-events:none;z-index:0}
+#tAu .aclip.on{border:2px solid #fff;border-radius:4px;background:rgba(255,255,255,.08);z-index:3}
+#tAu .aclip .rl,#tAu .aclip .rr{position:absolute;top:0;bottom:0;width:9px;background:#fff;cursor:ew-resize;pointer-events:auto;touch-action:none}
+#tAu .aclip .rl{left:0}#tAu .aclip .rr{right:0}
 #tAu .mus{position:absolute;left:0;bottom:1px;height:11px;line-height:11px;font-size:9px;color:#cfe3ff;background:rgba(88,140,220,.28);border-top:1px solid rgba(120,170,240,.55);padding:0 6px;white-space:nowrap;overflow:hidden;cursor:pointer;z-index:1}
 #tAu .mus.on{background:rgba(88,140,220,.5);outline:1px solid var(--tx)}
 .svst{margin:2px 0 8px;color:var(--tx)}
@@ -561,7 +567,7 @@ body.drawing #sideTools,body.drawing #giz,body.drawing #ticker,body.drawing #ges
 /* ═══ 4.4: الكمبيوتر — أوسع وأهدأ ═══ */
 @media (min-width:761px){
   body:not(.m){font-size:14px}
-  body:not(.m) #app{grid-template-rows:60px minmax(0,1fr) 290px}
+  body:not(.m) #app{grid-template-rows:60px minmax(0,1fr) var(--tlh,290px)}
   body:not(.m) #top{height:60px;padding:0 16px}
   body:not(.m) #top .proj{cursor:text;border-radius:10px;padding:2px 8px;margin-inline-start:-4px}
   body:not(.m) #top .proj:hover{background:rgba(255,255,255,.06)}
@@ -679,7 +685,7 @@ body.drawing #sideTools,body.drawing #giz,body.drawing #ticker,body.drawing #ges
   <div id="mtools"><button class="ic" id="mMark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 4h12v17l-6-4-6 4z"/></svg></button><button class="ic" id="mUndo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button><button class="ic" id="mRedo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button><button class="ic" id="mCut"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.5 7.5L20 18M8.5 16.5L20 6"/></svg></button><span class="sp"></span><span id="mClock"><span id="mDur"></span> <b id="mNow"></b></span><button class="ic" id="mPlay2"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg></button></div>
   <div id="mbar"><div class="r"><button id="mBack">-2</button><button id="mPlay" class="pri"></button><button id="mFwd">+2</button><span id="mTime">00:00.00</span></div><input type="range" dir="ltr" id="mScrub" min="0" max="1" step="0.01" value="0"></div>
   <div id="mnav"></div>
-  <div id="tl">
+  <div id="tl"><div id="tlGrip"></div>
     <div id="tlbar">
       <button id="pp"></button>
       <span id="tm">00:00.00</span>
