@@ -51,12 +51,14 @@ def tap(dur=0.09):
     return s/(np.max(np.abs(s))+1e-9)
 
 W1=whoosh(0.34,True); W2=whoosh(0.30,False); TH=thud(); TP=tap()
-for t0 in _s.get("whoosh_up",[]):   add(W1,t0,0.085)
-for t0 in _s.get("whoosh_down",[]): add(W2,t0,0.075)
-for t0 in _s.get("thud",[]):        add(TH,t0,0.115)
-for t0 in _s.get("tap",[]):         add(TP,t0,0.075)
+def _tg(v): return (float(v[0]), float(v[1]) if len(v)>1 and v[1] is not None else 1.0) if isinstance(v,list) else (float(v),1.0)   # 4.11: الصوت له مستواه من الاستوديو
+for v in _s.get("whoosh_up",[]):   t0,g=_tg(v); add(W1,t0,0.085*g)
+for v in _s.get("whoosh_down",[]): t0,g=_tg(v); add(W2,t0,0.075*g)
+for v in _s.get("thud",[]):        t0,g=_tg(v); add(TH,t0,0.115*g)
+for v in _s.get("tap",[]):         t0,g=_tg(v); add(TP,t0,0.075*g)
 # ── مكتبة الأصوات (ملفات wav في ~/.hojas-studio/sfx، مفاتيحها تبدأ بـ mk، وأصوات المستخدم تبدأ بـ my) ──
-# القيمة: ثانية · أو [ثانية, قوة] · أو [ثانية, قوة, مدة]. الصوت ينقص عند نهاية الفيديو بتلاشي.
+# القيمة: ثانية · أو [ثانية, قوة] · أو [ثانية, قوة, مدة] · أو [ثانية, قوة, مدة, يبدأ من (داخل الصوت), ظهور تدريجي, اختفاء تدريجي] (4.11).
+# المدة null = لين آخر الصوت. الصوت ينقص عند نهاية الفيديو بتلاشي.
 import subprocess
 _LIB=os.environ.get("HS_SFX_DIR") or os.path.join(os.path.expanduser("~"),".hojas-studio","sfx")
 def _load(k):
@@ -82,10 +84,15 @@ for k,arr in _s.items():
     base=0.10 if len(sig)>8*SR else 0.20        # الخلفيات الطويلة أهدأ من الضربات
     if k.startswith("cc-ambience"): base=0.035  # 4.7: صوت الغرفة والأجواء ينحس ما ينسمع (30 dB تحت الكلام)
     for v in arr:
-        vv=list(v) if isinstance(v,list) else [v]; t0=vv[0]; g=vv[1] if len(vv)>1 else 1; d=vv[2] if len(vv)>2 else None
-        L=len(sig) if not d else min(len(sig),int(float(d)*SR)); L=max(0,min(L,int((VEND-float(t0))*SR)))
+        vv=list(v) if isinstance(v,list) else [v]; t0=vv[0]; g=vv[1] if len(vv)>1 and vv[1] is not None else 1; d=vv[2] if len(vv)>2 else None
+        off=int(max(0.0,float(vv[3] or 0))*SR) if len(vv)>3 else 0; fi=float(vv[4] or 0) if len(vv)>4 else 0.0; fo=vv[5] if len(vv)>5 else None
+        src=sig[off:]
+        L=len(src) if not d else min(len(src),int(float(d)*SR)); L=max(0,min(L,int((VEND-float(t0))*SR)))
         if L<200: continue
-        s=sig[:L].copy(); f=min(L,int(0.25*SR)); s[-f:]*=np.linspace(1,0,f)
+        s=src[:L].copy(); f=min(L,int((0.25 if fo is None else max(0.0,float(fo)))*SR))
+        if f>1: s[-f:]*=np.linspace(1,0,f)
+        k_=min(L,int(fi*SR))
+        if k_>1: s[:k_]*=np.linspace(0,1,k_)
         if len(sig)>8*SR and _DUCK<1:
             i0=max(0,int(float(t0)*SR)); m=min(len(s),n-i0); s[:m]*=_DUCKENV[i0:i0+m]
         add(s,float(t0),base*float(g or 1))

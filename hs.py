@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Hojas Studio 4.10 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
+"""Hojas Studio 4.11 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
 
   python hs.py open   <work> [--engine <مجلد المحرّك>] [--port 8800] [--no-browser]
         يشغّل الخادم بالخلفية ويفتح المتصفح. شغّله أول ما تبدأ المونتاج، حتى قبل ما يجهز أي ملف.
@@ -29,6 +29,8 @@
   python hs.py logo   <work> plan | auto | add <الاسم> <ملف|رابط>     شعار الشركة لما ينذكر اسمها، و«X أفضل من Y»
   python hs.py takes  <work> scan | list [--all] | use <رقم> [--why …] | drop | keep | note | fit <ث> | preview | apply   اختيار الجمل (إعادات وتلعثم)
   python hs.py plan   <work> show | check | wait | approve      خطة المقطع قبل البناء (plan.json)
+  python hs.py voice  <work> list | mute <من> <إلى> | set <من> <إلى> <مستوى> | rm <رقم|all>   مستوى صوتك لأجزاء من المقطع
+  python hs.py rmbg   <work> <صورة> [auto|flat|person]          يشيل خلفية صورة مضافة (على الجهاز)
   python hs.py steps  <work> · facts <work> · cuts <work> [fix] · gloss list|add|rm     الخطوات · أرقام تتأكد منها · قطعات على صوت · قاموسك
   python hs.py fonts  list | install <zip|مجلد> | apply <work>         خطوطه الخاصة (تبقى على جهازه، ما تنرفع)
   python hs.py export <work> [--clean] [--hooks] [--frame 9:16|4:5|1:1|16:9]     التصدير النهائي (نفس زر الاستوديو)
@@ -71,7 +73,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.10"
+VERSION = "4.11"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json", "takes.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -442,6 +444,8 @@ def retime_project(work, remap, total, new_total):
     if hs.get("layers"): hs["layers"] = mv(hs["layers"])
     if (hs.get("bleep") or {}).get("items"):   # 4.6: الكلمات المكتومة تزحف مع القص
         hs["bleep"]["items"] = [{**x, "s": shift(float(x["s"])), "e": shift(float(x["e"]))} for x in hs["bleep"]["items"] if shift(float(x["e"])) - shift(float(x["s"])) >= 0.04]
+    if (hs.get("mix") or {}).get("vr"):   # 4.11: مستوى صوت الأجزاء يزحف مع القص
+        hs["mix"]["vr"] = [{**x, "s": shift(float(x["s"])), "e": shift(float(x["e"]))} for x in hs["mix"]["vr"] if shift(float(x["e"])) - shift(float(x["s"])) >= 0.04]
     st["behindOff"] = []; wj(J(work, "studio.json"), st)
 def remove_ranges(work, S, log, ranges=(), cards=(), words=(), rebuild=True):
     """يشيل مقاطع (بزمن الإخراج) من الفيديو والصوت، ويزحّف كل شي بعدها: الكابشن · المؤثرات · المشاهد · الطبقات."""
@@ -647,6 +651,73 @@ def cmd_takes(work, args):
         tgt = float(args[1]) if len(args) > 1 else 60.0; out, tot = tk_fit(work, tgt)
         print(("اقتراح حذف %d جملة عشان يوصل %.0f ث (يصير %.1f ث):\n" % (len(out), tgt, tot) + "\n".join("  ✗ %s  %5.1fث  %s" % (x["id"], x["s"], x["text"][:70]) for x in out) + "\nراجعها (keep <رقم> للي تبيه) وبعدها apply") if out else "المقطع %.1f ث، ما يحتاج تقصير." % tot)
     else: sys.exit("takes: scan | list [--all] | use <رقم> [--why …] | drop <أرقام> | keep <أرقام> | note \"ملخص\" | fit <ثواني> | preview | apply [--no-rebuild]")
+
+# ───────────────────────── 4.11: شيل الخلفية من الصور ─────────────────────────
+def _img_rgba(src):
+    p = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0:s=x", src], capture_output=True, text=True).stdout.strip().split("\n")[0]
+    w, h_ = [int(x) for x in p.split("x")[:2]]
+    sc = min(1.0, 2000.0 / max(w, h_)); W_, H_ = max(2, int(w * sc)) // 2 * 2, max(2, int(h_ * sc)) // 2 * 2
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", src, "-vf", "scale=%d:%d" % (W_, H_), "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgba", "-"], capture_output=True).stdout
+    return W_, H_, raw
+def _save_rgba(arr, out):
+    H_, W_ = arr.shape[:2]
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgba", "-s", "%dx%d" % (W_, H_), "-i", "-", "-frames:v", "1", out], input=arr.tobytes(), capture_output=True)
+    return os.path.isfile(out) and os.path.getsize(out) > 100
+def rmbg_flat(src, out, tol=30.0):
+    """خلفية سادة (أبيض، لون واحد، لقطة شاشة): نعبّي من حواف الصورة على اللون اللي يشبه الحافة ونخليه شفاف بحافة ناعمة. بلا نت وبلا موديل."""
+    import numpy as np
+    W_, H_, raw = _img_rgba(src)
+    if len(raw) < W_ * H_ * 4: return {"ok": False, "msg": "ما قدرت أقرأ الصورة"}
+    a = np.frombuffer(raw[:W_ * H_ * 4], dtype=np.uint8).reshape(H_, W_, 4).copy(); rgb = a[:, :, :3].astype(np.float32)
+    edge = np.concatenate([rgb[0], rgb[-1], rgb[:, 0], rgb[:, -1]]); bg = np.median(edge, axis=0)
+    de = np.sqrt(((edge - bg) ** 2).sum(1)); flat = float((de < tol).mean())
+    if flat < 0.6: return {"ok": False, "flat": round(flat, 2), "msg": "الخلفية مو سادة"}
+    dist = np.sqrt(((rgb - bg) ** 2).sum(2)); cand = dist < tol
+    reg = np.zeros_like(cand); reg[0, :] = cand[0, :]; reg[-1, :] = cand[-1, :]; reg[:, 0] = cand[:, 0]; reg[:, -1] = cand[:, -1]
+    for _ in range(max(W_, H_) * 2):
+        g = reg.copy(); g[1:] |= reg[:-1]; g[:-1] |= reg[1:]; g[:, 1:] |= reg[:, :-1]; g[:, :-1] |= reg[:, 1:]; g &= cand
+        if (g == reg).all(): break
+        reg = g
+    alpha = np.where(reg, 0.0, 1.0)
+    near = np.zeros_like(reg); near[1:] |= reg[:-1]; near[:-1] |= reg[1:]; near[:, 1:] |= reg[:, :-1]; near[:, :-1] |= reg[:, 1:]; near &= ~reg   # حافة ناعمة
+    soft = np.clip((dist - tol * 0.5) / (tol * 1.5), 0, 1); alpha = np.where(near, np.minimum(alpha, soft + 0.15), alpha)
+    a[:, :, 3] = (np.clip(alpha, 0, 1) * a[:, :, 3]).astype(np.uint8)
+    if not _save_rgba(a, out): return {"ok": False, "msg": "ما قدرت أحفظ الصورة"}
+    return {"ok": True, "out": out, "removed": round(float(reg.mean()), 3), "mode": "flat"}
+def rmbg_person(src, out):
+    """صورة فيها شخص: موديل فصل الشخص اللي بالسكل (MediaPipe، على جهازك)."""
+    eng = find_engine(None); js = os.path.join(eng, "scripts", "23_rmbg.js")
+    r = subprocess.run(["node", js, os.path.abspath(src), os.path.abspath(out)], capture_output=True, text=True, timeout=180)
+    if r.returncode != 0 or not os.path.isfile(out): return {"ok": False, "msg": (r.stderr or r.stdout or "ما اشتغل فصل الشخص").strip()[-200:]}
+    try: return {"ok": True, "out": out, "mode": "person", **json.loads((r.stdout or "{}").strip().splitlines()[-1])}
+    except Exception: return {"ok": True, "out": out, "mode": "person"}
+def rmbg(work, src, mode="auto"):
+    """يشيل الخلفية ويحفظ نسخة PNG جنب الأصل بـ assets. auto: سادة أول، وإلا شخص."""
+    p = src if os.path.isabs(src) else J(work, src.lstrip("/"))
+    if not os.path.isfile(p): return {"ok": False, "msg": "ما لقيت الصورة: " + src}
+    os.makedirs(J(work, "assets"), exist_ok=True); base = re.sub(r"(-nobg)+$", "", os.path.splitext(os.path.basename(p))[0])
+    out = J(work, "assets", "%s-nobg-%s.png" % (re.sub(r"-nobg-\d+$", "", base), time.strftime("%H%M%S"))); r = {"ok": False}
+    if mode in ("auto", "flat"):
+        try: r = rmbg_flat(p, out)
+        except ImportError: r = {"ok": False, "msg": "يحتاج numpy"}
+    if not r.get("ok") and mode in ("auto", "person"): r = rmbg_person(p, out)
+    if r.get("ok"): r["src"] = os.path.relpath(out, work).replace("\\", "/")
+    return r
+def cmd_rmbg(work, args):
+    if not args: sys.exit("rmbg <work> <صورة بمجلد المشروع> [auto|flat|person]")
+    r = rmbg(work, args[0], args[1] if len(args) > 1 else "auto")
+    print(("شلت الخلفية (%s): %s" % ({"flat": "خلفية سادة", "person": "فصل الشخص"}.get(r.get("mode"), ""), r["src"])) if r.get("ok") else ("ما قدرت: %s. للصور المعقدة استخدم أداة شيل الخلفية من حسابه (Higgsfield أو Canva) وبعدها gen import." % r.get("msg", "")))
+    if not r.get("ok"): sys.exit(5)
+def cmd_voice(work, args):
+    """4.11: مستوى صوتك لأجزاء: mute <من> <إلى> · set <من> <إلى> <مستوى> · list · rm <رقم|all>"""
+    st = load_studio(work); hs = hs_of(st); vr = hs.setdefault("mix", {}).setdefault("vr", []); sub = args[0] if args else "list"
+    if sub in ("mute", "set") and len(args) >= 3:
+        s, e = sorted([float(args[1]), float(args[2])]); g = 0.0 if sub == "mute" else float(args[3]) if len(args) > 3 else 0.5
+        vr[:] = [r for r in vr if r["e"] <= s or r["s"] >= e] + [{"s": round(s, 3), "e": round(e, 3), "g": round(g, 3)}]; vr.sort(key=lambda r: r["s"])
+    elif sub == "rm" and len(args) >= 2: vr[:] = [] if args[1] == "all" else [r for i, r in enumerate(vr) if i != int(args[1]) - 1]
+    elif sub != "list": sys.exit("voice: list | mute <من> <إلى> | set <من> <إلى> <مستوى 0-3> | rm <رقم|all>")
+    wj(J(work, "studio.json"), st)
+    print("\n".join("%d  %s ← %s  %s" % (i + 1, fmt_t(r["s"]), fmt_t(r["e"]), "مكتوم" if r["g"] == 0 else "×%.2f" % r["g"]) for i, r in enumerate(vr)) or "صوتك بنفس المستوى بكل المقطع.")
 
 # ───────────────────────── 4.10: عشر حلول لمشاكل متعبة ─────────────────────────
 def fmt_t(x): x = max(0.0, float(x or 0)); return "%d:%04.1f" % (int(x // 60), x % 60)
@@ -1273,10 +1344,18 @@ def cmd_bleep(work, args):
         if ok and v not in ok: sys.exit("القيم: " + " | ".join(ok))
         hs.setdefault("bleep", {})[sub] = int(float(v)) if sub == "tone" else v; wj(J(work, "studio.json"), st); print("تم"); return
     sys.exit("bleep: list | word <كلمة> … | at <ث> | add <من> <إلى> | rm <رقم|all> | mode beep|mute | cap stars|hide|keep | tone <هيرتز>")
+def vr_filters(mix):
+    """4.11: مستوى صوت لأجزاء من كلامك (كتم أو خفض أو رفع) بزمن المقطع."""
+    out = ""
+    for r in mix.get("vr") or []:
+        try: s, e, g = float(r["s"]), float(r["e"]), max(0.0, min(3.0, float(r.get("g", 1))))
+        except Exception: continue
+        if e - s >= 0.02 and abs(g - 1) > 1e-3: out += "volume=%.3f:enable='between(t,%.3f,%.3f)'," % (g, s, e)
+    return out
 def encode(work, S, log, out_final, out_master, mix):
     caps = rj(J(work, "caps.json")); sfx = rj(J(work, "sfx.json"), {"outro": 0}) or {}
     dur = round(caps["total"] + sfx.get("outro", 0), 3); fade = round(dur - 0.6, 3)
-    voice = float(mix.get("voice", 1)); chain = (CLEAN_AF if mix.get("clean") else "") + VOICE_FX.get(mix.get("voiceFx") or "", "") + "volume=%.3f," % voice
+    voice = float(mix.get("voice", 1)); chain = (CLEAN_AF if mix.get("clean") else "") + VOICE_FX.get(mix.get("voiceFx") or "", "") + "volume=%.3f," % voice + vr_filters(mix)
     has_sfx = os.path.exists(J(work, "sfx.wav")); ins = ["-framerate", "30", "-i", J(work, "out", "%05d.jpg"), "-i", J(work, "cutz.mp4")] + (["-i", J(work, "sfx.wav")] if has_sfx else [])
     bm, bp = bleep_filters(bleep_of(hs_of(load_studio(work)))); a0 = "a0"
     fc = "[0:v]scale=in_range=pc:out_range=tv:out_color_matrix=bt709,format=yuv420p[vo];[1:a]%s%sapad=pad_dur=8[a0];" % (chain, bm)
@@ -2352,6 +2431,23 @@ def cmd_selftest(work=None, engine=None):
         ap = txt.get("app.js", "") or open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); shtml = open(os.path.join(HERE, "studio.html"), encoding="utf-8").read(); i18 = open(os.path.join(HERE, "i18n.js"), encoding="utf-8").read()
         chk("4.10: الاستوديو فيه «الجمل» و«الخطة» وشريط الخطوات والخط المنقط", all(x in ap for x in ("function takesPanel", "function planPanel", "function stepsBar", "data-tkapply", "' lo'")) and 'data-ltab="takes"' in shtml and "tkTitle:" in i18 and "planTitle:" in i18 and ".w.lo" in shtml)
     except Exception as e: chk("4.10: اختيار الجمل والحلول العشر", False, str(e)[:200])
+    try:   # 4.11: تراك الصوت وشيل الخلفية
+        vf = vr_filters({"vr": [{"s": 1, "e": 2, "g": 0}, {"s": 3, "e": 4, "g": 1}, {"s": 5, "e": 6.5, "g": 0.5}]})
+        chk("4.11: مستوى صوتك لأجزاء (كتم وخفض) بسلسلة التصدير، والمستوى 1 ما يضيف شي", vf == "volume=0.000:enable='between(t,1.000,2.000)',volume=0.500:enable='between(t,5.000,6.500)',", vf)
+        td = tempfile.mkdtemp(prefix="hs-rb-"); ok_rb = False; det = ""
+        try:
+            import numpy as _np
+            img = _np.full((120, 160, 4), 245, dtype=_np.uint8); img[:, :, 3] = 255; img[30:90, 40:120, :3] = (200, 40, 30); img[50:70, 70:90, :3] = 245
+            _save_rgba(img, os.path.join(td, "in.png")); r_ = rmbg_flat(os.path.join(td, "in.png"), os.path.join(td, "out.png"))
+            W_, H_, raw_ = _img_rgba(os.path.join(td, "out.png")); o_ = _np.frombuffer(raw_[:W_ * H_ * 4], dtype=_np.uint8).reshape(H_, W_, 4)
+            ok_rb = r_.get("ok") and o_[5, 5, 3] == 0 and o_[60, 50, 3] == 255 and o_[60, 80, 3] == 255; det = json.dumps(r_)[:120]
+        except ImportError: ok_rb = True; det = "numpy مو موجود، تخطيت"
+        finally: shutil.rmtree(td, ignore_errors=True)
+        chk("4.11: شيل الخلفية السادة (الحواف شفافة، والشكل وفتحته الداخلية باقية)", ok_rb, det)
+        ap = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); hb = open(os.path.join(HERE, "hub.html"), encoding="utf-8").read(); s5 = open(os.path.join(find_engine(None), "scripts", "05_sfx.py"), encoding="utf-8").read()
+        chk("4.11: الاستوديو فيه تعديل الأصوات (مستوى وقص وظهور واختفاء) وأجزاء الصوت وشيل الخلفية، والمكسر يطبّقها", all(x in ap for x in ("function sxGet", "function sxPut", "function vrDraw", "data-vact", "data-rmbg")) and "off=int(" in s5 and "_tg(v)" in s5
+            and "DATA.root||''):'')+'</small>" not in hb and os.path.isfile(os.path.join(find_engine(None), "scripts", "23_rmbg.js")))
+    except Exception as e: chk("4.11: تراك الصوت وشيل الخلفية", False, str(e)[:200])
     chk("الرسم الحر بالمحرّك والاستوديو", "function drawLayer" in txt.get("ext.js", "") and "function drawStart" in txt.get("app.js", ""))
     try:   # 4.6: كتم الكلمات
         m0, p0 = bleep_filters(bleep_of({})); ct = {"cards": [{"s": 0, "e": 2, "w": [{"t": "شركة", "s": 0.1, "e": 0.4}, {"t": "والشركه", "s": 0.5, "e": 0.9}, {"t": "شركات", "s": 1.0, "e": 1.3}]}]}
@@ -3073,6 +3169,11 @@ def serve(work, port, engine):
                     return self._json(200, {"ok": True, "rows": perf_get(item_id(work))})
                 if p == "/hs/claude_fix":   # 4.5: اختياري ويستهلك من حدّك (الواجهة تنبّهه قبلها)
                     what = str(data.get("what") or "retention"); items = [str(x)[:300] for x in (data.get("items") or [])][:12]
+                    if what == "rmbg":   # 4.11
+                        src_ = str(data.get("src") or "")[:300]
+                        task = ("شيل خلفية الصورة %s بمشروع \"%s\". جرّب أول: python hs.py rmbg \"%s\" \"%s\" . لو قال ما قدر (خلفية معقدة ومو شخص): استخدم أداة شيل الخلفية من حساب المستخدم (Higgsfield remove_background، أو Canva remove-background) وقل له قبلها إنها تستهلك من رصيده، "
+                                "واحفظ الناتج PNG بمجلد assets باسم الصورة-nobg.png، وبعدها غيّر src بالطبقة اللي تستخدمها لهذا الملف بـ studio.json (وخلّ srcOrig بالأصل).") % (src_, work, work, src_)
+                        ok, msg = agent_run(task, "Claude يشيل الخلفية"); return self._json(200, {"ok": ok, "msg": msg})
                     if what in ("unsure", "plan", "plan2"):   # 4.10
                         ask = str(data.get("text") or "").strip()[:800]
                         if what == "unsure":
@@ -3097,6 +3198,8 @@ def serve(work, port, engine):
                     else: task = "صلّح هالمشاكل بالمقطع (فحص الاحتفاظ). أقل تعديل يكفي، وبعدها قل وش سويت بسطرين:\n- " + "\n- ".join(items)
                     ok, msg = agent_run(task, "تحسين بـClaude: " + ("نصوص النشر" if what == "repurpose" else "فحص الاحتفاظ"))
                     return self._json(200, {"ok": ok, "msg": msg})
+                if p == "/hs/rmbg":   # 4.11: شيل الخلفية من صورة مضافة
+                    r = rmbg(work, str(data.get("src") or ""), str(data.get("mode") or "auto")); return self._json(200, r)
                 if p == "/hs/plan_set":   # 4.10: الخطة قبل البناء
                     pl = plan_load(work) or {"items": []}
                     if "approve" in data: pl["approved"] = bool(data["approve"])
@@ -5735,6 +5838,8 @@ def main():
     elif cmd == "logo": cmd_logo(work, rest)
     elif cmd == "takes": cmd_takes(work, rest)
     elif cmd == "plan": cmd_plan(work, rest)
+    elif cmd == "rmbg": cmd_rmbg(work, rest)
+    elif cmd == "voice": cmd_voice(work, rest)
     elif cmd == "steps":
         for s_ in steps(work): print("%s %d %s%s" % ({"done": "✓", "now": "←", "todo": "·"}[s_["state"]], s_["n"], s_["label"], ("  (%d كلمة تراجعها)" % s_["unsure"]) if s_.get("unsure") else ""))
     elif cmd == "facts":

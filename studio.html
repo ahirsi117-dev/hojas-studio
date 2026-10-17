@@ -148,15 +148,15 @@ mark{background:rgba(224,165,58,.4);color:inherit;border-radius:3px}
 .lbl{display:none}
 #ruler{top:0;height:20px;border-bottom:1px solid var(--bd);color:var(--mut);font-size:10.5px}
 #ruler span{position:absolute;top:3px;padding-left:4px;border-left:1px solid var(--bd);height:16px;font-variant-numeric:tabular-nums}
-#tL2{top:24px;height:21px}#tL1{top:47px;height:21px}#tL0{top:70px;height:21px}
+#tL2{top:22px;height:19px}#tL1{top:43px;height:19px}#tL0{top:64px;height:19px}
 #tL2,#tL1,#tL0{background:rgba(255,255,255,.018)}
-#tCap{top:96px;height:26px}
-#tFx{top:126px;height:20px}
-#tFilm{top:150px;height:46px;background:var(--s2);overflow:hidden}
-#tAu{top:200px;height:34px}
-#tChk{top:238px;height:9px}
+#tCap{top:87px;height:24px}
+#tFx{top:114px;height:20px}
+#tFilm{top:137px;height:40px;background:var(--s2);overflow:hidden}
+#tAu{top:180px;height:32px}
+#tChk{top:214px;height:8px}
 #tMk{top:251px;height:16px}
-.clip{position:absolute;top:0;bottom:0;border-radius:5px;overflow:hidden;white-space:nowrap;font-size:11px;line-height:21px;padding:0 7px;cursor:pointer;color:#fff;border:1.5px solid transparent;touch-action:none;user-select:none}
+.clip{position:absolute;top:0;bottom:0;border-radius:5px;overflow:hidden;white-space:nowrap;font-size:11px;line-height:19px;padding:0 7px;cursor:pointer;color:#fff;border:1.5px solid transparent;touch-action:none;user-select:none}
 .clip.cap{background:var(--cap);line-height:23px;direction:rtl;text-align:right}
 .clip.text{background:var(--lay)}.clip.image{background:#b9772f}.clip.char{background:var(--chr)}.clip.fx{background:#6d6d7c}
 .clip.broll,.clip.sc{background:var(--fx);line-height:17px;font-size:10.5px}
@@ -507,6 +507,11 @@ body.m #mtools{gap:6px;padding:10px 12px 4px}body.m #mtools .ic{width:42px;heigh
 .rfx button.sm{white-space:nowrap}
 .rz{position:absolute;top:0;bottom:0;border-radius:3px;pointer-events:none}.rz.red{background:rgba(239,106,90,.45)}.rz.yellow{background:rgba(242,179,61,.35)}
 .tkg{border:1px solid var(--bd);border-radius:12px;padding:4px 6px;margin-bottom:8px}
+/* 4.11: تراك الصوت */
+#tAu .vr{position:absolute;top:2px;bottom:2px;border:1px solid rgba(224,165,58,.75);background:rgba(224,165,58,.16);border-radius:5px;font-size:10px;color:#f1d39b;padding:0 4px;overflow:hidden;white-space:nowrap;cursor:pointer;z-index:2;line-height:28px}
+#tAu .vr.m{border-color:rgba(201,83,63,.8);background:rgba(201,83,63,.2);color:#f0b2a6}#tAu .vr.on{outline:2px solid var(--tx)}
+#tAu .vsel{position:absolute;top:0;bottom:0;background:rgba(255,255,255,.14);border-inline:2px solid #fff;pointer-events:none;z-index:3}
+.clip.sfx.mute{opacity:.45}
 /* 4.10: اختيار الجمل */
 .w.lo{text-decoration:underline dotted;text-decoration-color:var(--warn,#e0a53a);text-underline-offset:5px;text-decoration-thickness:2px}
 .lobar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--mut);margin:-4px 0 10px}.lobar span{flex:1 1 100%}
@@ -552,7 +557,7 @@ body.drawing #sideTools,body.drawing #giz,body.drawing #ticker,body.drawing #ges
 /* ═══ 4.4: الكمبيوتر — أوسع وأهدأ ═══ */
 @media (min-width:761px){
   body:not(.m){font-size:14px}
-  body:not(.m) #app{grid-template-rows:60px minmax(0,1fr) 268px}
+  body:not(.m) #app{grid-template-rows:60px minmax(0,1fr) 290px}
   body:not(.m) #top{height:60px;padding:0 16px}
   body:not(.m) #top .proj{cursor:text;border-radius:10px;padding:2px 8px;margin-inline-start:-4px}
   body:not(.m) #top .proj:hover{background:rgba(255,255,255,.06)}
@@ -683,7 +688,7 @@ body.drawing #sideTools,body.drawing #giz,body.drawing #ticker,body.drawing #ges
       <span class="sp"></span>
       <input type="range" id="zoom" min="16" max="260" value="80">
     </div>
-    <div id="gut"><span style="top:47px;line-height:21px" data-t="trkLayers"></span><span style="top:96px;line-height:26px" data-t="trkCaps"></span><span style="top:126px;line-height:20px" data-t="trkFx"></span><span style="top:150px;line-height:46px" data-t="trkVideo"></span><span style="top:200px;line-height:34px" data-t="trkAudio"></span><span style="top:236px;line-height:13px" data-t="trkCheck"></span><span style="top:251px;line-height:16px" data-t="trkNotes"></span></div>
+    <div id="gut"><span style="top:43px;line-height:19px" data-t="trkLayers"></span><span style="top:87px;line-height:24px" data-t="trkCaps"></span><span style="top:114px;line-height:20px" data-t="trkFx"></span><span style="top:137px;line-height:40px" data-t="trkVideo"></span><span style="top:180px;line-height:32px" data-t="trkAudio"></span><span style="top:212px;line-height:13px" data-t="trkCheck"></span><span style="top:251px;line-height:16px" data-t="trkNotes"></span></div>
     <div id="scroller"><div id="lane">
       <div class="trk" id="ruler"></div>
       <div class="trk" id="tL2"></div><div class="trk" id="tL1"></div><div class="trk" id="tL0"></div>

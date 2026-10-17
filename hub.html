@@ -118,7 +118,7 @@ nav .tabs button.on::before{content:"";position:absolute;top:-7px;left:50%;trans
 nav .fab{width:66px;flex:none;background:var(--pri);color:#fff;border-radius:24px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.22);box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
 .sheet{position:fixed;inset:0;background:rgba(3,5,10,.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:none;z-index:50;align-items:flex-end;justify-content:center}
 .sheet.on{display:flex}
-.sheet .in{background:rgba(20,23,31,.92);border:1px solid var(--bd);border-radius:28px 28px 0 0;width:min(560px,100%);padding:12px 18px calc(22px + env(safe-area-inset-bottom));max-height:92vh;overflow:auto}
+.sheet .in{background:#151922;border:1px solid var(--bd);border-radius:28px 28px 0 0;width:min(560px,100%);padding:12px 18px calc(22px + env(safe-area-inset-bottom));max-height:92vh;overflow:auto}
 .sheet .grab{width:44px;height:5px;border-radius:3px;background:var(--s3);margin:0 auto 14px}
 .sheet .ph{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;margin-bottom:18px}
 .sheet .ph img{width:96px;height:140px;object-fit:cover;border-radius:16px;background:var(--s2)}
@@ -146,8 +146,8 @@ textarea{width:100%;background:var(--s1);border:1px solid var(--bd);border-radiu
 .prog i{display:block;height:100%;width:0;background:var(--y)}
 .seg2{display:flex;gap:8px;flex-wrap:wrap}
 .tkb{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:999px;background:rgba(242,179,61,.16);color:var(--warn);border:1px solid rgba(242,179,61,.35);vertical-align:middle;margin-inline-start:4px}
-#tok{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px}
-#tok .in{background:var(--s1);border:1px solid var(--bd);border-radius:20px;padding:20px;max-width:420px;width:100%;line-height:1.8}
+#tok{position:fixed;inset:0;z-index:80;background:rgba(4,6,10,.8);display:grid;place-items:center;padding:16px}
+#tok .in{background:#151922;border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:20px;max-width:420px;width:100%;line-height:1.8}#tok .in p{color:var(--tx)}#tok .ck input{width:18px;height:18px;min-width:18px;flex:none;margin:0;padding:0}#tok .ck{white-space:normal;width:auto;height:auto;border:0;border-radius:0;place-items:initial}#tok .box{background:#2a2316;border-color:rgba(242,179,61,.45)}
 #tok h3{margin:0 0 6px;font-size:18px} #tok .ck{display:flex;gap:8px;align-items:center;margin:4px 0 14px;font-size:13.5px;color:var(--mut)} #tok .acts{display:flex;gap:8px}
 .st-tip{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--bd);line-height:1.8} .st-tip:first-of-type{border-top:0} .st-tip b{min-width:46px;color:var(--ok);direction:ltr;text-align:center}
 .st-tip.dn b{color:var(--warn)} .pr-row{display:grid;grid-template-columns:minmax(0,1fr) 110px 90px;gap:8px;align-items:center;padding:7px 0;border-top:1px solid var(--bd)} .pr-row input{width:100%;padding:8px 10px}
@@ -281,10 +281,10 @@ mark{background:rgba(76,141,255,.35);color:#fff;border-radius:4px;padding:0 2px}
 @media(min-width:900px){
   body{display:grid;grid-template-columns:1fr;padding-inline-start:260px}
   #side{display:flex;flex-direction:column;position:fixed;top:0;bottom:0;inset-inline-start:0;width:260px;padding:26px 18px 20px;border-inline-end:1px solid var(--bd);background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.01));z-index:20}
-  #side .brand{display:flex;align-items:center;gap:12px;padding:0 6px 22px}
+  #side .brand{display:flex;align-items:center;justify-content:center;gap:12px;padding:0 6px 22px}
   #side .brand b{font-size:17px;display:block}
-  [dir=rtl] #side .brand{direction:ltr;justify-content:flex-end}[dir=rtl] #side .brand small{text-align:left}
-  #side .brand b.wm{width:26px;height:22.4px;color:var(--tx);margin-bottom:5px}#side .brand b.wm svg{display:block;width:100%;height:100%}
+  [dir=rtl] #side .brand{direction:ltr;justify-content:center}
+  #side .brand b.wm{width:30px;height:25.8px;color:var(--tx);margin:0}#side .brand b.wm svg{display:block;width:100%;height:100%}
   #side .brand small{color:var(--mut);font-size:12px;direction:ltr;display:block}
   #side .new{width:100%;margin-bottom:22px;padding:13px;font-size:15.5px;border-radius:16px}
   #side .nv{display:flex;flex-direction:column;gap:4px}
@@ -537,7 +537,7 @@ function renderDev(){ const d=DEV; if(!d){ $('#main').innerHTML=LOADERR?errBox()
   o+='<h4 class="sec">'+t('phone')+'</h4><div class="card"><div class="lbl">'+t('phoneSub',esc(d.token))+'</div><div class="qr">'+svg+'</div><div class="copy"><span>'+esc(d.lan)+'</span></div>'+(d.ts?'<div class="lbl" style="margin-top:12px">'+t('secure')+'</div><div class="copy" style="margin-top:6px"><span>'+esc(d.ts+'library')+'</span></div>':'<div class="note">'+t('noSecure')+'</div><div class="copy"><span>python hs.py hub --tailscale</span></div>')+'</div>';
   o+='</div></div></div>'; $('#main').innerHTML=o; }
 function renderSide(){ const P=(DATA&&DATA.projects)||[], E=(DATA&&DATA.eps)||[], b=(DATA&&DATA.battery)||{}, aw=DATA&&DATA.awake, nw=P.filter(p=>p.state==='wait').length+E.filter(e=>e.state==='wait').length;
-  $('#side').innerHTML='<div class="brand"><div class="logo" aria-hidden="true"><i></i><i></i><i></i></div><div><b class="wm" role="img" aria-label="Hojas Studio">'+HJS_WM+'</b><small>'+(DATA?esc(DATA.root||''):'')+'</small></div></div>'
+  $('#side').innerHTML='<div class="brand" title="'+(DATA?esc(DATA.root||''):'')+'"><div class="logo" aria-hidden="true"><i></i><i></i><i></i></div><b class="wm" role="img" aria-label="Hojas Studio">'+HJS_WM+'</b></div>'
    +'<button class="btn y new" data-new="1">'+IC.plus+t('newP')+'</button><div class="nv">'
    +[['lib',IC.lib,nw],['stats',IC.stats,0],['cmds',IC.cmds,0],['dev',IC.dev,0]].map(([k,i,n])=>'<button data-tab="'+k+'" class="'+(TAB===k&&!EP?'on':'')+'">'+i+'<span>'+t(k)+'</span>'+(n?'<small>'+n+'</small>':'')+'</button>').join('')+'<div class="tl soon" title="'+esc(t('soonSub'))+'">'+IC.tele+'<span>'+t('tele')+'</span><small class="sn">'+t('soon')+'</small></div></div>'
    +'<div class="foot"><div class="rowc"><span>'+t('awake')+'</span><div class="tg'+(aw?' on':'')+'" data-awake="1"></div></div><div class="rowc"><span style="display:flex;gap:8px;align-items:center"><span class="dot'+(aw?'':' warn')+'"></span>'+(b.has?b.pct+'% '+batHtml(b):t('on'))+'</span><button class="btn sm" data-lang="1">'+(LANG==='ar'?'EN':'ع')+'</button></div></div>'; }
