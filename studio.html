@@ -579,10 +579,24 @@ body.drawing #sideTools,body.drawing #giz,body.drawing #ticker,body.drawing #ges
 /* ═══ 4.4: شاشة التحميل ═══ */
 #boot{position:fixed;inset:0;z-index:90;display:none;place-items:center;background:rgba(8,10,15,.9);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);text-align:center;padding:20px}
 #boot.on{display:grid}
-#boot .bars{display:grid;gap:7px;width:70px;margin:0 auto 24px}
-#boot .bars i{display:block;height:11px;border-radius:6px;transform-origin:right;animation:ldb 1.5s ease-in-out infinite}
-#boot .bars i:nth-child(1){background:#8f73f5}#boot .bars i:nth-child(2){background:#4f7fd4;animation-delay:.18s}#boot .bars i:nth-child(3){background:#3aa57e;animation-delay:.36s}
-@keyframes ldb{0%,100%{transform:scaleX(.45)}50%{transform:scaleX(1)}}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hjs{position:relative;width:52px;height:52px;margin:0 auto 24px;color:#f1f4fa;direction:ltr}
+.hjs i{position:absolute;left:0;height:18%;background:currentColor;transform-origin:0 50%;animation:hjsIn .56s cubic-bezier(.16,1,.3,1) both,hjsA 2.4s cubic-bezier(.65,0,.35,1) .9s infinite}
+.hjs i:nth-child(1){top:0;width:57.9%}
+.hjs i:nth-child(2){top:41%;left:24%;width:76%;animation-delay:.07s,.98s;animation-name:hjsIn,hjsB}
+.hjs i:nth-child(3){top:82%;width:39.9%;animation-delay:.14s,1.06s;animation-name:hjsIn,hjsC}
+@keyframes hjsIn{0%{transform:translateX(-70%) scaleX(.2);opacity:0}100%{transform:none;opacity:1}}
+@keyframes hjsA{0%,55%,100%{transform:none}22%,34%{transform:translateX(41%) scaleX(.72)}}
+@keyframes hjsB{0%,55%,100%{transform:none}22%,34%{transform:translateX(-31.6%) scaleX(.8)}}
+@keyframes hjsC{0%,55%,100%{transform:none}22%,34%{transform:scaleX(1.62)}}
+.hjs.off i{animation:none;opacity:.35}
+@media (prefers-reduced-motion:reduce){.hjs i{animation:none!important}}
+.hjs-lk{display:flex;align-items:flex-start;justify-content:center;gap:19px;margin:0 auto 22px;direction:ltr;height:66px}
+.hjs-lk .hjs{margin:0;width:46px;height:46px}
+.hjs-wm{display:block;width:76.4px;height:65.8px;color:inherit;clip-path:inset(0 100% 0 0);animation:hjsW .62s cubic-bezier(.16,1,.3,1) .34s forwards}
+.hjs-wm svg{display:block;width:100%;height:100%}
+@keyframes hjsW{to{clip-path:inset(0 0 0 0)}}
+@media (prefers-reduced-motion:reduce){.hjs-wm{animation:none;clip-path:none}}
 #boot .tx{font-size:18px;font-weight:600;min-height:30px;transition:opacity .3s,transform .3s;color:#f1f4fa}
 #boot .tx::after{content:"";display:inline-block;width:1.2em;text-align:start;animation:ldd 1.2s steps(4) infinite}
 @keyframes ldd{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}

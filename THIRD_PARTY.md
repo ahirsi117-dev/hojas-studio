@@ -5,12 +5,16 @@ Hojas Studio is made by Hojas (Rakan Alzahrani). Parts of it were inspired by or
 ## HyperFrames, Apache License 2.0
 Copyright (c) 2026 HeyGen, Inc. https://github.com/heygen-com/hyperframes
 Ideas adapted and rewritten for Hojas Studio's canvas renderer (no files copied): velocity-matched seam transitions, motion rules, oversized cursor, caption grouping and QA rules, story structures and card-count formula, beat analysis approach, voice EQ presets, color-grade presets.
+In 4.8: the timings and layouts of the motion-kit templates (`type=mg`: stat, slam, check, steps, callout, quote, ring, compare, sting) follow HyperFrames registry items (count-up, headline-slam, marker-checklist-card, state-chip-rail, vox-annotate, testimonial-proof-card, split-tilt-cards, logo-sting), and `engine/references/motion-kit.md` summarizes its animation, typography and caption rules in Arabic. All drawing code is our own.
 License text: `LICENSES/Apache-2.0.txt`.
 
 ## lemo-opuscar, MIT License
 Copyright (c) 2026 LemoLab. https://github.com/lemomo-ai/lemo-opuscar
-The film-style catalog in engine/references/looks.md is summarized from its style list, and several Hojas "looks" are inspired by its styles.
+The film-style catalog in engine/references/looks.md is summarized from its style list, and several Hojas "looks" are inspired by its styles (4.8 adds gameshow, crt, briefing and spy). The director checks in `engine/references/motion-kit.md` are summarized from its DIRECTOR.md and TECHNIQUE.md.
 License text: `LICENSES/MIT-lemo-opuscar.txt`.
+
+## Remotion, facts and rules only
+https://www.remotion.dev and its agent skills (github.com/remotion-dev/skills). **No code or text from Remotion is included.** `engine/references/motion-kit.md` and `engine/references/remotion.md` summarize, in our own Arabic words, publicly documented rules (sequencing, determinism, render settings, caption paging). The spring curve in our canvas engine is the standard closed-form damped-spring equation, written from scratch. The optional Remotion export path downloads Remotion on the user's machine under the Remotion License.
 
 ## gbro-collage-broll, MIT License
 Copyright (c) 2026 pyang5166. https://github.com/pyang5166/gbro-collage-broll

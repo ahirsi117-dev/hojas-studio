@@ -89,7 +89,7 @@ GUIDE_CSS = '''
 .site-header{position:relative;z-index:10;background:var(--paper);border-bottom:1px solid var(--line);font-size:16px;line-height:1.8}
 .site-bar{width:min(1120px,100% - 32px);margin-inline:auto;min-height:64px;display:flex;align-items:center;justify-content:space-between;gap:16px}
 .site-brand{display:inline-flex;align-items:center;gap:12px;color:var(--ink);text-decoration:none}
-.site-mark{width:4px;height:24px;border-radius:2px;background:var(--clay)}
+.site-mark{width:22px;height:22px;flex:none;background:currentColor;-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 260'%3E%3Crect width='150.5' height='46.8'/%3E%3Crect x='62.5' y='106.6' width='197.5' height='46.8'/%3E%3Crect y='213.2' width='103.7' height='46.8'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 260'%3E%3Crect width='150.5' height='46.8'/%3E%3Crect x='62.5' y='106.6' width='197.5' height='46.8'/%3E%3Crect y='213.2' width='103.7' height='46.8'/%3E%3C/svg%3E") center / contain no-repeat;}
 .site-name{font-size:17px;font-weight:700}
 .site-latin{font-size:14px;font-weight:500;color:var(--mute)}
 .nav-toggle{min-height:44px;padding:0 16px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:600 15px var(--sans);cursor:pointer}

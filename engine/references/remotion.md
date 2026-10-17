@@ -23,3 +23,12 @@ bash scripts/04b_remotion.sh <work> render <work>/ad-final.mp4   # MP4 مباش�
 - مستطيلات عرض الفيديو بـ`<work>/stage.json` ونصوص الختام بـ`<work>/outro.json`.
 - المنطقة الآمنة: `"guides": true` بـ`safe.json` ثم `studio` — تشوف المناطق الحمراء حيّة.
 - ما يعرف `R_OFF` بعد.
+
+## قواعد ريموشن الرسمية (ملخصة من مهارات Remotion ووثائقه)
+
+- **الحركة:** `spring({damping:200})` للتحريك بدون نطّ، و`Easing.bezier(0.16,1,0.3,1)` للظهور. مرر `extrapolateLeft/Right:'clamp'` دايماً مع `interpolate` (الافتراضي يمد القيمة برّا). التكبير بـ`output:'perceptual-scale'`.
+- **التسلسل:** كل `Sequence` يحمّل قبل وقته بثانية (`premountFor={30}`). القطعة بين مشهدين بـ`TransitionSeries`: `fade` 15 فريم، `slide` 20، والمدة الكلية تنقص بمدة الانتقال.
+- **الثبات:** لا `Math.random` (استخدم `random(seed)`)، ولا حركة CSS ولا `animate-*`. انتظر الخط قبل ما تقيس النص.
+- **الفيديو:** `<Video>` من `@remotion/media`، والقص بـ`trimBefore`/`trimAfter` بدل قص الملف.
+- **التصدير:** فريمات JPEG جودة 80، و`h264` بـ`crf 18` (الافتراضي)، وألوان `bt709`. التوازي = نص أنوية الجهاز (8 بالكثير). جرّب فريمات قبل الكامل: `--frames=0,30,90`.
+- **الكابشن على طريقة تيك توك:** صفحة كل 1200 جزء من الثانية (`combineTokensWithinMilliseconds`)، والكلمة النشطة لونها مختلف.

@@ -27,8 +27,9 @@ header{padding:22px 4px 14px;display:flex;align-items:flex-end;gap:14px;flex-wra
 header .t{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
 header h1{font-family:"HS UI","IBM Plex Sans Arabic",sans-serif;font-size:44px;line-height:1.1;margin:0;font-weight:700}
 header .by{color:var(--mut);font-size:13px;direction:ltr;margin-inline-start:auto;align-self:flex-end;padding-bottom:6px}
-.logo{width:34px;height:34px;flex:none;display:grid;gap:3px;grid-template-rows:repeat(3,1fr)}
-.logo i{display:block;border-radius:3px}
+.logo{width:30px;height:30px;flex:none;position:relative;direction:ltr;color:var(--tx)}
+.logo i{position:absolute;left:0;height:18%;background:currentColor}
+.logo i:nth-child(1){top:0;width:57.9%}.logo i:nth-child(2){top:41%;left:24%;width:76%}.logo i:nth-child(3){top:82%;width:39.9%}
 .status{display:flex;align-items:center;gap:8px;color:var(--mut);font-size:14px;margin-top:8px;width:100%}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none}
 .dot.off{background:var(--mut)}.dot.warn{background:var(--warn)}
@@ -230,14 +231,26 @@ textarea{width:100%;background:var(--s1);border:1px solid var(--bd);border-radiu
 .hint2{color:var(--mut);font-size:12.5px;line-height:1.7;margin:6px 2px 12px}
 #side{display:none}
 .ld{display:grid;place-items:center;min-height:58vh;text-align:center;padding:20px}
-.ld .bars{display:grid;gap:7px;width:70px;margin:0 auto 24px}
-.ld .bars i{display:block;height:11px;border-radius:6px;transform-origin:right;animation:ldb 1.5s ease-in-out infinite}
-.ld .bars i:nth-child(1){background:var(--cap)}.ld .bars i:nth-child(2){background:var(--img);animation-delay:.18s}.ld .bars i:nth-child(3){background:var(--vid);animation-delay:.36s}
-.ld .bars.off i{animation:none;opacity:.35}
-@keyframes ldb{0%,100%{transform:scaleX(.45)}50%{transform:scaleX(1)}}
+.hjs{position:relative;width:52px;height:52px;margin:0 auto 24px;color:var(--tx);direction:ltr}
+.hjs i{position:absolute;left:0;height:18%;background:currentColor;transform-origin:0 50%;animation:hjsIn .56s cubic-bezier(.16,1,.3,1) both,hjsA 2.4s cubic-bezier(.65,0,.35,1) .9s infinite}
+.hjs i:nth-child(1){top:0;width:57.9%}
+.hjs i:nth-child(2){top:41%;left:24%;width:76%;animation-delay:.07s,.98s;animation-name:hjsIn,hjsB}
+.hjs i:nth-child(3){top:82%;width:39.9%;animation-delay:.14s,1.06s;animation-name:hjsIn,hjsC}
+@keyframes hjsIn{0%{transform:translateX(-70%) scaleX(.2);opacity:0}100%{transform:none;opacity:1}}
+@keyframes hjsA{0%,55%,100%{transform:none}22%,34%{transform:translateX(41%) scaleX(.72)}}
+@keyframes hjsB{0%,55%,100%{transform:none}22%,34%{transform:translateX(-31.6%) scaleX(.8)}}
+@keyframes hjsC{0%,55%,100%{transform:none}22%,34%{transform:scaleX(1.62)}}
+.hjs.off i{animation:none;opacity:.35}
+@media (prefers-reduced-motion:reduce){.hjs i{animation:none!important}}
+.hjs-lk{display:flex;align-items:flex-start;justify-content:center;gap:19px;margin:0 auto 22px;direction:ltr;height:66px}
+.hjs-lk .hjs{margin:0;width:46px;height:46px}
+.hjs-wm{display:block;width:76.4px;height:65.8px;color:inherit;clip-path:inset(0 100% 0 0);animation:hjsW .62s cubic-bezier(.16,1,.3,1) .34s forwards}
+.hjs-wm svg{display:block;width:100%;height:100%}
+@keyframes hjsW{to{clip-path:inset(0 0 0 0)}}
+@media (prefers-reduced-motion:reduce){.hjs-wm{animation:none;clip-path:none}}
 .ld-tx{font-size:18px;font-weight:600;min-height:30px;transition:opacity .3s,transform .3s}
 .ld-tx::after{content:"";display:inline-block;width:1.2em;text-align:start;animation:ldd 1.2s steps(4) infinite}
-.bars.off+.ld-tx::after{display:none}
+.hjs.off+.ld-tx::after{display:none}
 @keyframes ldd{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
 .ld-tx.out{opacity:0;transform:translateY(6px)}
 .ld-sub{color:var(--mut);font-size:13.5px;margin-top:6px;max-width:420px;line-height:1.7}
@@ -270,6 +283,8 @@ mark{background:rgba(76,141,255,.35);color:#fff;border-radius:4px;padding:0 2px}
   #side{display:flex;flex-direction:column;position:fixed;top:0;bottom:0;inset-inline-start:0;width:260px;padding:26px 18px 20px;border-inline-end:1px solid var(--bd);background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.01));z-index:20}
   #side .brand{display:flex;align-items:center;gap:12px;padding:0 6px 22px}
   #side .brand b{font-size:17px;display:block}
+  [dir=rtl] #side .brand{direction:ltr;justify-content:flex-end}[dir=rtl] #side .brand small{text-align:left}
+  #side .brand b.wm{width:26px;height:22.4px;color:var(--tx);margin-bottom:5px}#side .brand b.wm svg{display:block;width:100%;height:100%}
   #side .brand small{color:var(--mut);font-size:12px;direction:ltr;display:block}
   #side .new{width:100%;margin-bottom:22px;padding:13px;font-size:15.5px;border-radius:16px}
   #side .nv{display:flex;flex-direction:column;gap:4px}
@@ -338,7 +353,7 @@ mark{background:rgba(76,141,255,.35);color:#fff;border-radius:4px;padding:0 2px}
 <aside id="side"></aside>
 <div class="wrap">
   <header>
-    <div class="t"><div class="logo"><i style="background:var(--cap);width:70%"></i><i style="background:var(--img)"></i><i style="background:var(--vid);width:55%"></i></div><h1 id="h1"></h1><span class="by" id="by">Hojas Studio</span></div>
+    <div class="t"><div class="logo" aria-hidden="true"><i></i><i></i><i></i></div><h1 id="h1"></h1><span class="by" id="by">Hojas Studio</span></div>
     <div class="status" id="status"></div>
   </header>
   <main id="main"></main>
@@ -455,7 +470,7 @@ function tileHtml(p){ const pr=p.prep&&!p.prep.err;
    +'<div class="ov"><b dir="auto">'+esc(p.title)+'</b>'+subHtml(p)+(pos(p)?'<div class="resume">'+t('resume',fmt(pos(p)))+'</div>':'')+'</div>'+(pr?'<div class="pb"><i></i></div>':'')
    +'<div class="hov"><button class="btn y" data-go="'+p.id+'">'+t('open')+'</button>'+(p.stopped?'<button class="btn" data-resume="'+p.id+'">'+t('resumeCl')+'</button>':'')+(p.final?'<button class="btn" data-watch="'+p.id+'">'+t('watch')+'</button>':'')+'<button class="btn" data-dup="'+p.id+'">'+t('dup')+'</button></div></div>'; }
 function searchBox(){ return '<div class="search" id="sbox">'+SV('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',18,2)+'<input id="q" dir="auto" autocomplete="off" placeholder="'+esc(t('searchAll'))+'" value="'+esc(Q)+'">'+(Q?'<button class="ic sm0" id="qX">'+IC.x+'</button>':'')+'</div>'; }
-function renderLib(){ if(!DATA){ $('#main').innerHTML=LOADERR?errBox():loader('lib'); return; } const P=DATA.projects, E=DATA.eps||[]; let o='';
+function renderLib(){ if(!DATA){ if(!$('#main .hjs-lk')||LOADERR) $('#main').innerHTML=LOADERR?errBox():loader('lib',0,1); return; } const P=DATA.projects, E=DATA.eps||[]; let o='';
   if((P.length||E.length)&&!DESK()) o+=searchBox();
   if(Q.trim().length>=2){ $('#main').innerHTML=o+'<div id="sres">'+srHtml()+'</div>'; return; }
   if(!P.length&&!E.length){ $('#main').innerHTML='<div class="empty">'+t('noProj')+'<br><button class="btn y" data-new="1">'+IC.plus+t('newP')+'</button></div>'; return; }
@@ -522,7 +537,7 @@ function renderDev(){ const d=DEV; if(!d){ $('#main').innerHTML=LOADERR?errBox()
   o+='<h4 class="sec">'+t('phone')+'</h4><div class="card"><div class="lbl">'+t('phoneSub',esc(d.token))+'</div><div class="qr">'+svg+'</div><div class="copy"><span>'+esc(d.lan)+'</span></div>'+(d.ts?'<div class="lbl" style="margin-top:12px">'+t('secure')+'</div><div class="copy" style="margin-top:6px"><span>'+esc(d.ts+'library')+'</span></div>':'<div class="note">'+t('noSecure')+'</div><div class="copy"><span>python hs.py hub --tailscale</span></div>')+'</div>';
   o+='</div></div></div>'; $('#main').innerHTML=o; }
 function renderSide(){ const P=(DATA&&DATA.projects)||[], E=(DATA&&DATA.eps)||[], b=(DATA&&DATA.battery)||{}, aw=DATA&&DATA.awake, nw=P.filter(p=>p.state==='wait').length+E.filter(e=>e.state==='wait').length;
-  $('#side').innerHTML='<div class="brand"><div class="logo"><i style="background:var(--cap);width:70%"></i><i style="background:var(--img)"></i><i style="background:var(--vid);width:55%"></i></div><div><b>Hojas Studio</b><small>'+(DATA?esc(DATA.root||''):'')+'</small></div></div>'
+  $('#side').innerHTML='<div class="brand"><div class="logo" aria-hidden="true"><i></i><i></i><i></i></div><div><b class="wm" role="img" aria-label="Hojas Studio">'+HJS_WM+'</b><small>'+(DATA?esc(DATA.root||''):'')+'</small></div></div>'
    +'<button class="btn y new" data-new="1">'+IC.plus+t('newP')+'</button><div class="nv">'
    +[['lib',IC.lib,nw],['stats',IC.stats,0],['cmds',IC.cmds,0],['dev',IC.dev,0]].map(([k,i,n])=>'<button data-tab="'+k+'" class="'+(TAB===k&&!EP?'on':'')+'">'+i+'<span>'+t(k)+'</span>'+(n?'<small>'+n+'</small>':'')+'</button>').join('')+'<div class="tl soon" title="'+esc(t('soonSub'))+'">'+IC.tele+'<span>'+t('tele')+'</span><small class="sn">'+t('soon')+'</small></div></div>'
    +'<div class="foot"><div class="rowc"><span>'+t('awake')+'</span><div class="tg'+(aw?' on':'')+'" data-awake="1"></div></div><div class="rowc"><span style="display:flex;gap:8px;align-items:center"><span class="dot'+(aw?'':' warn')+'"></span>'+(b.has?b.pct+'% '+batHtml(b):t('on'))+'</span><button class="btn sm" data-lang="1">'+(LANG==='ar'?'EN':'ع')+'</button></div></div>'; }
@@ -554,9 +569,11 @@ const LDP={
  cmds:[['أجيب أوامرك','Loading your commands'],['أرتّبها من الأحدث','Newest first']],
  dev:[['أشيّك على جهازك','Checking your computer'],['أقيس المساحة','Measuring storage'],['أشوف البطارية','Reading the battery']]};
 const ldTx=(k,i)=>{ const L=LDP[k]||LDP.lib, x=L[i%L.length]; return LANG==='en'?x[1]:x[0]; };
-function loader(k,sub){ return '<div class="ld" data-ld="'+k+'" data-i="0" data-t0="'+Date.now()+'"><div><div class="bars"><i></i><i></i><i></i></div><div class="ld-tx">'+esc(ldTx(k,0))+'</div>'+(sub?'<div class="ld-sub" dir="auto">'+esc(sub)+'</div>':'')+'<div class="line"><i></i></div><div class="slow"></div></div></div>'; }
+const HJS_WM='<svg viewBox="0 0 307.2 264.75" fill="currentColor" aria-hidden="true"><rect width="33.5" height="185.1"/><rect x="33.5" y="75.8" width="81.25" height="33.5"/><path d="M114.75 0H148.25V211A53.75 53.75 0 0 1 40.75 211H74.25A20.25 20.25 0 0 0 114.75 211Z"/><path d="M285.14 34.87A49.04 37.75 0 1 0 243.49 92.55L241.51 92.55A49.04 37.75 0 1 1 199.86 150.23" fill="none" stroke="currentColor" stroke-width="33.2"/></svg>';
+function hjsMark(lock){ const s='<div class="hjs" aria-hidden="true"><i></i><i></i><i></i></div>'; return lock?'<div class="hjs-lk">'+s+'<span class="hjs-wm">'+HJS_WM+'</span></div>':s; }
+function loader(k,sub,lock){ return '<div class="ld" data-ld="'+k+'" data-i="0" data-t0="'+Date.now()+'"><div>'+hjsMark(lock)+'<div class="ld-tx">'+esc(ldTx(k,0))+'</div>'+(sub?'<div class="ld-sub" dir="auto">'+esc(sub)+'</div>':'')+'<div class="line"><i></i></div><div class="slow"></div></div></div>'; }
 function errBox(){ return '<div class="ld"><div><div class="bars off"><i></i><i></i><i></i></div><div class="ld-tx">'+t('ldErr')+'</div><div class="ld-sub">'+t('ldErrSub')+'</div><button class="btn y" id="ldRetry" style="margin-top:16px">'+t('retry')+'</button></div></div>'; }
-function ovShow(k,sub){ let o=$('#ov'); if(!o){ o=document.createElement('div'); o.id='ov'; document.body.appendChild(o); } o.innerHTML=loader(k,sub); o.classList.add('on'); }
+function ovShow(k,sub){ let o=$('#ov'); if(!o){ o=document.createElement('div'); o.id='ov'; document.body.appendChild(o); } o.innerHTML=loader(k,sub,1); o.classList.add('on'); }
 function ovHide(){ const o=$('#ov'); if(o) o.classList.remove('on'); }
 setInterval(()=>{ $$('.ld[data-ld]').forEach(el=>{ const tx=el.querySelector('.ld-tx'); if(!tx) return; const i=(+el.dataset.i||0)+1; el.dataset.i=i; tx.classList.add('out'); setTimeout(()=>{ tx.textContent=ldTx(el.dataset.ld,i); tx.classList.remove('out'); },320);
   const sec=(Date.now()-(+el.dataset.t0||Date.now()))/1000, sl=el.querySelector('.slow'); if(sl&&sec>14&&!sl.innerHTML) sl.innerHTML=t('ldSlow')+(el.dataset.ld==='lib'||el.dataset.ld==='dev'||el.dataset.ld==='cmds'?' <button class="btn sm" id="ldRetry">'+t('retry')+'</button>':''); }); },2400);

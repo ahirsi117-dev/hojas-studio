@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Hojas Studio 4.7.1 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
+"""Hojas Studio 4.8 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
 
   python hs.py open   <work> [--engine <مجلد المحرّك>] [--port 8800] [--no-browser]
         يشغّل الخادم بالخلفية ويفتح المتصفح. شغّله أول ما تبدأ المونتاج، حتى قبل ما يجهز أي ملف.
@@ -66,7 +66,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.7.1"
+VERSION = "4.8"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -1671,12 +1671,26 @@ def cmd_selftest(work=None, engine=None):
     except Exception as e: chk("4.7.1: قص السكتات", False, str(e)[:120])
     try:
         ex = txt.get("ext.js", "") or open(os.path.join(HERE, "ext.js"), encoding="utf-8").read(); sh_ = txt.get("studio.html", "") or open(os.path.join(HERE, "studio.html"), encoding="utf-8").read()
-        chk("4.7.1: شريط التقدّم بعد التقريب، وما فيه تغبيش على الأزرار", "['bar',x=>{ if(_barFn) _barFn(x); }]" in ex and "backdrop-filter:var(--glass)" not in sh_)
+        chk("4.7.1: شريط التقدّم بعد التقريب، وما فيه تغبيش على الأزرار", "['bar',x=>{ if(_barFn" in ex and ex.index("['fx',") < ex.index("['mg',mgs]") < ex.index("['bar',x=>") and "backdrop-filter:var(--glass)" not in sh_)
         td = tempfile.mkdtemp(prefix="hs-act-"); wj(os.path.join(td, "studio.json"), {}); os.makedirs(os.path.join(td, ".hs"))
         open(os.path.join(td, ".hs", "activity.jsonl"), "w", encoding="utf-8").write(json.dumps({"id": 1, "t": int(time.time()) - 3600, "kind": "step", "text": "أفرّغ كلامك"}, ensure_ascii=False) + "\n")
         c1 = proj_card(td); say(td, "أحط الكروت"); c2 = proj_card(td); say(td, "جهز", "done"); c3 = proj_card(td); shutil.rmtree(td, ignore_errors=True)
         chk("4.7.1: المكتبة توضح وين وقف Claude", c1["stopped"] and "أفرّغ كلامك" in c1["sub"] and not c2["stopped"] and "أحط الكروت" in c2["sub"] and not c3["stopped"], "%s | %s | %s" % (c1["sub"], c2["sub"], c3["sub"]))
     except Exception as e: chk("4.7.1: الشريط والمكتبة", False, str(e)[:120])
+    try:   # 4.8: الموشن الجاهز، النابض، والهوية
+        ex = txt.get("ext.js", "") or open(os.path.join(HERE, "ext.js"), encoding="utf-8").read(); ap = txt.get("app.js", "") or open(os.path.join(HERE, "app.js"), encoding="utf-8").read()
+        reg = re.search(r"const MGK=\{([^}]*)\}", ex); ks = [x.split(":")[0] for x in reg.group(1).split(",")] if reg else []
+        chk("4.8: تسع قوالب موشن بالمحرّك والاستوديو والأوامر", ks == list(MG_KINDS) and "['mg',mgs]" in ex and all(("mg:'+k" in ap or "'%s'" % k in ap) for k in MG_KINDS) and "function mgPanel" in ap, ",".join(ks))
+        if shutil.which("node"):
+            m = re.search(r"const SPW=\{\}; function spr\(k,z\)\{.*?\n.*?\}\n", ex, re.S)
+            js = (m.group(0) if m else "") + "const a=[];for(let i=0;i<=200;i++)a.push(spr(i/200,1));const b=[];for(let i=0;i<=200;i++)b.push(spr(i/200,0.82));console.log(JSON.stringify({m1:Math.max(...a),e1:a[200],h1:a[100],m2:Math.max(...b),mono:a.every((v,i)=>!i||v>=a[i-1]-1e-9)}));"
+            r = subprocess.run(["node", "-e", js], capture_output=True, text=True, timeout=20); o = json.loads(r.stdout or "{}")
+            chk("4.8: النابض يستقر بالوقت بالضبط (بدون تجاوز، والخفيف يتجاوز 1 إلى 3%)", bool(o) and o["m1"] <= 1.0000001 and o["e1"] == 1 and o["h1"] > 0.85 and o["mono"] and 1.005 < o["m2"] < 1.03, json.dumps(o)[:120])
+        bd = os.path.join(HERE, "brand"); import xml.etree.ElementTree as _ET
+        svgs = ["hjs-symbol.svg", "hjs-wordmark.svg", "hjs-lockup.svg", "hjs-icon.svg", "favicon.svg"]; okb = all(_ET.parse(os.path.join(bd, f)).getroot().tag.endswith("svg") for f in svgs)
+        hb = txt.get("hub.html", "") or open(os.path.join(HERE, "hub.html"), encoding="utf-8").read()
+        chk("4.8: شعار هوجاس (الرمز + HJS) بملفات brand وشاشات التحميل", okb and "function hjsMark" in hb and "function hjsMark" in ap and "background:var(--cap);width:70%" not in hb and "hjsIn" in (txt.get("studio.html", "") or open(os.path.join(HERE, "studio.html"), encoding="utf-8").read()))
+    except Exception as e: chk("4.8: الموشن الجاهز والهوية", False, str(e)[:160])
     chk("الرسم الحر بالمحرّك والاستوديو", "function drawLayer" in txt.get("ext.js", "") and "function drawStart" in txt.get("app.js", ""))
     try:   # 4.6: كتم الكلمات
         m0, p0 = bleep_filters(bleep_of({})); ct = {"cards": [{"s": 0, "e": 2, "w": [{"t": "شركة", "s": 0.1, "e": 0.4}, {"t": "والشركه", "s": 0.5, "e": 0.9}, {"t": "شركات", "s": 1.0, "e": 1.3}]}]}
@@ -1785,6 +1799,7 @@ def cmd_set(work, args):
         for p in parts[:-1]: cur = cur.setdefault(p, {})
         cur[parts[-1]] = val
     wj(sp, st); print(json.dumps({k: v for k, v in hs.items() if k in ("cap", "en", "mix", "hooks", "check")}, ensure_ascii=False)[:900])
+MG_KINDS = ("stat", "slam", "check", "steps", "callout", "quote", "ring", "compare", "sting")
 def cmd_layer(work, args):
     sp = J(work, "studio.json"); st = load_studio(work); hs = hs_of(st); Ls = hs.setdefault("layers", []); sub = args[0] if args else "list"
     if sub == "list":
@@ -1793,12 +1808,13 @@ def cmd_layer(work, args):
         return
     if sub == "add":
         o = parse_kv(args[1:])
-        if o.get("type") not in ("text", "image", "char", "fx", "split", "viz", "cover", "bg", "behind", "pip", "mark", "cursor", "lt", "collage", "kinetic", "desk", "draw"): sys.exit("type لازم: text | image | char | fx | split | viz | cover | bg | behind | pip | mark | cursor | lt | kinetic | desk | collage | draw")
+        if o.get("type") not in ("text", "image", "char", "fx", "split", "viz", "cover", "bg", "behind", "pip", "mark", "cursor", "lt", "collage", "kinetic", "desk", "draw", "mg"): sys.exit("type لازم: mg | text | image | char | fx | split | viz | cover | bg | behind | pip | mark | cursor | lt | kinetic | desk | collage | draw")
+        if o["type"] == "mg" and o.get("kind") not in MG_KINDS: sys.exit("kind لازم: " + " | ".join(MG_KINDS))
         if o["type"] in ("split", "viz", "pip"):
             for k2, v2 in (hs.get("cardDefault") or {}).items(): o.setdefault(k2, v2) if not (k2 == "deco" and o["type"] == "viz") else None
         for k in ("text", "title"):
             if isinstance(o.get(k), str): o[k] = o[k].replace("\\n", "\n")
-        o.setdefault("s", 0); o.setdefault("e", float(o["s"]) + ({"split": 5, "viz": 5, "cover": 0.9, "pip": 5, "collage": 4, "mark": 2.5, "lt": 4, "kinetic": 3, "desk": 4}.get(o["type"], 3))); o["id"] = new_id(Ls); o.setdefault("track", {"fx": 2, "text": 1, "split": 2, "viz": 2, "cover": 2, "behind": 1, "mark": 1, "cursor": 1, "lt": 1, "collage": 2, "pip": 2, "kinetic": 2, "desk": 1}.get(o["type"], 0)); Ls.append(o); wj(sp, st); print(o["id"])
+        o.setdefault("s", 0); o.setdefault("e", float(o["s"]) + ({"split": 5, "viz": 5, "cover": 0.9, "pip": 5, "collage": 4, "mark": 2.5, "lt": 4, "kinetic": 3, "desk": 4, "mg": 3.5}.get(o["type"], 3))); o["id"] = new_id(Ls); o.setdefault("track", {"fx": 2, "text": 1, "split": 2, "viz": 2, "cover": 2, "behind": 1, "mark": 1, "cursor": 1, "lt": 1, "collage": 2, "pip": 2, "kinetic": 2, "desk": 1}.get(o["type"], 0)); Ls.append(o); wj(sp, st); print(o["id"])
         if o["type"] in ("bg", "behind", "split", "pip") or (o["type"] == "viz"):
             try: vision_ensure(work)
             except Exception as e: print("تنبيه: " + str(e)[:160])
