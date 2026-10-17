@@ -151,8 +151,11 @@
   window.hsLoadFont=loadFont;
 
   const cardKey=c=>c.w.map(w=>w.t).join(' ');
+  /* 4.7.1: عرض كل كلمة ينحسب مرة وحدة بدل كل فريم (كان أثقل شي بالجوال وقت التشغيل). ينمسح لما يحمل خط جديد */
+  const _MW=new Map(); try{ document.fonts.addEventListener('loadingdone',()=>_MW.clear()); }catch(e){}
+  function mw(t){ const k=X.font+'|'+t; let v=_MW.get(k); if(v===undefined){ v=X.measureText(t).width; if(_MW.size>6000) _MW.clear(); _MW.set(k,v); } return v; }
   function wrapWords(ws,font,maxw,gap){ X.font=font;
-    const it=ws.map(w=>({...w,w:X.measureText(w.t).width})); const L=[]; let c=[],cw=0;
+    const it=ws.map(w=>({...w,w:mw(w.t)})); const L=[]; let c=[],cw=0;
     const isNum=w=>/^[0-9٠-٩]+$/.test(w.t);
     for(let k=0;k<it.length;k++){ const i=it[k]; const add=c.length?i.w+gap:i.w;
       const glue=(k+1<it.length&&isNum(i))?it[k+1].w+gap:0;       /* الرقم ووحدته بسطر واحد */
@@ -1090,8 +1093,10 @@
 
   const _draw=window.draw;
   const capSmall=(x,o)=>{ if(!CAP.on) return; CAPFORCE=true; const _c0=CAP; CAP={...CAP,...o}; try{ window.caption(x); } finally { CAPFORCE=false; CAP=_c0; } };
-  window.draw=function(t){ TNOW=t; _draw(t);
-    for(const [n,f] of [['split',x=>{ if(!splits(x)) return; if(CAP.on) capSmall(x,{size:Math.min(CAP.size,60),lines:1,width:Math.min(CAP.width||760,920),bg:CAP.bg==='bar'?'box':CAP.bg}); else if(!HSX.nocap){ try{ _cap(x); }catch(e){} } }],['viz',x=>{ if(vizs(x)) capSmall(x,{y:69.6,size:Math.min(CAP.size,72),lines:1,width:Math.min(CAP.width||760,900)}); }],['collage',x=>{ if(collages(x)){ if(CAP.on) capSmall(x,{}); else if(!HSX.nocap){ try{ _cap(x); }catch(e){} } } }],['kinetic',kinetics],['layers',x=>layers(x,false)],['cover',covers],['hook',hook],['fx',x=>{ if(dkOn()&&(HSX.dahih.layout||'window')!=='full'){ const R=dkStage(); X.beginPath(); X.rect(R.x,R.y,R.w,R.h); X.clip(); } fx(x); }],['look',lookOverlay]]){ X.save(); try{ f(t); }catch(e){ if(!window['__hsE'+n]){ window['__hsE'+n]=1; console.error('hs '+n+': '+e.message); } } X.restore(); X.setTransform(1,0,0,1,0,0); X.globalAlpha=1; X.filter='none'; X.globalCompositeOperation='source-over'; } };
+  /* 4.7.1: شريط التقدّم ينرسم بعد المؤثرات. قبل كان التقريب (punch و zoom) والانتقالات تكبّره معها فيطلع خط طويل خارج الشاشة */
+  const _barFn=typeof window.bar==='function'?window.bar:null;
+  window.draw=function(t){ TNOW=t; if(_barFn) window.bar=function(){}; try{ _draw(t); } finally { if(_barFn) window.bar=_barFn; }
+    for(const [n,f] of [['split',x=>{ if(!splits(x)) return; if(CAP.on) capSmall(x,{size:Math.min(CAP.size,60),lines:1,width:Math.min(CAP.width||760,920),bg:CAP.bg==='bar'?'box':CAP.bg}); else if(!HSX.nocap){ try{ _cap(x); }catch(e){} } }],['viz',x=>{ if(vizs(x)) capSmall(x,{y:69.6,size:Math.min(CAP.size,72),lines:1,width:Math.min(CAP.width||760,900)}); }],['collage',x=>{ if(collages(x)){ if(CAP.on) capSmall(x,{}); else if(!HSX.nocap){ try{ _cap(x); }catch(e){} } } }],['kinetic',kinetics],['layers',x=>layers(x,false)],['cover',covers],['hook',hook],['fx',x=>{ if(dkOn()&&(HSX.dahih.layout||'window')!=='full'){ const R=dkStage(); X.beginPath(); X.rect(R.x,R.y,R.w,R.h); X.clip(); } fx(x); }],['bar',x=>{ if(_barFn) _barFn(x); }],['look',lookOverlay]]){ X.save(); try{ f(t); }catch(e){ if(!window['__hsE'+n]){ window['__hsE'+n]=1; console.error('hs '+n+': '+e.message); } } X.restore(); X.setTransform(1,0,0,1,0,0); X.globalAlpha=1; X.filter='none'; X.globalCompositeOperation='source-over'; } };
   window.__hsFx=['zoom','punch','shake','flash','bw','blur','vignette','letterbox','tint','glitch','grain','facezoom','spotlight','pulse','tilt','rgb','vhs','pixel','duotone','sepia','invert','mirror','leak','strobe','speed','confetti','curve','push','pull','rack','whip','spin','iris'];
   window.__hsAnims=['pop','rise','drop','slide','slideL','zoom','fade','type','none'];
 })();

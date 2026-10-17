@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Hojas Studio 4.7 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
+"""Hojas Studio 4.7.1 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
 
   python hs.py open   <work> [--engine <مجلد المحرّك>] [--port 8800] [--no-browser]
         يشغّل الخادم بالخلفية ويفتح المتصفح. شغّله أول ما تبدأ المونتاج، حتى قبل ما يجهز أي ملف.
@@ -66,7 +66,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.7"
+VERSION = "4.7.1"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -349,6 +349,7 @@ def remove_ranges(work, S, log, ranges=(), cards=(), words=(), rebuild=True):
     for a, b in iv:
         if merged and a - merged[-1][1] < 0.05: merged[-1][1] = max(merged[-1][1], b)
         else: merged.append([a, b])
+    merged = [[round(a * 30) / 30.0, round(b * 30) / 30.0] for a, b in merged if round(b * 30) > round(a * 30)]   # 4.7.1: على فريمات المقطع بالضبط
     if not merged: raise ValueError("ما فيه شي ينشال")
     gone = sum(b - a for a, b in merged)
     if total - gone < 1.0: raise ValueError("بيبقى أقل من ثانية — ما أقدر أشيل كل هذا")
@@ -1657,6 +1658,25 @@ def cmd_selftest(work=None, engine=None):
             and all(x.get("ar") and x.get("use") and x.get("cat") in SFX_CAT and str(x.get("url", "")).startswith("https://raw.githubusercontent.com/kmilo93sd/agent-video-editor/8e32c0a") for x in cc)
             and os.path.isfile(er) and "cc-pop-1" in open(er, encoding="utf-8").read(), "%d صوت cc" % len(cc))
     except Exception as e: chk("4.7: مكتبة CC0 وقواعد المونتاج", False, str(e)[:120])
+    try:   # 4.7.1: السكتات تنقص لحدها، القطعات على فريمات، الشريط بعد المؤثرات، بدون تغبيش على الأزرار، ووين وقف Claude
+        td = tempfile.mkdtemp(prefix="hs-cut-"); eng = find_engine(None) or os.path.join(HERE, "engine")
+        subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=64x64:r=30:d=6", "-f", "lavfi", "-i",
+                        "aevalsrc='0.3*sin(2*PI*440*t)*(lt(t,1)+between(t,2,3)+between(t,3.15,4.2)+between(t,5,5.6))':s=16000:d=6",
+                        "-shortest", "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", "-y", os.path.join(td, "src.mov")], capture_output=True)
+        subprocess.run([PY, os.path.join(eng, "scripts", "01_cut_plan.py"), td], capture_output=True)
+        kp = (rj(os.path.join(td, "cut.json"), {}) or {}).get("keep") or []
+        aligned = all(abs(round(x * 30) - x * 30) < 1e-3 for seg in kp for x in seg)
+        chk("4.7.1: السكتة الطويلة تنقص لـ 0.22 ث والقصيرة تبقى، والقطعات على فريمات", len(kp) == 3 and aligned and 4.2 < sum(b2 - a2 for a2, b2 in kp) < 4.6, json.dumps(kp))   # كلام 3.65 + سكتة قصيرة 0.15 + سكتتين 0.22 + آخر 0.12
+        shutil.rmtree(td, ignore_errors=True)
+    except Exception as e: chk("4.7.1: قص السكتات", False, str(e)[:120])
+    try:
+        ex = txt.get("ext.js", "") or open(os.path.join(HERE, "ext.js"), encoding="utf-8").read(); sh_ = txt.get("studio.html", "") or open(os.path.join(HERE, "studio.html"), encoding="utf-8").read()
+        chk("4.7.1: شريط التقدّم بعد التقريب، وما فيه تغبيش على الأزرار", "['bar',x=>{ if(_barFn) _barFn(x); }]" in ex and "backdrop-filter:var(--glass)" not in sh_)
+        td = tempfile.mkdtemp(prefix="hs-act-"); wj(os.path.join(td, "studio.json"), {}); os.makedirs(os.path.join(td, ".hs"))
+        open(os.path.join(td, ".hs", "activity.jsonl"), "w", encoding="utf-8").write(json.dumps({"id": 1, "t": int(time.time()) - 3600, "kind": "step", "text": "أفرّغ كلامك"}, ensure_ascii=False) + "\n")
+        c1 = proj_card(td); say(td, "أحط الكروت"); c2 = proj_card(td); say(td, "جهز", "done"); c3 = proj_card(td); shutil.rmtree(td, ignore_errors=True)
+        chk("4.7.1: المكتبة توضح وين وقف Claude", c1["stopped"] and "أفرّغ كلامك" in c1["sub"] and not c2["stopped"] and "أحط الكروت" in c2["sub"] and not c3["stopped"], "%s | %s | %s" % (c1["sub"], c2["sub"], c3["sub"]))
+    except Exception as e: chk("4.7.1: الشريط والمكتبة", False, str(e)[:120])
     chk("الرسم الحر بالمحرّك والاستوديو", "function drawLayer" in txt.get("ext.js", "") and "function drawStart" in txt.get("app.js", ""))
     try:   # 4.6: كتم الكلمات
         m0, p0 = bleep_filters(bleep_of({})); ct = {"cards": [{"s": 0, "e": 2, "w": [{"t": "شركة", "s": 0.1, "e": 0.4}, {"t": "والشركه", "s": 0.5, "e": 0.9}, {"t": "شركات", "s": 1.0, "e": 1.3}]}]}
@@ -4123,6 +4143,7 @@ def proj_live(port):
     try:
         with urllib.request.urlopen("http://127.0.0.1:%d/hs/pulse" % port, timeout=1.5) as r: return json.loads(r.read().decode())
     except Exception: return None
+CL_IDLE = 20 * 60   # لو Claude ما كتب شي من 20 دقيقة وآخر خطوة مو «خلص» نعتبره وقف (التفريغ الطويل ياخذ ربع ساعة)
 def proj_card(work, live=False):
     caps = rj(J(work, "caps.json"), {"cards": [], "total": 0}) or {"cards": [], "total": 0}; st = load_studio(work); hs = hs_of(st)
     sfx = rj(J(work, "sfx.json"), {"outro": 0}) or {}; total = float(caps.get("total") or 0); dur = total + float(sfx.get("outro") or 0)
@@ -4133,14 +4154,22 @@ def proj_card(work, live=False):
     notes = rj(J(work, "notes.json"), []) or []; ask = sum(1 for n in notes if n.get("status") == "ask"); openn = sum(1 for n in notes if n.get("status") in ("open", "sent"))
     bstate = brief_state(work); port = proj_port(work) if live else None; pl = proj_live(port) if port else None
     agent = bool(pl and (pl.get("agent") or {}).get("running")); job = bool(pl and (pl.get("job") or {}).get("running"))
+    # 4.7.1: وين وصل Claude؟ من آخر سطر كتبه بسجل المشروع (Claude من الطرفية ما يبان كـ agent)
+    acts = activity(work, 0, 400); la = acts[-1] if acts else {}; lt = int(la.get("t") or 0); age = time.time() - lt if lt else 1e9
+    lkind = la.get("kind") or ""; ltext = (la.get("text") or "").strip()
+    if lkind == "done" and ltext.startswith("حفظ إجاباته"): lkind = "step"   # حفظ الأسئلة مو نهاية الشغل
+    cl_on = bool(agent or (lt and lkind not in ("done",) and age < CL_IDLE))
+    cl_stop = bool(lt and not agent and not job and lkind not in ("done",) and age >= CL_IDLE and not (exps and os.path.getmtime(exps[-1]) > lt))
     if bstate == "pending" or ask: state = "wait"
-    elif agent or job or not exps: state = "work"
+    elif cl_stop: state = "wait"
+    elif agent or job or cl_on or not exps: state = "work"
     else: state = "ready"
     prepping = bool(pst and not pst.get("done") and not pst.get("err") and time.time() - pst.get("at", 0) < 3600)
     if prepping or (pst and pst.get("err")): state = "work"
     if prepping: sub = "يتجهّز للمونتاج اليدوي (%d/%d)" % (pst.get("i", 0) + 1, pst.get("n", 5))
     elif pst and pst.get("err"): sub = "التجهيز وقف: " + pst["err"][:80]
-    elif agent: sub = "Claude يشتغل عليه"
+    elif agent or (cl_on and ltext): sub = ("Claude: " + ltext[:110]) if ltext else "Claude يشتغل عليه"
+    elif cl_stop: sub = "Claude وقف عند: " + (ltext[:110] or "خطوة ما انكتبت")
     elif job: sub = "يصدّر الحين"
     elif bstate == "pending": sub = "ينتظر إجاباتك"
     elif ask: sub = "Claude ينتظر ردك (%d)" % ask
@@ -4166,7 +4195,7 @@ def proj_card(work, live=False):
     for f in ("vfr/00045.jpg", "vfr/00001.jpg", ".hs/th/2.jpg", ".hs/th/1.jpg"):
         if os.path.exists(J(work, f)): th = f; break
     return {"work": work, "id": hashlib.md5(os.path.normcase(work).encode()).hexdigest()[:10], "name": os.path.basename(work.rstrip("/\\")), "title": title, "dur": round(dur, 1), "note": jb.get("claudeErr"), "why": jb.get("why"),
-            "state": state, "sub": sub, "lanes": lanes, "thumb": th, "final": os.path.relpath(exps[-1], work).replace("\\", "/") if exps else None, "last": (activity(work, 0, 400) or [{}])[-1].get("text", "")[:160] if agent else "", "mt": int(max(smt, os.path.getmtime(work))), "notes": openn, "ask": ask, "port": port, "agent": agent, "job": job,
+            "state": state, "sub": sub, "lanes": lanes, "thumb": th, "final": os.path.relpath(exps[-1], work).replace("\\", "/") if exps else None, "last": ltext[:160] if (agent or cl_on) else "", "lastT": lt, "lastKind": lkind, "stopped": cl_stop, "steps": len(acts), "mt": int(max(smt, os.path.getmtime(work))), "notes": openn, "ask": ask, "port": port, "agent": agent, "job": job,
             "prep": ({"stage": pst.get("stage"), "i": pst.get("i", 0), "n": pst.get("n", 5), "t0": pst.get("t0"), "eta": pst.get("eta"), "err": pst.get("err")} if pst and not pst.get("done") else None),
             "manual": (jb.get("mode") == "manual") or bool(pst), "src": (rj(J(work, "source.json"), {}) or {}).get("url"), "clip": hs.get("clip")}
 def battery():
@@ -4696,6 +4725,13 @@ def hub_serve(root, port):
                 jb = job_get(w)
                 if not jb.get("src"): return self._json(400, {"ok": False, "msg": "ما فيه شي أعيده"})
                 grab_bg(jb["src"], w, {"mode": jb.get("mode"), "pick": jb.get("pick"), "n": jb.get("n"), "len": jb.get("len"), "note": jb.get("note")}); return self._json(200, {"ok": True})
+            if a == "resume":   # 4.7.1: كمّل مع Claude من حيث وقف (يسأل قبل عن الحد من الواجهة)
+                w = card_by(data.get("id", ""))
+                if not w or not is_project(w): return self._json(404, {"ok": False})
+                acts = activity(w, 0, 400); tail = "\n".join("- " + (e.get("text") or "")[:200] for e in acts[-6:])
+                task = ("كمّل مونتاج المقطع اللي بمجلد %s من حيث وقفت. لا تعيد الخطوات اللي خلصت.\nآخر اللي كتبته بسجل المشروع:\n%s\n"
+                        "شوف الملفات الموجودة (cut.json وcaps.json وstudio.json) عشان تعرف وين وصلت، واكتب كل خطوة بـ hs say، وآخر شي hs say \"جهز\" بنوع done." % (w, tail or "- ما فيه سجل"))
+                ok, msg = claude_spawn(w, task, "تكملة المونتاج"); return self._json(200, {"ok": ok, "msg": msg})
             if a == "dup":
                 w = card_by(data.get("id", ""))
                 if not w or not is_project(w): return self._json(404, {"ok": False})

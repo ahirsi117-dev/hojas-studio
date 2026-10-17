@@ -82,8 +82,11 @@ async function undo(){ if(!HIST.length){ toast(t('nothingUndo')); return; } FUT.
 async function refreshCheck(){ if(!READY) return; refreshRet(); CHECK=await api('/hs/check'); drawCheck(); if(RTAB==='check') renderRight(); const b=$('#tabs [data-tab="check"]'); if(b) b.innerHTML=t('tab_check')+((CHECK.issues||(CHECK.reqs||[]).some(r=>!r.ok))?'<i class="dot"></i>':''); }
 
 /* ───── التشغيل ───── */
-function seek(x,quiet){ T=clamp(x,0,dur()); if(MOBILE) mSync(); else { $('#tm').textContent=fmt(T)+' / '+fmt(dur()); mSync(); } $('#ph').style.left=(T*PX)+'px';
-  { const sc=$('#scroller'), px=T*PX; if(!quiet&&(px<sc.scrollLeft+10||px>sc.scrollLeft+sc.clientWidth-30)) sc.scrollLeft=Math.max(0,px-sc.clientWidth*(MOBILE?0.5:0.3)); }
+/* 4.7.1: كل فريم كان يكتب بالصفحة ثم يقرأ مكان التمرير، فالمتصفح يعيد حساب التخطيط كامل 30 مرة بالثانية. الحين يقرأ أول ثم يكتب، وما يكتب إلا اللي تغيّر */
+let _tmS='', _phX=-1, _scW=0, _scL=0, _scAt=0;
+function seek(x,quiet){ T=clamp(x,0,dur()); const sc=$('#scroller'), px=T*PX, now=performance.now();
+  if(!quiet&&(!playing||now-_scAt>250)){ _scL=sc.scrollLeft; _scW=sc.clientWidth; _scAt=now; if(px<_scL+10||px>_scL+_scW-30){ sc.scrollLeft=Math.max(0,px-_scW*(MOBILE?0.5:0.3)); _scAt=0; } }
+  if(!MOBILE){ const s=fmt(T)+' / '+fmt(dur()); if(s!==_tmS){ _tmS=s; $('#tm').textContent=s; } } mSync(); const pr=Math.round(px); if(pr!==_phX){ _phX=pr; $('#ph').style.left=pr+'px'; }
   drawT(T); placeGiz(); if(!playing){ try{ AU.currentTime=Math.min(T,AU.duration||T); }catch(e){} } if(typeof posSave==='function') posSave(); }
 let _loop=0; const SFXA={};
 /* ───── 4.6: كتم الكلمات (بيب) ← hs.bleep ───── */
@@ -101,9 +104,11 @@ function blOff(){ if(!BLP) return; try{ if(BLP.o) BLP.o.stop(); }catch(e){} BLP=
 function bleepPreview(x){ const b=hs().bleep, it=b.items.find(i=>x>=i.s&&x<i.e);
   if(it&&!BLP){ AU.volume=0; BLP={}; if(b.mode!=='mute'){ try{ const C=window.__blCtx||(window.__blCtx=new (window.AudioContext||window.webkitAudioContext)()); if(C.state==='suspended') C.resume(); const o=C.createOscillator(), g=C.createGain(); o.type='sine'; o.frequency.value=b.tone||1000; g.gain.value=0.12; o.connect(g); g.connect(C.destination); o.start(); BLP.o=o; }catch(e){} } }
   else if(!it&&BLP) blOff(); }
-function stop(){ playing=false; _loop++; AU.pause(); blOff(); $('#pp').textContent=t('play'); mSync(); }
+/* 4.7.1: وقت التشغيل على الكمبيوتر نرسم بنص الدقة (المعاينة صغيرة أصلاً)، ولما توقف ترجع الدقة الكاملة */
+function lowRes(on){ if(MOBILE) return; const w=F.contentWindow; if(!w||!w.hsLowRes) return; try{ w.hsLowRes(on?0.5:1); }catch(e){} }
+function stop(){ const was=playing; playing=false; _loop++; AU.pause(); blOff(); $('#pp').textContent=t('play'); mSync(); document.body.classList.remove('playing'); if(was&&!MOBILE){ lowRes(false); lastFrame=-1; drawT(T); } }
 function sfxPreview(a,b){ const sf=ST.studio.sfx||{}, mix=hs().mix; for(const k in sf){ if(!Array.isArray(sf[k])||k==='soft') continue; for(const v of sf[k]){ const x=Array.isArray(v)?v[0]:v; if(x>a&&x<=b){ try{ const au=SFXA[k]||(SFXA[k]=new Audio('/sfx_prev/'+k+'.wav')); au.currentTime=0; au.volume=clamp(0.55*(mix.sfx[k]==null?1:mix.sfx[k]),0,1); au.play().catch(()=>{}); }catch(e){} } } } }
-async function play(){ if(playing){ stop(); return; } if(T>=dur()-0.05) T=0; playing=true; $('#pp').textContent=t('pause'); const my=++_loop;
+async function play(){ if(playing){ stop(); return; } if(T>=dur()-0.05) T=0; playing=true; $('#pp').textContent=t('pause'); const my=++_loop; document.body.classList.add('playing'); lowRes(true);
   let clock=false; AU.volume=clamp(hs().mix.voice,0,1); try{ AU.currentTime=T; await AU.play(); }catch(e){ clock=true; } if(AU.paused||AU.error) clock=true;
   let t0=T, n0=performance.now(); let prev=T; if(T>=total()-0.03){ clock=true; AU.pause(); }
   let tk=0; const tick=()=>{ if(!playing||my!==_loop) return; if(MOBILE&&(++tk%2)){ requestAnimationFrame(tick); return; } if(!clock&&(AU.ended||AU.currentTime>=total()-0.03)&&dur()>total()+0.05){ clock=true; t0=Math.max(total(),AU.currentTime); n0=performance.now(); AU.pause(); }
@@ -826,7 +831,8 @@ function genClaude(id){ const r=genReq(id); if(r) runAgent(t('reqGen',r.id,r.kin
 /* ═══════════ 3.4: واجهة الجوال (/m) ═══════════ */
 const MOBILE=document.body.classList.contains('m');
 const MVIEWS=[['notes','panel','notes'],['sel','panel','sel'],['text','bin','text'],['cap','panel','cap'],['tr','panel','tr'],['audio','panel','audio'],['files','bin','files'],['proj','panel','proj'],['check','panel','check'],['pub','panel','pub'],['claude','panel','claude']];
-function mSync(){ const sc=$('#mScrub'); if(!sc||!ST) return; $('#mNow').textContent=fmt(T).replace(/\.\d+$/,''); $('#mDur').textContent=fmt(dur()).replace(/\.\d+$/,''); $('#mPlay2').innerHTML=playing?'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg>'; if(document.activeElement!==sc){ sc.max=dur()||1; sc.value=T; } $('#mTime').textContent=fmt(T)+' / '+fmt(dur()); $('#mPlay').textContent=t(playing?'pause':'play'); }
+let _mS={}; const _mSet=(id,v,html)=>{ if(_mS[id]===v) return; _mS[id]=v; const e=$('#'+id); if(e){ if(html) e.innerHTML=v; else e.textContent=v; } };
+function mSync(){ const sc=$('#mScrub'); if(!sc||!ST) return; _mSet('mNow',fmt(T).replace(/\.\d+$/,'')); _mSet('mDur',fmt(dur()).replace(/\.\d+$/,'')); _mSet('mPlay2',playing?'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg>',1); if(document.activeElement!==sc){ const mx=String(dur()||1); if(sc.max!==mx) sc.max=mx; sc.value=T; } _mSet('mTime',fmt(T)+' / '+fmt(dur())); _mSet('mPlay',t(playing?'pause':'play')); }
 function mView(k){ const v=MVIEWS.find(x=>x[0]===k)||MVIEWS[0]; document.body.dataset.mv=v[1]; if(v[1]==='bin') LTAB=v[2]; else RTAB=v[2]; $$('#mnav button,#mtabs button').forEach(b=>b.classList.toggle('on',b.dataset.mv===k)); if(ST){ markTabs(); renderLeft(); renderRight(); } mSync(); const sc=$('#mid'); if(sc) sc.scrollTop=0; }
 if(MOBILE){ $('#mnav').innerHTML=MVIEWS.map(v=>'<button data-mv="'+v[0]+'" data-t="mv_'+v[0]+'"></button>').join('');
   $('#mtabs').innerHTML=MVIEWS.map(v=>'<button data-mv="'+v[0]+'"></button>').join('');

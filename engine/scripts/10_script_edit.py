@@ -146,6 +146,7 @@ iv.sort(); merged = []
 for a, b in iv:
     if merged and a - merged[-1][1] < 0.05: merged[-1][1] = max(merged[-1][1], b)
     else: merged.append([a, b])
+merged = [[round(a * 30) / 30.0, round(b * 30) / 30.0] for a, b in merged if round(b * 30) > round(a * 30)]   # 4.7.1: على فريمات المقطع بالضبط
 gone = sum(b - a for a, b in merged)
 
 def shift(t):                                    # وقت جديد بعد الحذف

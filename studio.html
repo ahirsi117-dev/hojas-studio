@@ -174,6 +174,8 @@ mark{background:rgba(224,165,58,.4);color:inherit;border-radius:3px}
 .cutbtn.on{background:var(--cap);border-color:#fff}.cutbtn.on::after{background:#fff}
 .tile.fxt{aspect-ratio:1/1}.tile.fxt .pv{padding:0;overflow:hidden;background:#000}
 .fxp{position:absolute;inset:0;background-size:cover;background-position:center;display:block}
+/* 4.7.1: معاينات المؤثرات تتحرك بس للمختار واللي تحت الماوس، ووقت التشغيل كلها توقف (كانت 30 حركة شغالة على طول وتثقل الرسم) */
+.fxt:not(.sel):not(:hover) .fxp,.fxt:not(.sel):not(:hover) .fxp::after,body.playing .fxp,body.playing .fxp::after{animation-play-state:paused!important}
 .fxp::after{content:"";position:absolute;inset:0;pointer-events:none}
 .fxp-zoom{animation:fxZoom 2.4s ease-in-out infinite}.fxp-punch{animation:fxPunch 1.6s ease-out infinite}.fxp-shake{animation:fxShake 1.4s linear infinite}
 .fxp-flash::after{background:#fff;animation:fxFlash 1.6s ease-out infinite}.fxp-bw{animation:fxBw 2.4s ease-in-out infinite}.fxp-blur{animation:fxBlur 2.4s ease-in-out infinite}
@@ -434,7 +436,7 @@ body{background:radial-gradient(60% 35% at 90% -10%,rgba(76,141,255,.16),transpa
 html,body{background-color:var(--bg)}
 #top,#tl,.side{background:transparent}
 .side{background:rgba(255,255,255,.02)}
-button,button.ic,.pill,.card,.tog,.note,.item,.seg,#mtabs button{backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass)}
+/* 4.7.1: بدون تغبيش خلف الأزرار والعناصر: كل عنصر مغبّش طبقة رسم لحالها (كانت أكثر من 200) وتعلّق التايم لاين */
 button,button.ic{background:linear-gradient(180deg,rgba(255,255,255,.085),rgba(255,255,255,.035));border:1px solid rgba(255,255,255,.11);box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
 button.pri,body.m #mMic,button.mic.rec{background:linear-gradient(180deg,#6aa2ff,#3f7ff0);color:#fff;border:1px solid rgba(255,255,255,.22);box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
 body.m #mMic.rec{background:linear-gradient(180deg,#86b4ff,#4C8DFF);transform:scale(1.06)}
@@ -470,7 +472,7 @@ body.m #mtools{gap:6px;padding:10px 12px 4px}body.m #mtools .ic{width:42px;heigh
   body:not(.m) #bExport{padding:0 20px!important;font-weight:700}
   body:not(.m) #bBack{width:40px;height:40px}
   body:not(.m) #mid{grid-template-columns:320px minmax(0,1fr) 390px;gap:14px;padding:14px 14px 0}
-  body:not(.m) .side{background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.02));border:1px solid var(--bd)!important;border-radius:22px;overflow:hidden;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+  body:not(.m) .side{background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.02));border:1px solid var(--bd)!important;border-radius:22px;overflow:hidden}
   body:not(.m) .tabs{border:0;padding:10px 10px 6px;gap:6px;display:flex;flex-wrap:wrap}
   body:not(.m) .tabs button{flex:1 1 auto;border-radius:12px!important;padding:8px 10px;font-size:13px;color:var(--mut);border:1px solid transparent!important;background:rgba(255,255,255,.04)!important}
   body:not(.m) .tabs button.on{background:rgba(76,141,255,.2)!important;color:#fff;border-color:rgba(76,141,255,.45)!important}
@@ -481,7 +483,7 @@ body.m #mtools{gap:6px;padding:10px 12px 4px}body.m #mtools .ic{width:42px;heigh
   body:not(.m) #sideTools{top:0;inset-inline-end:0}
   body:not(.m) #stageBtns{position:static;order:3;display:flex;gap:8px;justify-content:center}
   body:not(.m) #stageBtns button{border-radius:12px;height:34px}
-  body:not(.m) #mtools{display:flex;order:2;align-items:center;gap:8px;width:min(520px,100%);direction:ltr;padding:8px;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid var(--bd);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+  body:not(.m) #mtools{display:flex;order:2;align-items:center;gap:8px;width:min(520px,100%);direction:ltr;padding:8px;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid var(--bd)}
   body:not(.m) #mtools .sp{flex:1}
   body:not(.m) #mtools .ic{width:42px;height:42px;border-radius:13px}
   body:not(.m) #mClock{font-size:17px;color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}

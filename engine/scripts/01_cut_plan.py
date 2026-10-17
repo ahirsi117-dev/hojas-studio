@@ -15,34 +15,89 @@ def _utf8_open(f, mode="r", *a, **k):
 _bi.open = _utf8_open
 # ──────────────────────────────────────────────────────────────────
 import subprocess, re, json, sys, os
+from fractions import Fraction
 W = os.path.abspath(sys.argv[1]); SRC = os.path.join(W, "src.mov")
-NOISE, MIND, PAD, MERGE = "-32dB", 0.35, 0.13, 0.20
+# 4.7.1: القص كان يخلي سكتات لين 0.6 ث (ما يشيل إلا اللي فوق 0.35 ث ويحط 0.13 قبل وبعد)، وعتبة الصمت ثابتة -32dB.
+# الحين: عتبة تتكيّف مع ضجيج الغرفة، وكل سكتة أطول من النفَس الطبيعي تنقص لـ 0.22 ث (الإيقاع الهادي 0.30)،
+# وحدود القص على فريمات الفيديو بالضبط عشان الصوت والصورة ما ينزاحون عن بعض مع كثرة القطعات.
+def _rj(n):
+    try: return json.load(open(os.path.join(W, n)))
+    except Exception: return {}
+_th, _br = _rj("theme.json"), _rj("brief.json")
+CALM = str(_th.get("pace") or _br.get("pace") or "").lower() == "calm"
+GAP = float(os.environ.get("HS_GAP") or (0.30 if CALM else 0.22))   # أطول سكتة تبقى بين جملتين
+EDGE = 0.12                                                           # قبل أول كلمة وبعد آخر كلمة
+MINSEG = 0.25
 
-dur = float(subprocess.run(["ffprobe","-v","error","-show_entries","format=duration",
-    "-of","csv=p=0", SRC], capture_output=True, text=True).stdout.strip())
-out = subprocess.run(["ffmpeg","-hide_banner","-nostats","-i",SRC,"-af",
-    f"silencedetect=noise={NOISE}:d={MIND}","-f","null","-"], capture_output=True, text=True).stderr
+def probe(entries, sel=None):
+    a = ["ffprobe", "-v", "error"] + (["-select_streams", sel] if sel else []) + ["-show_entries", entries, "-of", "csv=p=0", SRC]
+    return subprocess.run(a, capture_output=True, text=True).stdout.strip()
+dur = float(probe("format=duration"))
+try:
+    _fr = probe("stream=r_frame_rate", "v:0").split("\n")[0].strip()
+    FPS = Fraction(_fr) if _fr and _fr != "0/0" else Fraction(30)
+    if not (10 <= FPS <= 121): FPS = Fraction(30)
+except Exception: FPS = Fraction(30)
+def snap(t): return float(round(Fraction(t).limit_denominator(100000) * FPS) / FPS)
 
-sil=[]; s=None
-for m in re.finditer(r"silence_(start|end): ([0-9.]+)", out):
-    k,v = m.group(1), float(m.group(2))
-    if k=="start": s=v
-    else:
-        sil.append(((0.0 if s is None else s), v)); s=None
-if s is not None: sil.append((s,dur))
+def vad():
+    """مستوى الصوت كل 10 جزء من الثانية، والعتبة = أرضية ضجيج المكان + 10 dB."""
+    import numpy as np
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", SRC, "-vn", "-ac", "1", "-ar", "16000", "-af", "highpass=f=90", "-f", "s16le", "-"], capture_output=True).stdout
+    x = np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0
+    hop = 160; n = len(x) // hop
+    if n < 50: raise ValueError("صوت قصير")
+    db = 20 * np.log10(np.sqrt(np.mean(x[:n * hop].reshape(n, hop) ** 2, axis=1)) + 1e-9)
+    db = np.convolve(db, np.ones(3) / 3, mode="same")
+    floor = float(np.percentile(db, 10)); peak = float(np.percentile(db, 95))
+    thr = min(max(floor + 10.0, -52.0), peak - 12.0)
+    v = db > thr
+    # نسد الفراغات الصغيرة جوّا الكلمة (أقل من 80 جزء) ونشيل النقرات (أقل من 60 جزء)
+    def runs(mask, val):
+        out = []; i = 0
+        while i < n:
+            if mask[i] == val:
+                j = i
+                while j < n and mask[j] == val: j += 1
+                out.append((i, j)); i = j
+            else: i += 1
+        return out
+    for a, b in runs(v, False):
+        if b - a < 8 and a > 0 and b < n: v[a:b] = True
+    for a, b in runs(v, True):
+        if b - a < 6: v[a:b] = False
+    return [(a / 100.0, b / 100.0) for a, b in runs(v, True)], thr, floor
 
-keep=[]; cur=0.0
-for a,b in sil:
-    if a-cur>0.01: keep.append([cur,a])
-    cur=b
-if dur-cur>0.01: keep.append([cur,dur])
-keep=[[max(0,a-PAD),min(dur,b+PAD)] for a,b in keep]
-m=[]
-for seg in keep:
-    if m and seg[0]-m[-1][1]<MERGE: m[-1][1]=seg[1]
-    else: m.append(seg)
-m=[x for x in m if x[1]-x[0]>=0.30]
-tot=sum(b-a for a,b in m)
-json.dump({"keep":m,"total":tot,"src_dur":dur}, open(os.path.join(W,"cut.json"),"w"), indent=1)
-print(f"مقاطع={len(m)}  الباقي={tot:.2f}s  انشال={dur-tot:.2f}s ({(dur-tot)/dur*100:.0f}%)")
-for a,b in m: print(f"  {a:7.2f} -> {b:7.2f}  ({b-a:5.2f}s)")
+try:
+    speech, THR, FLOOR = vad()
+    how = "عتبة %.0f dB (ضجيج المكان %.0f dB)" % (THR, FLOOR)
+except Exception as e:   # بلا numpy: الطريقة القديمة بعتبة ثابتة
+    out = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", SRC, "-af", "silencedetect=noise=-32dB:d=%.2f" % GAP, "-f", "null", "-"], capture_output=True, text=True).stderr
+    sil = []; s0 = None
+    for m in re.finditer(r"silence_(start|end): ([0-9.]+)", out):
+        k, val = m.group(1), float(m.group(2))
+        if k == "start": s0 = val
+        else: sil.append(((0.0 if s0 is None else s0), val)); s0 = None
+    if s0 is not None: sil.append((s0, dur))
+    speech = []; cur = 0.0
+    for a, b in sil:
+        if a - cur > 0.01: speech.append((cur, a))
+        cur = b
+    if dur - cur > 0.01: speech.append((cur, dur))
+    how = "عتبة ثابتة -32 dB (" + str(e)[:40] + ")"
+
+# نبني المقاطع: أي سكتة أطول من GAP تنقص لـ GAP بالضبط (نص قبلها ونص بعدها، والميل للي بعدها)
+keep = []
+if speech:
+    s0 = max(0.0, speech[0][0] - EDGE); e0 = speech[0][1]
+    for a, b in speech[1:]:
+        if a - e0 <= GAP: e0 = b; continue
+        keep.append([s0, e0 + GAP * 0.45]); s0 = a - GAP * 0.55; e0 = b
+    keep.append([s0, min(dur, e0 + EDGE)])
+keep = [[snap(max(0.0, a)), snap(min(dur, b))] for a, b in keep]
+keep = [x for x in keep if x[1] - x[0] >= MINSEG] or [[0.0, snap(dur)]]
+tot = sum(b - a for a, b in keep)
+json.dump({"keep": [[round(a, 6), round(b, 6)] for a, b in keep], "total": round(tot, 3), "src_dur": dur, "gap": GAP, "fps": float(FPS)},
+          open(os.path.join(W, "cut.json"), "w"), indent=1)
+print(f"{how} · أطول سكتة باقية {GAP:.2f} ث")
+print(f"مقاطع={len(keep)}  الباقي={tot:.2f}s  انشال={dur-tot:.2f}s ({(dur-tot)/dur*100:.0f}%)")

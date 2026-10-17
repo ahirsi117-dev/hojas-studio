@@ -17,6 +17,17 @@ _bi.open = _utf8_open
 import json, subprocess, sys, os
 W=os.path.abspath(sys.argv[1]); SRC=os.path.join(W,"src.mov")
 k=json.load(open(os.path.join(W,"cut.json")))["keep"]
+# 4.7.1: حدود كل جزء على فريم بالضبط. قبل كان كل جزء يطلع أطول أو أقصر من صوته بجزء من فريم، ومع 100 قطعة
+# يتراكم الفرق وتتأخر حركة الفم عن الصوت. الحين الصوت والصورة نفس الطول بالضبط بكل جزء.
+from fractions import Fraction as _Fr
+def _fps():
+    try:
+        r=subprocess.run(["ffprobe","-v","error","-select_streams","v:0","-show_entries","stream=r_frame_rate","-of","csv=p=0",SRC],capture_output=True,text=True).stdout.strip().split("\n")[0]
+        f=_Fr(r); return f if 10<=f<=121 else _Fr(30)
+    except Exception: return _Fr(30)
+_F=_fps()
+def _snap(t): return float(round(_Fr(t).limit_denominator(100000)*_F)/_F)
+k=[[_snap(s),_snap(e)] for s,e in k]; k=[x for x in k if x[1]-x[0]>=1.0/float(_F)]
 _tp=os.path.join(W,"theme.json")
 _th=json.load(open(_tp)) if os.path.exists(_tp) else {}
 GRADE=_th.get("grade",False)
@@ -47,6 +58,7 @@ if WIDE:
             _k2.append([s,e])
         k=_k2
     print("فيديو عرضي: قص عمودي", "يتبع المتكلم" if len(RK)>1 else "على الشخص")
+    k=[[_snap(s),_snap(e)] for s,e in k]
 def _cx(t):
     c=0.5
     for kt,kc in RK:
@@ -65,11 +77,12 @@ for i,(s,e) in enumerate(k):
     else:
         cw=int(SW/z)//2*2; ch=int(SH/z)//2*2
         x=(SW-cw)//2; y=int((SH-ch)*ANCH)
-    fc.append(f"[0:v]trim=start={s:.4f}:end={e:.4f},setpts=PTS-STARTPTS,crop={cw}:{ch}:{x}:{y},"
+    _h=0.5/float(_F)   # نص فريم قبل الحد: كل جزء ياخذ فريماته بالضبط مهما كان تقريب الأرقام
+    fc.append(f"[0:v]trim=start={max(0.0,s-_h):.6f}:end={e-_h:.6f},setpts=PTS-STARTPTS,crop={cw}:{ch}:{x}:{y},"
               f"scale=1080:1920:flags=lanczos,setsar=1[v{i}]")
     # تلاشي 12 جزء من الثانية أول وآخر كل لقطة: بدونه يطلع «تك» أو قطع بالصوت عند كل قصة
     _d=max(0.0,(e-s)-0.012)
-    fc.append(f"[0:a]atrim=start={s:.4f}:end={e:.4f},asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.012,afade=t=out:st={_d:.4f}:d=0.012[a{i}]")
+    fc.append(f"[0:a]atrim=start={s:.6f}:end={e:.6f},asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.012,afade=t=out:st={_d:.4f}:d=0.012[a{i}]")
     v.append(f"[v{i}]"); a.append(f"[a{i}]")
 fc.append("".join(v)+f"concat=n={len(k)}:v=1:a=0[vc]")
 fc.append("".join(a)+f"concat=n={len(k)}:v=0:a=1[ac]")

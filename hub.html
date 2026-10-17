@@ -36,7 +36,7 @@ header .by{color:var(--mut);font-size:13px;direction:ltr;margin-inline-start:aut
 .bat b{width:24px;height:12px;border:1.5px solid var(--mut);border-radius:3px;padding:1px;display:flex}
 .bat b i{display:block;height:100%;border-radius:1px;background:var(--ok)}
 .bat u{width:2px;height:5px;background:var(--mut);border-radius:0 1px 1px 0}
-.card,.seg,.opt,nav .tabs,.sheet .in,.btn,.copy,#toast,.search,.chip,.ep,.job,.cand{backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass)}
+/* 4.7.1: التغبيش انشال من البطاقات والأزرار (يثقل الجوال) */
 .card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.025));border:1px solid var(--bd);border-radius:var(--r);padding:18px;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
 .feat{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;cursor:pointer;margin-bottom:16px}
 .feat .th{width:58px;height:72px;border-radius:12px;object-fit:cover;background:var(--s2)}
@@ -46,6 +46,8 @@ header .by{color:var(--mut);font-size:13px;direction:ltr;margin-inline-start:aut
 .sub span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sub .dot{width:6px;height:6px;background:var(--mut)}
 .sub.wait .dot{background:var(--warn)}.sub.work .dot{background:var(--y)}.sub.ready .dot{background:var(--ok)}.sub.err .dot{background:var(--bad)}
+.sub.stop .dot{background:var(--bad)}.sub small{color:var(--mut);font-size:.92em}
+.stopbox{display:flex;flex-direction:column;gap:6px;margin:0 0 12px;padding:12px 14px;border:1px solid rgba(229,96,78,.35);border-radius:14px}.stopbox b{font-size:14px}.stopbox span{font-size:13.5px;line-height:1.7}.stopbox small{color:var(--mut);font-size:12px;line-height:1.6}
 .feat .dur{font-size:24px;color:var(--mut);font-variant-numeric:tabular-nums;direction:ltr;font-weight:500}
 .lanes{grid-column:1/-1;display:grid;gap:6px;margin-top:6px;direction:ltr}
 .lane{position:relative;height:9px}
@@ -265,7 +267,7 @@ mark{background:rgba(76,141,255,.35);color:#fff;border-radius:4px;padding:0 2px}
 /* ═══ الكمبيوتر ═══ */
 @media(min-width:900px){
   body{display:grid;grid-template-columns:1fr;padding-inline-start:260px}
-  #side{display:flex;flex-direction:column;position:fixed;top:0;bottom:0;inset-inline-start:0;width:260px;padding:26px 18px 20px;border-inline-end:1px solid var(--bd);background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.01));backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);z-index:20}
+  #side{display:flex;flex-direction:column;position:fixed;top:0;bottom:0;inset-inline-start:0;width:260px;padding:26px 18px 20px;border-inline-end:1px solid var(--bd);background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.01));z-index:20}
   #side .brand{display:flex;align-items:center;gap:12px;padding:0 6px 22px}
   #side .brand b{font-size:17px;display:block}
   #side .brand small{color:var(--mut);font-size:12px;direction:ltr;display:block}
@@ -393,7 +395,7 @@ const TX={
  reverted:['رجّعته. افتح المقطع تشوفه.','Reverted.'], revertQ:['أرجّع المقطع لقبل هذا الطلب؟','Revert the clip to before this request?'], done:['تم','Done'], failed:['ما زبط','Failed'], restarting:['يعيد التشغيل…','Restarting…'],
  inProg:['شغّال الحين','In progress'], eps:['فيديوهات طويلة','Long videos'], epsSub:['اختر منها لقطاتك','Pick your clips'], clipsN:['{0} مرشّح · {1} مقطع','{0} picks · {1} clips'],
  g_grab:['يسحب الفيديو','Downloading'], g_transcribe:['يفرّغ الكلام','Transcribing'], g_suggest:['يرشّح اللقطات','Finding clips'], g_build:['يقص اللقطات','Cutting clips'], g_prep:['يتجهّز للمونتاج','Preparing'], g_claude:['Claude شغّال','Claude working'], g_error:['وقف','Stopped'],
- leftMin:['باقي تقريباً {0} د','~{0} min left'], retry:['أعد','Retry'], clMiss:['ما لقيت Claude Code على جهازك','Claude Code not found on this PC'], clMissSub:['افتح Claude Code مرة وحدة وأنا ألقاه لحالي، وبعدها المونتاج يشتغل من هنا. أو كمّل يدوي.','Open Claude Code once and I will find it. Or edit manually.'], cpuT:['الجهاز وقت الشغل','PC while working'], cpu_light:['خفيف على الجهاز','Light on PC'], cpu_full:['أقصى سرعة','Max speed'], cpuSet:['تمام، يطبّق على الشغل الجاي','Applies to new work'],
+ leftMin:['باقي تقريباً {0} د','~{0} min left'], resumeCl:['كمّل مع Claude','Continue with Claude'], resumeOk:['Claude رجع يكمّل من حيث وقف','Claude is continuing where it stopped'], stoppedT:['Claude وقف هنا','Claude stopped here'], stoppedSub:['آخر خطوة من {0} · {1}. لو خلص حدّك انتظر لين يرجع، أو كمّل بنفسك من «افتح».','Last of {0} steps · {1}. If your limit ran out, wait for it, or finish it yourself with Open.'], retry:['أعد','Retry'], clMiss:['ما لقيت Claude Code على جهازك','Claude Code not found on this PC'], clMissSub:['افتح Claude Code مرة وحدة وأنا ألقاه لحالي، وبعدها المونتاج يشتغل من هنا. أو كمّل يدوي.','Open Claude Code once and I will find it. Or edit manually.'], cpuT:['الجهاز وقت الشغل','PC while working'], cpu_light:['خفيف على الجهاز','Light on PC'], cpu_full:['أقصى سرعة','Max speed'], cpuSet:['تمام، يطبّق على الشغل الجاي','Applies to new work'],
  cpuLightSub:['التفريغ والتصدير يشتغلون بأولوية أقل من برامجك ويخلّون لك جزء من المعالج، فتقدر تستخدم جهازك عادي. أبطأ شوي.','Processing runs below your apps so the PC stays smooth. A bit slower.'],
  cpuFullSub:['ياخذ كل قوة الجهاز. أسرع، بس الجهاز يثقل وقت التفريغ والتصدير.','Uses the whole PC. Faster, but heavy while working.'],
  wCpu:['التفريغ يشتغل على المعالج، وهذا أكثر شي يثقل الجهاز. عندك كرت شاشة NVIDIA؟ قل لـClaude «خلّ التفريغ على كرت الشاشة» ويستأذنك قبل ما يثبّت.','Transcription runs on the CPU. With an NVIDIA GPU, ask Claude to switch it to the GPU.'],
@@ -436,7 +438,7 @@ function statusLine(){ if(LOADERR) return '<span class="dot" style="background:v
   return '<span class="dot'+(aw?'':' warn')+'"></span><span>'+t(aw?'awakeOn':'on')+(b.has?(b.ac?' '+t('charging'):' '+t('onBat')):'')+'</span>'+batHtml(b); }
 function lanes(L){ const C={img:'var(--img)',cap:'var(--cap)',vid:'var(--vid)',sfx:'var(--sfx)'}; return '<div class="lanes">'+['cap','img','vid','sfx'].map(k=>'<div class="lane">'+(L[k]||[]).slice(0,120).map(s=>'<i style="left:'+(s[0]*100)+'%;width:'+Math.max(0.6,(s[1]-s[0])*100)+'%;background:'+C[k]+'"></i>').join('')+'</div>').join('')+'</div>'; }
 const thumb=p=>p.thumb?'/hub/thumb/'+p.id+'?f='+encodeURIComponent(p.thumb)+'&v='+p.mt:'';
-function subHtml(p){ return '<div class="sub '+p.state+'"><span class="dot"></span><span>'+esc(p.sub)+'</span></div>'; }
+function subHtml(p){ return '<div class="sub '+p.state+(p.stopped?' stop':'')+'"><span class="dot"></span><span>'+esc(p.sub)+(p.lastT&&(p.stopped||p.last)?' <small>· '+ago(p.lastT)+'</small>':'')+'</span></div>'; }
 function stageTxt(j){ const k='g_'+(j.stage||'grab'); let s=TX[k]?t(k):j.sub; if(j.stage==='grab'&&j.pct!=null) s+=' '+Math.round(j.pct)+'%'; else if(j.eta&&j.t0){ const left=Math.max(1,Math.round((j.t0+j.eta-Date.now()/1000)/60)); if(j.stage==='transcribe') s+=' · '+t('leftMin',left); } return s; }
 function tokenGo(kind,size){ return new Promise(res=>{ if(DATA&&DATA.tokenAsk===false) return res(true); let skip=false; try{ skip=localStorage.getItem('hsTok_'+kind)==='1'; }catch(e){} if(skip) return res(true);
   const w=document.createElement('div'); w.id='tok'; w.innerHTML='<div class="in"><h3>'+t('tokT')+'</h3><p>'+t('tok_'+kind)+'</p><div class="box" style="margin:10px 0">'+t('tokSize_'+(size||'mid'))+'</div><label class="ck"><input type="checkbox" id="tkSkip"><span>'+t('tokSkip')+'</span></label><div class="acts"><button class="btn y" id="tkYes">'+t('tokYes')+'</button><button class="btn" id="tkNo">'+t('tokNo')+'</button></div></div>';
@@ -451,14 +453,14 @@ function epCard(e){ return '<div class="ep" data-ep="'+e.id+'">'+(e.thumb?'<img 
 function tileHtml(p){ const pr=p.prep&&!p.prep.err;
   return '<div class="tile" data-open="'+p.id+'">'+(p.thumb?'<img loading="lazy" src="'+thumb(p)+'">':'<div class="ph">'+esc(p.title)+'</div>')+'<span class="tm">'+fmt(p.dur)+'</span>'+(p.manual?'<span class="tg2">'+IC.pen+'</span>':'')
    +'<div class="ov"><b dir="auto">'+esc(p.title)+'</b>'+subHtml(p)+(pos(p)?'<div class="resume">'+t('resume',fmt(pos(p)))+'</div>':'')+'</div>'+(pr?'<div class="pb"><i></i></div>':'')
-   +'<div class="hov"><button class="btn y" data-go="'+p.id+'">'+t('open')+'</button>'+(p.final?'<button class="btn" data-watch="'+p.id+'">'+t('watch')+'</button>':'')+'<button class="btn" data-dup="'+p.id+'">'+t('dup')+'</button></div></div>'; }
+   +'<div class="hov"><button class="btn y" data-go="'+p.id+'">'+t('open')+'</button>'+(p.stopped?'<button class="btn" data-resume="'+p.id+'">'+t('resumeCl')+'</button>':'')+(p.final?'<button class="btn" data-watch="'+p.id+'">'+t('watch')+'</button>':'')+'<button class="btn" data-dup="'+p.id+'">'+t('dup')+'</button></div></div>'; }
 function searchBox(){ return '<div class="search" id="sbox">'+SV('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',18,2)+'<input id="q" dir="auto" autocomplete="off" placeholder="'+esc(t('searchAll'))+'" value="'+esc(Q)+'">'+(Q?'<button class="ic sm0" id="qX">'+IC.x+'</button>':'')+'</div>'; }
 function renderLib(){ if(!DATA){ $('#main').innerHTML=LOADERR?errBox():loader('lib'); return; } const P=DATA.projects, E=DATA.eps||[]; let o='';
   if((P.length||E.length)&&!DESK()) o+=searchBox();
   if(Q.trim().length>=2){ $('#main').innerHTML=o+'<div id="sres">'+srHtml()+'</div>'; return; }
   if(!P.length&&!E.length){ $('#main').innerHTML='<div class="empty">'+t('noProj')+'<br><button class="btn y" data-new="1">'+IC.plus+t('newP')+'</button></div>'; return; }
   o+=clBanner();
-  const lv=P.find(p=>p.agent); if(lv) o+='<div class="live" data-open="'+lv.id+'"><i></i><span dir="auto">'+t('liveNow',esc(lv.title))+(lv.last?' · '+esc(lv.last):'')+'</span></div>';
+  const lv=P.find(p=>p.agent||(p.last&&!p.stopped)); if(lv) o+='<div class="live" data-open="'+lv.id+'"><i></i><span dir="auto">'+t('liveNow',esc(lv.title))+(lv.last?' · '+esc(lv.last):'')+'</span></div>';
   const busy=E.filter(e=>e.state==='work'||e.state==='err').concat(P.filter(p=>p.prep).map(p=>({...p,kind:'proj',stage:p.prep.err?'error':'prep',err:p.prep.err,t0:p.prep.t0,eta:p.prep.eta})));
   if(busy.length) o+='<h4 class="sec">'+t('inProg')+'</h4><div class="row">'+busy.map(jobCard).join('')+'</div>';
   const eps=E.filter(e=>e.kind==='ep'&&e.state!=='work'&&e.state!=='err');
@@ -538,7 +540,7 @@ $('#sheet').addEventListener('click',e=>{ if(e.target.id==='sheet') closeSheet()
 const proj=id=>(DATA&&DATA.projects||[]).find(x=>x.id===id);
 function openSheet(id){ const p=proj(id); if(!p) return go(id);
   sheet('<div class="ph"><div><h2 dir="auto">'+esc(p.title)+'</h2>'+subHtml(p)+'<div class="lbl" style="margin-top:6px;direction:ltr;text-align:end">'+fmt(p.dur)+'</div></div>'+(p.thumb?'<img src="'+thumb(p)+'">':'')+'</div>'+watchHtml(p)
-   +'<button class="btn y wide" data-go="'+id+'">'+t('open')+'</button><div class="two"><button class="btn" data-dup="'+id+'">'+IC.copy+t('dup')+'</button><button class="btn" data-ren="'+id+'">'+IC.pen+t('rename')+'</button></div>'+(p.prep&&p.prep.err?'<button class="btn wide" data-prep="'+id+'">'+t('prepAgain')+'</button>':''));
+   +(p.stopped?'<div class="box stopbox"><b>'+t('stoppedT')+'</b><span>'+esc(p.sub.replace(/^Claude وقف عند: /,''))+'</span><small>'+t('stoppedSub',p.steps||0,ago(p.lastT))+'</small><button class="btn wide" data-resume="'+id+'">'+t('resumeCl')+'</button></div>':'')+'<button class="btn y wide" data-go="'+id+'">'+t('open')+'</button><div class="two"><button class="btn" data-dup="'+id+'">'+IC.copy+t('dup')+'</button><button class="btn" data-ren="'+id+'">'+IC.pen+t('rename')+'</button></div>'+(p.prep&&p.prep.err?'<button class="btn wide" data-prep="'+id+'">'+t('prepAgain')+'</button>':''));
   const gw=$('#goWatch'); if(gw) gw.onclick=()=>{ const v=$('#fin'); v.style.display='block'; gw.remove(); v.play().catch(()=>{}); }; }
 function watchHtml(p){ return p.final?'<video id="fin" controls playsinline preload="metadata" src="/hub/video/'+p.id+'?f='+encodeURIComponent(p.final)+'" style="width:100%;max-height:60vh;border-radius:18px;background:#000;margin-bottom:12px;display:none"></video><button class="btn wide" id="goWatch" style="margin-bottom:10px">'+t('watch')+'</button>':''; }
 function watch(id){ const p=proj(id); if(!p) return; sheet('<h2 dir="auto" style="margin-bottom:12px">'+esc(p.title)+'</h2><video id="fin" controls autoplay playsinline src="/hub/video/'+p.id+'?f='+encodeURIComponent(p.final)+'" style="width:100%;max-height:72vh;border-radius:18px;background:#000"></video>'); }
@@ -643,6 +645,7 @@ document.addEventListener('click',async e=>{ const el=e.target.closest('#ldRetry
   if(d.f){ FILTER=d.f; renderLib(); return; }
   if(d.go!==undefined){ e.stopPropagation(); if(d.go) go(d.go); return; }
   if(d.watch){ e.stopPropagation(); watch(d.watch); return; }
+  if(d.resume){ e.stopPropagation(); if(!(await tokenGo('edit','big'))) return; el.disabled=true; const r=await api('resume',{id:d.resume}); el.disabled=false; toast(r.ok?t('resumeOk'):(r.msg||t('failed'))); if(r.ok){ closeSheet(); await load(); } return; }
   if(d.dup){ e.stopPropagation(); el.disabled=true; const r=await api('dup',{id:d.dup}); el.disabled=false; if(r.ok){ closeSheet(); toast(t('done')); await load(); go(r.id); } else toast(r.msg||t('failed')); return; }
   if(d.ren){ const p=proj(d.ren); sheet('<h2 style="margin-bottom:12px">'+t('rename')+'</h2><div class="field"><input id="rnI" dir="auto" style="direction:rtl;text-align:right" value="'+esc(p?p.title:'')+'"></div><button class="btn y wide" id="rnOk" style="margin-top:12px">'+t('done')+'</button>'); $('#rnI').focus(); $('#rnOk').onclick=async()=>{ await api('rename',{id:d.ren,title:$('#rnI').value}); closeSheet(); load(); }; return; }
   if(d.prep){ await api('prep',{id:d.prep}); closeSheet(); toast(t('started')); load(); return; }
