@@ -198,6 +198,8 @@
     X.restore(); }
   let CAPFORCE=false;
   const _cap=window.caption;
+  /* 4.14: «احذف الصورة بس»: الجزء يصير أسود وصوتك والكابشن والطبقات يكملون */
+  function blankA(t){ for(const b of (HSX.blank||[])){ if(t>=b.s&&t<b.e) return cl((t-b.s)/0.08,0,1)*cl((b.e-t)/0.08,0,1); } return 0; }
   window.caption=function(t){
     if(t<VEND&&!CAPFORCE){ X.save(); try{ layers(t,true); }catch(e){} X.restore(); }
     if(t<VEND&&!CAPFORCE){ X.save(); try{ if(dkOn()) dkOverlay(t,dkStage()); deskItems(t); }catch(e){ if(!window.__hsDKE){ window.__hsDKE=1; console.error('hs desk: '+e.message); } } X.restore(); }
@@ -1300,6 +1302,10 @@
   const capSmall=(x,o)=>{ if(!CAP.on) return; CAPFORCE=true; const _c0=CAP; CAP={...CAP,...o}; try{ window.caption(x); } finally { CAPFORCE=false; CAP=_c0; } };
   /* 4.7.1: شريط التقدّم ينرسم بعد المؤثرات. قبل كان التقريب (punch و zoom) والانتقالات تكبّره معها فيطلع خط طويل خارج الشاشة */
   const _barFn=typeof window.bar==='function'?window.bar:null;
+  /* 4.14: «احذف الصورة بس»: الفيديو بهالجزء يتغطى بالأسود (بعد ما ينرسم، فيغطي أي شكل للفيديو: كامل أو بكرت)، والطبقات والكابشن فوقه */
+  const _dvB=window.drawVideo;
+  if(typeof _dvB==='function') window.drawVideo=function(t){ const r=_dvB.apply(this,arguments); const ba=t<VEND?blankA(t):0;
+    if(ba>0){ X.save(); X.setTransform(1,0,0,1,0,0); X.globalAlpha=ba; X.fillStyle='#000000'; X.fillRect(0,0,X.canvas.width,X.canvas.height); X.restore(); } return r; };
   window.draw=function(t){ TNOW=t; if(_barFn) window.bar=function(){}; try{ _draw(t); } finally { if(_barFn) window.bar=_barFn; }
     for(const [n,f] of [['split',x=>{ if(!splits(x)) return; if(CAP.on) capSmall(x,{size:Math.min(CAP.size,60),lines:1,width:Math.min(CAP.width||760,920),bg:CAP.bg==='bar'?'box':CAP.bg}); else if(!HSX.nocap){ try{ _cap(x); }catch(e){} } }],['viz',x=>{ if(vizs(x)) capSmall(x,{y:69.6,size:Math.min(CAP.size,72),lines:1,width:Math.min(CAP.width||760,900)}); }],['collage',x=>{ if(collages(x)){ if(CAP.on) capSmall(x,{}); else if(!HSX.nocap){ try{ _cap(x); }catch(e){} } } }],['kinetic',kinetics],['layers',x=>layers(x,false)],['cover',covers],['hook',hook],['fx',x=>{ if(dkOn()&&(HSX.dahih.layout||'window')!=='full'){ const R=dkStage(); X.beginPath(); X.rect(R.x,R.y,R.w,R.h); X.clip(); } fx(x); }],['mg',mgs],['bar',x=>{ if(_barFn&&!(HSX.layers||[]).some(L=>L.type==='mg'&&L.kind==='sting'&&!L.off&&x>=L.s&&x<L.e&&L.bg!=='none')) _barFn(x); }],['look',lookOverlay]]){ X.save(); try{ f(t); }catch(e){ if(!window['__hsE'+n]){ window['__hsE'+n]=1; console.error('hs '+n+': '+e.message); } } X.restore(); X.setTransform(1,0,0,1,0,0); X.globalAlpha=1; X.filter='none'; X.globalCompositeOperation='source-over'; } };
   window.__hsFx=['zoom','punch','shake','flash','bw','blur','vignette','letterbox','tint','glitch','grain','facezoom','spotlight','pulse','tilt','rgb','vhs','pixel','duotone','sepia','invert','mirror','leak','strobe','speed','confetti','curve','push','pull','rack','whip','spin','iris'];

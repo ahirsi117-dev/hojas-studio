@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Hojas Studio 4.13 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
+"""Hojas Studio 4.14 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
 
   python hs.py open   <work> [--engine <مجلد المحرّك>] [--port 8800] [--no-browser]
         يشغّل الخادم بالخلفية ويفتح المتصفح. شغّله أول ما تبدأ المونتاج، حتى قبل ما يجهز أي ملف.
@@ -31,6 +31,7 @@
   python hs.py plan   <work> show | check | wait | approve      خطة المقطع قبل البناء (plan.json)
   python hs.py voice  <work> list | mute <من> <إلى> | set <من> <إلى> <مستوى> | rm <رقم|all>   مستوى صوتك لأجزاء من المقطع
   python hs.py rmbg   <work> <صورة> [auto|flat|person]          يشيل خلفية صورة مضافة (على الجهاز)
+  python hs.py undo   <work>  ·  redo <work>                      ترجع خطوة أو تعيدها (السجل محفوظ بالمشروع، حتى تعديلات Claude والقص)
   python hs.py steps  <work> · facts <work> · cuts <work> [fix] · gloss list|add|rm     الخطوات · أرقام تتأكد منها · قطعات على صوت · قاموسك
   python hs.py fonts  list | install <zip|مجلد> | apply <work>         خطوطه الخاصة (تبقى على جهازه، ما تنرفع)
   python hs.py export <work> [--clean] [--hooks] [--frame 9:16|4:5|1:1|16:9]     التصدير النهائي (نفس زر الاستوديو)
@@ -73,7 +74,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.13"
+VERSION = "4.14"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json", "takes.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -393,6 +394,82 @@ def snapshot(work, name):
         if os.path.exists(J(work, f)): shutil.copy(J(work, f), os.path.join(vd, f))
     wj(os.path.join(vd, "meta.json"), {"name": (name or "نسخة")[:60], "at": time.strftime("%Y-%m-%d %H:%M")}); return os.path.basename(vd)
 
+# ───────────────────────── 4.14: سجل التراجع على القرص ─────────────────────────
+# كل تغيير (منك بالاستوديو، أو من Claude، أو قص) ينحفظ خطوة بـ .hs/hist، فالتراجع يشتغل حتى بعد ما تقفل الاستوديو أو تحدّث الصفحة.
+# الخطوة = نسخة الملفات اللي تغيّرت قبل التغيير. التراجع يرجّعها ويحط الحالية بالإعادة، ولو تغيّر القص يعيد بناء الفيديو.
+HIST_FILES = SNAP_FILES
+HIST_MAX = 300
+HSTL = threading.Lock()
+def _hdir(work, sub=""):
+    d = J(work, ".hs", "hist", sub) if sub else J(work, ".hs", "hist"); os.makedirs(d, exist_ok=True); return d
+def hist_state(work):
+    out = {}
+    for f in HIST_FILES:
+        try: out[f] = open(J(work, f), encoding="utf-8").read() if os.path.isfile(J(work, f)) else None
+        except Exception: out[f] = None
+    return out
+def _hsame(a, b):
+    if a == b: return True
+    if a is None or b is None: return False
+    try: return json.loads(a) == json.loads(b)
+    except Exception: return False
+def _hlist(work, sub): return sorted(x for x in os.listdir(_hdir(work, sub)) if x.endswith(".json"))
+def _hwrite(path, obj):
+    tmp = path + ".tmp"; open(tmp, "w", encoding="utf-8").write(json.dumps(obj, ensure_ascii=False)); os.replace(tmp, path)
+def _hpush(work, sub, entry):
+    names = _hlist(work, sub); n = int(names[-1][:-5]) + 1 if names else 1
+    _hwrite(os.path.join(_hdir(work, sub), "%07d.json" % n), entry)
+    for old in names[:max(0, len(names) + 1 - HIST_MAX)]:
+        try: os.remove(os.path.join(_hdir(work, sub), old))
+        except OSError: pass
+def _hpop(work, sub):
+    names = _hlist(work, sub)
+    if not names: return None
+    p = os.path.join(_hdir(work, sub), names[-1]); e = rj(p, None)
+    try: os.remove(p)
+    except OSError: pass
+    return e
+def hist_checkpoint(work, why="تعديل"):
+    """يقارن الملفات بآخر حالة انحفظت بالسجل. لو فيه فرق، الحالة القديمة تصير خطوة تقدر ترجع لها."""
+    with HSTL:
+        cur_p = os.path.join(_hdir(work), "cur.json"); now = hist_state(work); last = rj(cur_p, None)
+        if not isinstance(last, dict): _hwrite(cur_p, now); return False
+        ch = {f: last.get(f) for f in HIST_FILES if not _hsame(last.get(f), now.get(f))}
+        if not ch: return False
+        _hpush(work, "undo", {"files": ch, "why": why, "at": time.strftime("%H:%M:%S")})
+        for x in _hlist(work, "redo"):
+            try: os.remove(os.path.join(_hdir(work, "redo"), x))
+            except OSError: pass
+        _hwrite(cur_p, now); return True
+def hist_step(work, back=True):
+    """تراجع (back) أو إعادة. يرجّع (تم؟، القص تغيّر؟، وش كانت الخطوة)."""
+    hist_checkpoint(work, "تعديل من Claude")
+    with HSTL:
+        src, dst = ("undo", "redo") if back else ("redo", "undo")
+        e = _hpop(work, src)
+        if not e or not isinstance(e.get("files"), dict): return False, False, ""
+        old_keep = (rj(J(work, "cut.json"), {}) or {}).get("keep"); now = hist_state(work)
+        _hpush(work, dst, {"files": {f: now.get(f) for f in e["files"]}, "why": e.get("why"), "at": e.get("at")})
+        for f, txt in e["files"].items():
+            if f not in HIST_FILES: continue
+            p = J(work, f)
+            if txt is None:
+                if os.path.isfile(p): os.remove(p)
+            else:
+                tmp = p + ".tmp"; open(tmp, "w", encoding="utf-8").write(txt); os.replace(tmp, p)
+        _hwrite(os.path.join(_hdir(work), "cur.json"), hist_state(work))
+        return True, (rj(J(work, "cut.json"), {}) or {}).get("keep") != old_keep, e.get("why") or ""
+def hist_counts(work): return len(_hlist(work, "undo")), len(_hlist(work, "redo"))
+HIST_WHY = {"/api/save": "تعديل", "/hs/remove": "قص", "/hs/takes_apply": "اختيار الجمل", "/hs/cuts_fix": "تصليح القص", "/hs/ver_restore": "استرجاع نسخة",
+            "/hs/takes_set": "اختيار الجمل", "/hs/plan_set": "الخطة", "/hs/unsure": "الكلمات المشكوك فيها", "/hs/rmbg": "شيل الخلفية", "/hs/sv": "صوت استوديو"}
+def cmd_undo(work, back=True):
+    ok, rb, why = hist_step(work, back)
+    if not ok: print("ما فيه خطوة " + ("ترجع لها." if back else "تعيدها.")); return
+    if rb:
+        eng = find_engine(None) or sys.exit("ما لقيت مجلد engine")
+        rebuild_video(work, os.path.join(eng, "scripts"), lambda m: None)
+    u, r = hist_counts(work); print(("رجعت: " if back else "أعدت: ") + (why or "تعديل") + ("، وأعدت بناء الفيديو" if rb else "") + ". (باقي %d للتراجع، %d للإعادة)" % (u, r))
+
 def run(cmd, log, cwd=None, check=True, env=None):
     log("$ " + " ".join(os.path.basename(str(c)) if os.sep in str(c) else str(c) for c in cmd)[:220])
     r = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, env=env, encoding="utf-8", errors="replace")
@@ -446,6 +523,9 @@ def retime_project(work, remap, total, new_total):
         hs["bleep"]["items"] = [{**x, "s": shift(float(x["s"])), "e": shift(float(x["e"]))} for x in hs["bleep"]["items"] if shift(float(x["e"])) - shift(float(x["s"])) >= 0.04]
     if (hs.get("mix") or {}).get("vr"):   # 4.11: مستوى صوت الأجزاء يزحف مع القص
         hs["mix"]["vr"] = [{**x, "s": shift(float(x["s"])), "e": shift(float(x["e"]))} for x in hs["mix"]["vr"] if shift(float(x["e"])) - shift(float(x["s"])) >= 0.04]
+    if hs.get("blank"):   # 4.14: أجزاء «الصورة بس انحذفت» تزحف مع القص
+        hs["blank"] = [{**x, "s": shift(float(x["s"])), "e": shift(float(x["e"]))} for x in hs["blank"] if shift(float(x["e"])) - shift(float(x["s"])) >= 0.04]
+    if hs.get("marks"): hs["marks"] = []   # علامات القص اليدوية تنمسح بعد أي قص (مكانها تغيّر)
     st["behindOff"] = []; wj(J(work, "studio.json"), st)
 def remove_ranges(work, S, log, ranges=(), cards=(), words=(), rebuild=True):
     """يشيل مقاطع (بزمن الإخراج) من الفيديو والصوت، ويزحّف كل شي بعدها: الكابشن · المؤثرات · المشاهد · الطبقات."""
@@ -2722,6 +2802,20 @@ def cmd_selftest(work=None, engine=None):
         chk("4.13: صوتك مقاطع تنضغط وتنقص وتنقسم وتنحذف، والمؤثر ينقسم بالمقص، والتايم لاين يطول ويتسحب", all(x in ap for x in ("function auSelectAt", "function auClips", "data-auact", "kind==='sfx'){ const [k,j]=String(id).split(':'), o=sxGet(k,+j); if(x<o.t+0.05", "function tlFit"))
             and 'id="tlGrip"' in sh_ and "var(--tlh,290px)" in sh_)
     except Exception as e: chk("4.13: الصوت مقاطع", False, str(e)[:200])
+    try:   # 4.14: سجل التراجع على القرص
+        td = tempfile.mkdtemp(prefix="hs-hist-")
+        try:
+            wj(os.path.join(td, "studio.json"), {"hs": {"a": 1}}); hist_checkpoint(td)
+            wj(os.path.join(td, "studio.json"), {"hs": {"a": 2}}); hist_checkpoint(td, "تجربة")
+            open(os.path.join(td, "studio.json"), "w", encoding="utf-8").write('{"hs":{"a":2}}'); same = not hist_checkpoint(td)   # نفس المحتوى بتنسيق ثاني ما يصير خطوة
+            ok1, rb1, why1 = hist_step(td, True); a1 = rj(os.path.join(td, "studio.json"))["hs"]["a"]
+            ok2, _, _ = hist_step(td, False); a2 = rj(os.path.join(td, "studio.json"))["hs"]["a"]
+            ok3, _, _ = hist_step(td, False)
+            chk("4.14: التراجع والإعادة من السجل اللي بالمشروع (وتغيير التنسيق بس ما ينحسب خطوة)", same and ok1 and why1 == "تجربة" and a1 == 1 and ok2 and a2 == 2 and not ok3 and not rb1, "%s %s %s %s" % (same, a1, a2, ok3))
+        finally: shutil.rmtree(td, ignore_errors=True)
+        ap = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); ex = open(os.path.join(HERE, "ext.js"), encoding="utf-8").read(); sh_ = open(os.path.join(HERE, "studio.html"), encoding="utf-8").read()
+        chk("4.14: ربط الصوت بالصورة، حذف الصوت بس أو الصورة بس، والقص يفصل القطع (بدل الخط الأحمر)", all(x in ap for x in ("function linkToggle", "function blankAdd", "function avDel", "'/hs/undo'", "class=\"cutgap\"", "function marksSave")) and "function blankA" in ex and 'id="bLink"' in sh_ and ".cutgap{" in sh_)
+    except Exception as e: chk("4.14: السجل والربط", False, str(e)[:200])
     chk("الرسم الحر بالمحرّك والاستوديو", "function drawLayer" in txt.get("ext.js", "") and "function drawStart" in txt.get("app.js", ""))
     try:   # 4.6: كتم الكلمات
         m0, p0 = bleep_filters(bleep_of({})); ct = {"cards": [{"s": 0, "e": 2, "w": [{"t": "شركة", "s": 0.1, "e": 0.4}, {"t": "والشركه", "s": 0.5, "e": 0.9}, {"t": "شركات", "s": 1.0, "e": 1.3}]}]}
@@ -2981,6 +3075,17 @@ def serve(work, port, engine):
     D = J(work, ".hs"); os.makedirs(D, exist_ok=True)
     sys.argv = [os.path.join(eng, "studio", "studio.py"), work, str(port)]
     spec = importlib.util.spec_from_file_location("hs_base_studio", sys.argv[0]); base = importlib.util.module_from_spec(spec); spec.loader.exec_module(base)
+    _bjob = base.job
+    def _hjob(kind, fn):   # 4.14: اللي تغيّره العملية (قص، إعادة بناء) يصير خطوة بالسجل أول ما تخلص
+        def wrapped():
+            try: fn()
+            finally:
+                try: hist_checkpoint(work, {"remove": "قص", "recut": "قص", "drop": "حذف جملة", "undo_cut": "ترجيع القص"}.get(kind, "تعديل"))
+                except Exception: pass
+        return _bjob(kind, wrapped)
+    base.job = _hjob
+    try: hist_checkpoint(work, "تعديل من Claude")
+    except Exception: pass
     P = base.P; S = base.S
     def tok(name, n):
         p = os.path.join(D, name)
@@ -3347,10 +3452,27 @@ def serve(work, port, engine):
             self.path = p + (("?" + u.query) if u.query and "k=" not in u.query else "")
             return super().do_GET()
         def do_POST(self):
+            p0 = urllib.parse.urlparse(self.path).path
+            if p0 in ("/hs/undo", "/hs/redo") or not self._role(): return self._do_POST()
+            try: hist_checkpoint(work, "تعديل من Claude")
+            except Exception: pass
+            try: return self._do_POST()
+            finally:
+                try: hist_checkpoint(work, HIST_WHY.get(p0, "تعديل"))
+                except Exception: pass
+        def _do_POST(self):
             role = self._role()
             if not role: return self._deny()
             p = urllib.parse.urlparse(self.path).path
             if role == "review" and p not in ("/hs/review_comment", "/hs/review_approve"): return self._deny()
+            if p in ("/hs/undo", "/hs/redo"):   # 4.14: التراجع من السجل اللي على القرص
+                self.rfile.read(int(self.headers.get("Content-Length") or 0))
+                if base.JOB["running"]: return self._json(409, {"ok": False, "msg": "فيه عملية شغّالة، انتظرها تخلص"})
+                ok, rb, why = hist_step(work, p == "/hs/undo"); u, r = hist_counts(work)
+                if ok and rb:
+                    def go(): rebuild_video(work, S, base.log); base.JOB["reload"] = True
+                    base.job("remove", go)
+                return self._json(200, {"ok": ok, "rebuild": rb, "why": why, "undo": u, "redo": r})
             if p.startswith("/api/save"):   # 4.10: قاموسك يتعلّم من تصحيحاتك للكابشن
                 n_ = int(self.headers.get("Content-Length") or 0); raw_ = self.rfile.read(n_)
                 try:
@@ -6064,7 +6186,16 @@ def main():
     if cmd == "open": return cmd_open(work, port, engine, browser=not flag("--no-browser"))
     if cmd == "serve": return serve(work, port, engine)
     if not os.path.isdir(work): sys.exit("ما لقيت مجلد الشغل: " + work)
+    if cmd in ("undo", "redo"): return cmd_undo(work, cmd == "undo")
     if cmd == "say": kind = opt("--kind", "step"); say(work, " ".join(a[2:]), kind); return
+    if os.path.isdir(J(work, ".hs", "hist")) and cmd not in ("status", "steps", "facts", "check", "list", "plan"):   # 4.14: أوامرك تنحفظ خطوات بالسجل
+        try: hist_checkpoint(work, "تعديل")
+        except Exception: pass
+        import atexit
+        def _hc():
+            try: hist_checkpoint(work, "Claude: " + cmd)
+            except Exception: pass
+        atexit.register(_hc)
     if cmd in ("remove", "export"):
         eng = find_engine(engine) or sys.exit("ما لقيت المحرّك — مرّر --engine"); S = os.path.join(eng, "scripts"); fix_windows_path(); log = lambda s: print(s, flush=True)
         if cmd == "remove":
