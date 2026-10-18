@@ -426,6 +426,7 @@ function planPanel(){ if(!PLAN){ loadPlan(); return '<p class="hint">…</p>'; }
   let o='<div class="sec"><h4>'+t('planTitle')+(PLAN.ok?'<span class="st '+(PLAN.approved?'ok':'')+'" style="font-size:12px">'+t(PLAN.approved?'planApproved':'planWaiting')+'</span>':'')+'</h4>';
   if(!PLAN.ok) return o+'<p class="hint">'+t('planNone')+'</p></div>';
   const items=PLAN.items||[], ngen=items.filter(x=>x.kind==='gen'&&!x.src).length;
+  if(PLAN.motif) o+='<p class="hint" style="margin:0 0 8px"><b>'+t('planMotif')+':</b> '+esc(PLAN.motif)+'</p>';
   o+='<div style="display:flex;flex-direction:column;gap:6px"><button class="'+(PLAN.approved?'sm ghost':'pri')+'" data-planok="'+(PLAN.approved?0:1)+'">'+t(PLAN.approved?'planUnapprove':'planApprove')+'</button>'+(ngen?'<button class="sm" data-plan2="1">'+t('planTwo')+'</button>':'')+(PLAN.approved&&items.some(x=>x.src||x.mg||x.logo||x.glow||(x.anno||[]).length)?'<button class="sm" data-planbuild="1">'+t('planBuild')+'</button>':'')+'</div>';
   o+='<textarea id="planAsk" rows="3" dir="auto" placeholder="'+t('planAskPh')+'" style="margin-top:8px">'+esc(PLAN.feedback||'')+'</textarea><button class="sm" data-planre="1" style="margin-top:6px">'+t('planRewrite')+'</button></div>';
   items.forEach((it,i)=>{ o+='<div class="sec plc'+(it.built?' built':'')+'"><div class="plh"><b>'+(i+1)+'</b><span>'+esc(it.title||'')+'</span><span class="st" data-seek="'+(+it.s||0)+'" style="direction:ltr;cursor:pointer">'+fmt(+it.s||0)+'</span></div>'
