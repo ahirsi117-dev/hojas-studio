@@ -2933,7 +2933,7 @@ def cmd_set(work, args):
         cur[parts[-1]] = val
     wj(sp, st); print(json.dumps({k: v for k, v in hs.items() if k in ("cap", "en", "mix", "hooks", "check")}, ensure_ascii=False)[:900])
 MG_KINDS = ("stat", "slam", "check", "steps", "callout", "quote", "ring", "compare", "sting", "logo")
-ANNO_KINDS = ("ring", "spots", "route", "path", "wave", "tap", "boxes", "tags")
+ANNO_KINDS = ("ring", "spots", "route", "path", "wave", "tap", "boxes", "tags", "screen", "spinner")
 def cmd_layer(work, args):
     sp = J(work, "studio.json"); st = load_studio(work); hs = hs_of(st); Ls = hs.setdefault("layers", []); sub = args[0] if args else "list"
     if sub == "list":

@@ -1,5 +1,6 @@
 {
  "_about": "طوابع جاهزة (Looks). كل طابع: طبقة فوق المقطع + تلوين الفيديو + شكل كروت الشرح + ألوان الكابشن + نوع الانتقال. مستوحاة من كتالوج أساليب lemo-opuscar (MIT) ومكتوبة من جديد للمونتاج العمودي.",
+ "cinema": {"ar": "سينما دافية", "en": "Warm cinema", "overlay": "none", "amount": 0, "grade": "cine", "card": {"bgColor": "#0F0D0A", "accent": "#F4C55A", "deco": "none"}, "cap": {"active": "#F0A64A", "bg": "box", "bgColor": "#15120F", "bgOpacity": 0.72}, "tr": "zoom"},
  "dossier": {"ar": "ملف سري", "en": "Dossier", "overlay": "halftone", "amount": 0.6, "grade": "muted", "card": {"bgColor": "#EFE6D2", "accent": "#C8102E", "deco": "halftone"}, "cap": {"active": "#C8102E", "bg": "box", "bgColor": "#111111"}, "tr": "whip"},
  "keynote": {"ar": "كينوت داكن", "en": "Dark keynote", "overlay": "vignette", "amount": 0.45, "grade": "studio", "card": {"bgColor": "#0E0E12", "accent": "#4C8DFF", "deco": "grid"}, "cap": {"active": "#4C8DFF", "bg": "none"}, "tr": "curve"},
  "riso": {"ar": "ريزو مطبوع", "en": "Risograph", "overlay": "grain", "amount": 0.6, "grade": "pop", "card": {"bgColor": "#F4EEE1", "accent": "#FF4D8D", "deco": "halftone"}, "cap": {"active": "#2E5BFF", "bg": "none"}, "tr": "push"},
