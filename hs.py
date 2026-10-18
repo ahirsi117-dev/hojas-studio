@@ -2975,6 +2975,10 @@ def cmd_selftest(work=None, engine=None):
         chk("4.16: زر «ابنِ من الخطة» والفكرة والمثال بالاستوديو، والأفياش (خطوط من نقطة وحدة) والعدّاد مع الكلمات بالمحرّك، ومرجع الطريقة",
             "data-planbuild" in ap and "'/hs/plan_build'" in ap and "planExample:" in i18 and "planBuild:" in i18 and "pts[L.hub?0:i-1]" in ex and "L.pins===false" in ex and "Array.isArray(L.at)&&L.at.length){ let n=0" in ex
             and os.path.isfile(os.path.join(HERE, "engine", "references", "visual-story.md")) and "visual-story.md" in open(os.path.join(HERE, "SKILL.md"), encoding="utf-8").read())
+        sh_ = open(os.path.join(HERE, "studio.html"), encoding="utf-8").read()
+        chk("4.16: صفحة الأسئلة فيها رسمة توضيحية لكل خيار يحتاج شرح (الأسلوب، المدة، الإيقاع، مكان الكابشن، الصور، الكمية، الأصوات، المؤثرات)",
+            "function vtiles" in ap and all(("vtiles('%s'" % g) in ap for g in ("style", "length", "pace", "pos", "media.mode", "media.amount", "fx.sfx")) and all(k in ap for k in ("dahih:()=>", "'fx.zoom':()=>", "'hook.use':()=>"))
+            and all(("bv_%s:" % k) in i18 for k in ("style_dahih", "style_paper", "length_tight", "pace_fast", "pos_mid", "media_mix", "amount_many", "sfx_rich")) and "bg_goal_explain:" in i18 and ".vts{" in sh_)
     except Exception as e: chk("4.16: القصة البصرية", False, str(e)[:240])
     chk("الرسم الحر بالمحرّك والاستوديو", "function drawLayer" in txt.get("ext.js", "") and "function drawStart" in txt.get("app.js", ""))
     try:   # 4.6: كتم الكلمات
