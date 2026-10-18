@@ -515,6 +515,7 @@ body.m #mtools{gap:6px;padding:10px 12px 4px}body.m #mtools .ic{width:42px;heigh
 .clip.sfx.mute{opacity:.45}
 #tlGrip{position:absolute;left:0;right:0;top:-4px;height:8px;cursor:ns-resize;z-index:20;touch-action:none}
 body.m #tlGrip{display:none}
+#wrap.picking,#wrap.picking *{cursor:crosshair!important}
 .cutgap{position:absolute;top:-1px;bottom:-1px;width:4px;margin-left:-2px;background:var(--s1);z-index:2;pointer-events:none}
 .blk{position:absolute;top:0;bottom:0;z-index:3;background:repeating-linear-gradient(135deg,#0b0b0e 0 6px,#17171c 6px 12px);border:1px solid rgba(255,255,255,.18);border-radius:4px;color:#b9b9c4;font-size:10px;line-height:38px;text-align:center;overflow:hidden;white-space:nowrap;cursor:pointer}
 .blk.on{border:2px solid #fff}
@@ -567,6 +568,7 @@ body.m #tlGrip{display:none}
 #drawBar button.sm{height:34px}
 body.drawing #sideTools,body.drawing #giz,body.drawing #ticker,body.drawing #gestHint{display:none!important}
 .clip.draw{background:#b7792a}
+.clip.anno{background:#8a6626}
 /* ═══ 4.4: الكمبيوتر — أوسع وأهدأ ═══ */
 @media (min-width:761px){
   body:not(.m){font-size:14px}

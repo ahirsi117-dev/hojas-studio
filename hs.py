@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Hojas Studio 4.14 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
+"""Hojas Studio 4.15 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
 
   python hs.py open   <work> [--engine <مجلد المحرّك>] [--port 8800] [--no-browser]
         يشغّل الخادم بالخلفية ويفتح المتصفح. شغّله أول ما تبدأ المونتاج، حتى قبل ما يجهز أي ملف.
@@ -74,7 +74,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.14"
+VERSION = "4.15"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json", "takes.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -2068,7 +2068,7 @@ def media_search(work, q, n=12):
     wj(J(work, ".hs", "media_last.json"), {"q": q, "items": res}); return res
 def add_image_layer(work, src, at=None, dur=3.0, fit="card", extra=None):
     st = load_studio(work); hs = hs_of(st); Ls = hs.setdefault("layers", []); total = (rj(J(work, "caps.json"), {}) or {}).get("total", 0) or 600
-    s = max(0.0, min(float(at or 0), max(0, total - 0.5))); L = {"id": new_id(Ls), "type": "image", "src": src, "s": round(s, 3), "e": round(min(total, s + float(dur)), 3), "track": 0, "fit": fit, "kb": True, "anim": "fade", **(extra or {})}
+    s = max(0.0, min(float(at or 0), max(0, total - 0.5))); L = {"id": new_id(Ls), "type": "image", "src": src, "s": round(s, 3), "e": round(min(total, s + float(dur)), 3), "track": 0, "fit": fit, "kb": True, "anim": "fade", **({"move": "push", "hand": True, "inFx": "focus"} if fit == "cover" else {}), **(extra or {})}   # 4.15: الصورة ملء الشاشة ما تكون ثابتة
     Ls.append(L); wj(J(work, "studio.json"), st); return L["id"]
 def media_add(work, item, at=None, dur=3.0, fit="card"):
     os.makedirs(J(work, "assets"), exist_ok=True); slug = re.sub(r"[^\w\-]+", "-", item.get("title", "image"))[:40].strip("-") or "image"
@@ -2816,6 +2816,12 @@ def cmd_selftest(work=None, engine=None):
         ap = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); ex = open(os.path.join(HERE, "ext.js"), encoding="utf-8").read(); sh_ = open(os.path.join(HERE, "studio.html"), encoding="utf-8").read()
         chk("4.14: ربط الصوت بالصورة، حذف الصوت بس أو الصورة بس، والقص يفصل القطع (بدل الخط الأحمر)", all(x in ap for x in ("function linkToggle", "function blankAdd", "function avDel", "'/hs/undo'", "class=\"cutgap\"", "function marksSave")) and "function blankA" in ex and 'id="bLink"' in sh_ and ".cutgap{" in sh_)
     except Exception as e: chk("4.14: السجل والربط", False, str(e)[:200])
+    try:   # 4.15: حركة الصور والتعليق عليها
+        ex = open(os.path.join(HERE, "ext.js"), encoding="utf-8").read(); ap = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); i18 = open(os.path.join(HERE, "i18n.js"), encoding="utf-8").read()
+        kinds_ok = all(("k==='%s'" % k) in ex for k in ANNO_KINDS)
+        chk("4.15: حركة الصور (دفع، تحريك، يد، هزّة، دخول وخروج) والتعليق عليها (8 أنواع) والكلمة المتوهجة، بالمحرك والاستوديو", "function imgMove" in ex and "function annoLayer" in ex and kinds_ok and "an==='glow'" in ex
+            and all(x in ap for x in ("function annoInsp", "function imgMoveInsp", "function pickAt", "data-add=\"anno:")) and "ak_ring:" in i18 and "im_push:" in i18)
+    except Exception as e: chk("4.15: حركة الصور", False, str(e)[:200])
     chk("الرسم الحر بالمحرّك والاستوديو", "function drawLayer" in txt.get("ext.js", "") and "function drawStart" in txt.get("app.js", ""))
     try:   # 4.6: كتم الكلمات
         m0, p0 = bleep_filters(bleep_of({})); ct = {"cards": [{"s": 0, "e": 2, "w": [{"t": "شركة", "s": 0.1, "e": 0.4}, {"t": "والشركه", "s": 0.5, "e": 0.9}, {"t": "شركات", "s": 1.0, "e": 1.3}]}]}
@@ -2927,6 +2933,7 @@ def cmd_set(work, args):
         cur[parts[-1]] = val
     wj(sp, st); print(json.dumps({k: v for k, v in hs.items() if k in ("cap", "en", "mix", "hooks", "check")}, ensure_ascii=False)[:900])
 MG_KINDS = ("stat", "slam", "check", "steps", "callout", "quote", "ring", "compare", "sting", "logo")
+ANNO_KINDS = ("ring", "spots", "route", "path", "wave", "tap", "boxes", "tags")
 def cmd_layer(work, args):
     sp = J(work, "studio.json"); st = load_studio(work); hs = hs_of(st); Ls = hs.setdefault("layers", []); sub = args[0] if args else "list"
     if sub == "list":
@@ -2935,8 +2942,11 @@ def cmd_layer(work, args):
         return
     if sub == "add":
         o = parse_kv(args[1:])
-        if o.get("type") not in ("text", "image", "char", "fx", "split", "viz", "cover", "bg", "behind", "pip", "mark", "cursor", "lt", "collage", "kinetic", "desk", "draw", "mg"): sys.exit("type لازم: mg | text | image | char | fx | split | viz | cover | bg | behind | pip | mark | cursor | lt | kinetic | desk | collage | draw")
+        if o.get("type") not in ("text", "image", "char", "fx", "split", "viz", "cover", "bg", "behind", "pip", "mark", "cursor", "lt", "collage", "kinetic", "desk", "draw", "mg", "anno"): sys.exit("type لازم: anno | mg | text | image | char | fx | split | viz | cover | bg | behind | pip | mark | cursor | lt | kinetic | desk | collage | draw")
         if o["type"] == "mg" and o.get("kind") not in MG_KINDS: sys.exit("kind لازم: " + " | ".join(MG_KINDS))
+        if o["type"] == "anno":   # 4.15: تعليق على الصورة
+            if o.get("kind", "ring") not in ANNO_KINDS: sys.exit("kind لازم: " + " | ".join(ANNO_KINDS))
+            o.setdefault("kind", "ring"); o.setdefault("anim", "none"); o.setdefault("track", 1)
         if o["type"] in ("split", "viz", "pip"):
             for k2, v2 in (hs.get("cardDefault") or {}).items(): o.setdefault(k2, v2) if not (k2 == "deco" and o["type"] == "viz") else None
         for k in ("text", "title"):

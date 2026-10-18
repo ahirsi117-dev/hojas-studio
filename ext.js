@@ -314,7 +314,8 @@
       else if(an==='slide'){ a=ease(k); dx=(1-ease(k))*320; }
       else if(an==='slideL'){ a=ease(k); dx=-(1-ease(k))*320; }
       else if(an==='zoom'){ a=ease(k); sc=1.7-0.7*ease(k); }
-      else if(an==='fade'){ a=k; } }
+      else if(an==='fade'){ a=k; }
+      else if(an==='glow'){ a=ease(k); sc=1.1-0.1*ease(k); } }
     if(rt<0.18){ a*=cl(rt/0.18,0,1); }
     return {a,dx,dy,sc}; }
   function textBlock(o,t,K){ /* o: text,font,weight,size,color,bg,bgColor,bgOpacity,x,y,width,stroke,strokeColor,shadow,anim */
@@ -330,12 +331,13 @@
     const px=Math.round(fs*0.42), py=Math.round(fs*0.22), bgc=rgba(o.bgColor||'#000000',o.bgOpacity==null?1:o.bgOpacity);
     if(o.bg==='box'){ X.fillStyle=bgc; rr(cx-bw/2-px,top-py,bw+px*2,bh+py*2,Math.round(fs*0.3)); X.fill(); }
     if(o.bg==='glass') glass(cx-bw/2-px*1.3,top-py*1.6,bw+px*2.6,bh+py*3.2,Math.round(fs*0.36));
+    const gl=o.anim==='glow', gk=gl?cl((t-(o.s||0))/0.6,0,1):1; if(gl&&gk<1) X.filter='blur('+((1-gk)*16).toFixed(1)+'px)';   // 4.15: كلمة متوهجة تطلع من الغباش
     lines.forEach((l,i)=>{ const y=top+lh*i+lh/2; X.font=font; X.direction=hasAr(l)?'rtl':'ltr';
       if(o.bg==='pill'&&l){ X.fillStyle=bgc; rr(cx-ws[i]/2-px,y-lh/2+2,ws[i]+px*2,lh-4,Math.round(fs*0.26)); X.fill(); }
       if(o.stroke>0){ X.strokeStyle=o.strokeColor||'#000000'; X.lineWidth=o.stroke*2; X.strokeText(l,cx,y); }
-      if(o.shadow!==false&&o.bg!=='box'&&o.bg!=='pill'){ X.shadowColor='rgba(0,0,0,0.7)'; X.shadowBlur=Math.round(fs*0.28); X.shadowOffsetY=Math.round(fs*0.06); }
-      if(o.hollow){ X.strokeStyle=o.color||'#FFFFFF'; X.lineWidth=Math.max(4,Math.round(fs*0.035)); X.strokeText(l,cx,y); } else { X.fillStyle=o.color||'#FFFFFF'; X.fillText(l,cx,y); } X.shadowColor='transparent'; X.shadowBlur=0; X.shadowOffsetY=0; });
-    X.restore(); }
+      if(gl){ X.shadowColor=o.glowColor||ACC; X.shadowBlur=Math.round(fs*0.55); X.shadowOffsetY=0; } else if(o.shadow!==false&&o.bg!=='box'&&o.bg!=='pill'){ X.shadowColor='rgba(0,0,0,0.7)'; X.shadowBlur=Math.round(fs*0.28); X.shadowOffsetY=Math.round(fs*0.06); }
+      if(o.hollow){ X.strokeStyle=o.color||'#FFFFFF'; X.lineWidth=Math.max(4,Math.round(fs*0.035)); X.strokeText(l,cx,y); } else { X.fillStyle=o.color||'#FFFFFF'; X.fillText(l,cx,y); if(gl){ X.shadowBlur=Math.round(fs*0.18); X.fillText(l,cx,y); } } X.shadowColor='transparent'; X.shadowBlur=0; X.shadowOffsetY=0; });
+    X.filter='none'; X.restore(); }
 
   /* شخصيات مبنية بالبكسل (تصاميم أصلية للاستوديو) — B جسم · D ظل · W بياض العين · E بؤبؤ · M فم · A تمييز */
   const SPR={
@@ -362,8 +364,34 @@
       X.fillStyle=col; X.fillRect(Math.round(ox+c*px),Math.round(oy+r*px),Math.ceil(px)+0.5,Math.ceil(px)+0.5); }
     X.restore(); }
   function coverDraw(im,x,y,w,h,k){ const sc=Math.max(w/im.naturalWidth,h/im.naturalHeight)*k, dw=im.naturalWidth*sc, dh=im.naturalHeight*sc; X.drawImage(im,x+(w-dw)/2,y+(h-dh)/2,dw,dh); }
-  function imageLayer(L,t,K){ const im=IMG[L.src]; if(!im||!im.ok) return; const kk=cl((t-L.s)/Math.max(0.01,L.e-L.s),0,1), kb=L.kb===false?1:1+0.12*kk;
-    if(L.fit==='cover'){ X.save(); X.globalAlpha=K.a*(L.opacity==null?1:L.opacity); X.beginPath(); X.rect(0,0,1080,1920); X.clip(); coverDraw(im,0,0,1080,1920,kb); X.restore(); return; }
+  /* 4.15: حركة الصور: دفع للداخل على نقطة، سحب للخارج، تحريك يمين ويسار وفوق وتحت، انجراف، طفو، يد ماسكة الكاميرا، هزّة، ودخول وخروج بغباش أو زوم أو سحبة */
+  const sio2=k=>-(Math.cos(Math.PI*k)-1)/2;
+  function nz(t,s){ return Math.sin(t*1.7+s)*0.5+Math.sin(t*2.9+s*1.3)*0.3+Math.sin(t*4.3+s*2.1)*0.2; }
+  function imgMove(L,t){ const D=Math.max(0.01,L.e-L.s), lt=t-L.s, e=sio2(cl(lt/D,0,1)), mv=L.move||(L.kb===false?'none':'push'), a=L.amount==null?1:+L.amount; let sc=1,dx=0,dy=0,rot=0,blur=0,mb=0;
+    if(mv==='push') sc=1+0.12*a*e; else if(mv==='pull') sc=1+0.14*a*(1-e);
+    else if(mv==='panL'||mv==='panR'){ sc=1+0.16*a; dx=(mv==='panL'?-1:1)*(e-0.5)*1080*0.13*a; }
+    else if(mv==='panU'||mv==='panD'){ sc=1+0.12*a; dy=(mv==='panU'?-1:1)*(e-0.5)*1920*0.09*a; }
+    else if(mv==='drift'){ sc=1.06+0.08*a*e; dx=(e-0.5)*44*a; dy=(0.5-e)*30*a; rot=(e-0.5)*0.9*a; }
+    else if(mv==='float'){ dy=Math.sin(lt*1.9)*16*a; rot=Math.sin(lt*1.3+1)*2*a; }
+    if(L.hand){ dx+=nz(lt*0.9,1)*10; dy+=nz(lt*0.8,7)*13; rot+=nz(lt*0.7,3)*0.4; sc*=1.035; }
+    for(const s0 of (L.shake||[])){ const u=lt-(+s0); if(u>=0&&u<0.7){ const en=Math.sin(Math.PI*u/0.7); dx+=Math.sin(u*55)*28*en; dy+=Math.cos(u*47)*15*en; rot+=Math.sin(u*38)*3.4*en; sc*=1+0.1*en; mb=Math.max(mb,en); } }
+    const fi=L.inFx||'', fo=L.outFx||'', ki=cl(lt/0.45,0,1), ko=cl((L.e-t)/0.35,0,1); let ghost=null;
+    if(fi==='focus'&&ki<1){ blur=Math.max(blur,(1-p3o(ki))*28); sc*=1+0.1*(1-p3o(ki)); }
+    if(fi==='zoomblur'&&ki<1) ghost={k:'z',v:1-p3o(ki)}; if(fi==='whip'&&ki<1){ ghost={k:'x',v:1-p3o(ki)}; dx+=(1-p3o(ki))*300; } if(fi==='stretch'&&ki<1) ghost={k:'y',v:1-p3o(ki)};
+    if(fo==='zoomblur'&&ko<1) ghost={k:'z',v:1-ko}; if(fo==='whip'&&ko<1){ ghost={k:'x',v:1-ko}; dx-=(1-ko)*(1-ko)*300; } if(fo==='focus'&&ko<1) blur=Math.max(blur,(1-ko)*24);
+    if(mb>0&&!ghost) ghost={k:'x',v:mb*0.55};
+    return {sc,dx,dy,rot,blur,ghost,fx:L.fx==null?0.5:+L.fx,fy:L.fy==null?0.5:+L.fy}; }
+  function coverMv(im,M){ const pass=(sx,sy,al)=>{ X.save(); X.globalAlpha*=al; X.translate(540+M.dx,960+M.dy); X.rotate(M.rot*Math.PI/180); X.scale(sx,sy); X.translate(-540,-960);
+      const ox=M.fx*1080, oy=M.fy*1920; X.translate(ox,oy); X.scale(M.sc,M.sc); X.translate(-ox,-oy); coverDraw(im,0,0,1080,1920,1+(M.rot?0.03:0)); X.restore(); };
+    if(M.blur>0.3) X.filter='blur('+M.blur.toFixed(1)+'px)';
+    if(M.ghost&&M.ghost.v>0.02){ const g=M.ghost, n=6; for(let i=n;i>=1;i--){ const u=i/n*g.v, al=0.55/n*1.6;
+        if(g.k==='z') pass(1+0.28*u,1+0.28*u,al); else if(g.k==='y') pass(1,1+0.55*u,al); else { X.save(); X.translate(-u*140*(i%2?1:-1)*0.5-u*110,0); pass(1,1,al); X.restore(); } }
+      X.save(); X.globalAlpha*=1-0.55*g.v; pass(1,1,1); X.restore(); }
+    else pass(1,1,1);
+    X.filter='none'; }
+  function imageLayer(L,t,K){ const im=IMG[L.src]; if(!im||!im.ok) return; const kk=cl((t-L.s)/Math.max(0.01,L.e-L.s),0,1), kb=L.kb===false||L.move?1:1+0.12*kk;
+    if(L.fit==='cover'){ X.save(); X.globalAlpha=K.a*(L.opacity==null?1:L.opacity); X.beginPath(); X.rect(0,0,1080,1920); X.clip(); X.fillStyle='#000'; X.fillRect(0,0,1080,1920); coverMv(im,imgMove(L,t)); X.restore(); return; }
+    if(L.move||L.hand||(L.shake&&L.shake.length)||L.inFx){ const M=imgMove(L,t), cx=(L.x==null?0.5:L.x)*1080, cy=(L.y==null?(L.fit==='card'?0.28:0.35):L.y)*1920; X.translate(cx+M.dx,cy+M.dy); X.rotate(M.rot*Math.PI/180); X.scale(M.sc,M.sc); X.translate(-cx,-cy); if(M.blur>0.3) X.filter='blur('+M.blur.toFixed(1)+'px)'; }
     if(L.fit==='card'){ const w=(L.w||0.76)*1080, h=w*(L.ratio||0.68), cx=(L.x==null?0.5:L.x)*1080, cy=(L.y==null?0.28:L.y)*1920;
       X.save(); X.globalAlpha=K.a*(L.opacity==null?1:L.opacity); X.translate(cx+K.dx,cy+K.dy); X.scale(K.sc,K.sc); X.rotate((L.rot||0)*Math.PI/180);
       X.shadowColor='rgba(0,0,0,0.45)'; X.shadowBlur=40; X.shadowOffsetY=16; X.fillStyle='#000'; rr(-w/2,-h/2,w,h,L.round==null?36:L.round); X.fill(); X.shadowColor='transparent'; X.shadowBlur=0; X.shadowOffsetY=0;
@@ -374,11 +402,11 @@
     if(L.frame==='glass'){ const pd=Math.max(w,h)*0.17; glass(-w/2-pd,-h/2-pd,w+pd*2,h+pd*2,(Math.max(w,h)+pd*2)*0.24); }
     if(L.frame==='ring'){ const r=Math.max(w,h)*0.74; X.lineWidth=Math.max(6,r*0.07); X.strokeStyle='rgba(255,255,255,0.26)'; X.beginPath(); X.arc(0,0,r,0,6.2832); X.stroke(); X.strokeStyle=L.ringColor||'#FFFFFF'; X.lineCap='round'; X.beginPath(); const a0=L.ringFull?0:t*5.2; X.arc(0,0,r,a0,a0+(L.ringFull?6.2832:2.3)); X.stroke(); }
     if(L.round||L.frame==='glass'){ rr(-w/2,-h/2,w,h,L.round||Math.max(w,h)*0.2); X.clip(); } X.drawImage(im,-w/2,-h/2,w,h); X.restore(); }
-  const isUnder=L=>L.type==='image'&&(L.fit==='cover'||L.fit==='card')&&L.under!==false;
+  const isUnder=L=>((L.type==='image'&&(L.fit==='cover'||L.fit==='card'))||L.type==='anno')&&L.under!==false;
   /* 4.12: الترتيب نفس التايم لاين: السطر الأعلى ينرسم آخر فيطلع فوق، وبنفس السطر الأحدث فوق */
   function layers(t,under){ const Ls=(HSX.layers||[]).filter(L=>L.type!=='fx'&&L.type!=='split'&&L.type!=='viz'&&L.type!=='cover'&&L.type!=='bg'&&L.type!=='behind'&&L.type!=='pip'&&L.type!=='collage'&&L.type!=='kinetic'&&L.type!=='desk'&&L.type!=='mg'&&!L.off&&t>=L.s&&t<L.e&&isUnder(L)===!!under&&(L.overKin||!kinAt(t))).sort((a,b)=>(a.track||0)-(b.track||0));
     for(const L of Ls){ const K=enterK(L,t); X.save(); try{
-        if(L.type==='text') textBlock(L,t,K); else if(L.type==='char') charLayer(L,t,K); else if(L.type==='image') imageLayer(L,t,K);
+        if(L.type==='text') textBlock(L,t,K); else if(L.type==='char') charLayer(L,t,K); else if(L.type==='image') imageLayer(L,t,K); else if(L.type==='anno') annoLayer(L,t,K);
         else if(L.type==='mark') markLayer(L,t,K); else if(L.type==='draw') drawLayer(L,t,K); else if(L.type==='cursor') cursorLayer(L,t); else if(L.type==='lt') ltLayer(L,t,K);
       }catch(e){ if(!window.__hsLE){window.__hsLE=1;console.error('hs layer '+L.id+': '+e.message);} } X.restore(); } }
   /* ═══════════ 3.8: كروت الشرح بالموشن ═══════════
@@ -750,6 +778,50 @@
     if(dc>=0&&dc<0.6){ const r=40+260*p3o(dc/0.6); X.save(); X.globalAlpha=0.55*(1-dc/0.6); X.strokeStyle=L.ring||ACC; X.lineWidth=10; X.beginPath(); X.arc(tx,ty,r,0,6.2832); X.stroke(); X.restore(); }
     const dark=L.style==='dark'; X.save(); X.translate(x,y); X.scale(s*press,s*press); X.beginPath(); CUR.forEach((p,i)=>i?X.lineTo(p[0],p[1]):X.moveTo(p[0],p[1])); X.closePath();
     X.shadowColor='rgba(0,0,0,0.4)'; X.shadowBlur=6; X.shadowOffsetY=2; X.fillStyle=dark?'#15151C':'#FFFFFF'; X.fill(); X.shadowColor='transparent'; X.lineJoin='round'; X.lineWidth=2.2; X.strokeStyle=dark?'#FFFFFF':'#15151C'; X.stroke(); X.restore(); }
+
+  /* ── 4.15: تعليق على الصورة (من مونتاج الصور التوضيحية): حلقة وعدّاد، بقعة تتنقل، دبابيس ومسار، نقطة بذيل، موجة، ضغطة، مربعات، وأسماء ── */
+  const PX2=p=>[(+p[0])*1080,(+p[1])*1920];
+  function annoCues(L,n){ const D=L.e-L.s; if(Array.isArray(L.at)&&L.at.length) return Array.from({length:n},(_,i)=>+(L.at[Math.min(i,L.at.length-1)])||0); const sp=Math.max(0.3,D-0.7); return Array.from({length:n},(_,i)=>0.12+sp*i/Math.max(1,n)); }
+  function gRing(x,y,r,col,lw,a){ if(a<=0.01||r<=0) return; X.save(); X.globalAlpha*=a; X.strokeStyle=col; X.lineWidth=lw; X.shadowColor=col; X.shadowBlur=26; X.beginPath(); X.arc(x,y,r,0,6.2832); X.stroke(); X.restore(); }
+  function gText(txt,x,y,fs,col,a,sc){ if(a<=0.01) return; X.save(); X.globalAlpha*=a; X.translate(x,y); X.scale(sc||1,sc||1); X.font='900 '+fs+'px "'+(CAP.font||FONT)+'"'; X.textAlign='center'; X.textBaseline='middle'; X.direction=hasAr(txt)?'rtl':'ltr';
+    X.shadowColor=col; X.shadowBlur=fs*0.45; X.fillStyle=col; X.fillText(txt,0,0); X.shadowBlur=fs*0.12; X.shadowColor='rgba(0,0,0,0.6)'; X.fillStyle='#FFF4DC'; X.globalAlpha*=0.35; X.fillText(txt,0,0); X.restore(); }
+  function aPill(txt,x,y,fs,col,a){ if(a<=0.01||!txt) return; X.save(); X.globalAlpha*=a; X.font='800 '+fs+'px "'+(CAP.font||FONT)+'"'; const w=X.measureText(txt).width+fs*0.9, h=fs*1.45;
+    X.fillStyle=col; rr(x-w/2,y-h/2,w,h,h*0.32); X.fill(); X.fillStyle=lumOf(col)>0.5?'#17140E':'#FFFFFF'; X.textAlign='center'; X.textBaseline='middle'; X.direction=hasAr(txt)?'rtl':'ltr'; X.fillText(txt,x,y+fs*0.04); X.restore(); }
+  function arcPts(a,b,lift){ const mx=(a[0]+b[0])/2, my=(a[1]+b[1])/2-Math.hypot(b[0]-a[0],b[1]-a[1])*(lift==null?0.35:lift), out=[]; for(let i=0;i<=40;i++){ const u=i/40; out.push([(1-u)*(1-u)*a[0]+2*(1-u)*u*mx+u*u*b[0],(1-u)*(1-u)*a[1]+2*(1-u)*u*my+u*u*b[1]]); } return out; }
+  function polyAt(P,u){ if(P.length<2) return P[0]; let tot=0; const sg=[]; for(let i=1;i<P.length;i++){ const d=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]); sg.push(d); tot+=d; } let left=tot*cl(u,0,1);
+    for(let i=1;i<P.length;i++){ if(left<=sg[i-1]||i===P.length-1){ const v=sg[i-1]?Math.min(1,left/sg[i-1]):0; return [P[i-1][0]+(P[i][0]-P[i-1][0])*v,P[i-1][1]+(P[i][1]-P[i-1][1])*v]; } left-=sg[i-1]; } return P[P.length-1]; }
+  function smoothPts(P){ if(P.length<3) return P; const out=[]; for(let i=0;i<P.length-1;i++){ const p0=P[Math.max(0,i-1)], p1=P[i], p2=P[i+1], p3=P[Math.min(P.length-1,i+2)];
+      for(let j=0;j<12;j++){ const u=j/12, u2=u*u, u3=u2*u; out.push([0.5*((2*p1[0])+(-p0[0]+p2[0])*u+(2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*u2+(-p0[0]+3*p1[0]-3*p2[0]+p3[0])*u3),0.5*((2*p1[1])+(-p0[1]+p2[1])*u+(2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*u2+(-p0[1]+3*p1[1]-3*p2[1]+p3[1])*u3)]); } }
+    out.push(P[P.length-1]); return out; }
+  function annoLayer(L,t,K){ const k=L.kind||'ring', lt=t-L.s, D=L.e-L.s, col=L.color||ACC, fs=L.size||86, pts=(L.pts||[]).filter(p=>Array.isArray(p)&&p.length>=2).map(PX2), lab=L.labels||[];
+    X.save(); X.globalAlpha=K.a*(L.opacity==null?1:L.opacity); X.lineCap='round'; X.lineJoin='round';
+    if(k==='ring'){ const [x,y]=PX2([L.x==null?0.5:L.x,L.y==null?0.5:L.y]), r=(L.r||0.075)*1080, g=p3o(cl(lt/0.4,0,1)), ph=(lt*0.75)%1;
+      gRing(x,y,r*(0.55+0.45*g),col,7,g); gRing(x,y,r*(1+0.85*ph),col,4,(1-ph)*0.55*g); X.save(); X.globalAlpha*=g; X.fillStyle=col; X.shadowColor=col; X.shadowBlur=18; X.beginPath(); X.arc(x,y,Math.max(5,r*0.09),0,6.2832); X.fill(); X.restore();
+      let txt=L.label||'', bump=1; if(L.from!=null&&L.to!=null){ const span=Math.max(0.3,(L.till||D-0.5)-0.3), u=cl((lt-0.3)/span,0,1), raw=(+L.from)+((+L.to)-(+L.from))*u, step=+L.step||1, v=Math.round(raw/step)*step; txt=(L.pre||'')+v+(L.suf||''); const fr=(raw/step)%1; bump=1+0.18*Math.max(0,1-Math.abs(fr)*4); }
+      if(txt){ const sd=L.side||'right', off=r*1.25+fs*0.6, lx=sd==='left'?x-off:sd==='right'?x+off:x, ly=sd==='top'?y-r-fs*0.8:sd==='bottom'?y+r+fs*0.8:y; gText(txt,lx,ly,fs,col,cl((lt-0.15)/0.3,0,1),bump); } }
+    else if(k==='spots'&&pts.length){ const cu=annoCues(L,pts.length); let i=0; for(let j=0;j<pts.length;j++) if(lt>=cu[j]) i=j; const tr=p3o(cl((lt-cu[i])/0.38,0,1)), a=pts[Math.max(0,i-1)], b=pts[i], x=i?a[0]+(b[0]-a[0])*tr:b[0], y=i?a[1]+(b[1]-a[1])*tr:b[1], r=(L.r||0.07)*1080, g=p3o(cl((lt-cu[0])/0.35,0,1));
+      gRing(x,y,r,col,6,g); const ph=cl((lt-cu[i]-0.3)/0.6,0,1); if(ph<1) gRing(b[0],b[1],r*(1+ph),col,4,(1-ph)*0.7*g); if(lab[i]) aPill(lab[i],b[0],b[1]-r-fs*0.55,Math.round(fs*0.5),col,cl((lt-cu[i]-0.25)/0.25,0,1)); }
+    else if(k==='route'&&pts.length){ const cu=annoCues(L,pts.length);
+      for(let i=1;i<pts.length;i++){ const u=p3o(cl((lt-cu[i])/0.7,0,1)); if(u<=0) continue; const A=arcPts(pts[i-1],pts[i],L.lift), n=Math.max(2,Math.round(A.length*u)), sub=A.slice(0,n);
+        X.save(); X.strokeStyle=col; X.lineWidth=5; X.shadowColor=col; X.shadowBlur=18; X.beginPath(); sub.forEach((p,j)=>j?X.lineTo(p[0],p[1]):X.moveTo(p[0],p[1])); X.stroke(); if(u<1){ const h=sub[sub.length-1]; X.fillStyle='#FFF4DC'; X.beginPath(); X.arc(h[0],h[1],9,0,6.2832); X.fill(); } X.restore(); }
+      pts.forEach((p,i)=>{ const st=cu[i]+(i?0.55:0), g=cl((lt-st)/0.35,0,1); if(g<=0) return; const dy=(1-p3o(g))*-90; X.save(); X.globalAlpha*=Math.min(1,g*2); X.strokeStyle=col; X.lineWidth=4; X.shadowColor=col; X.shadowBlur=16;
+        X.beginPath(); X.moveTo(p[0],p[1]); X.lineTo(p[0],p[1]-70+dy); X.stroke(); X.fillStyle=col; X.beginPath(); X.arc(p[0],p[1]-80+dy,15,0,6.2832); X.fill(); X.fillStyle='#FFF4DC'; X.beginPath(); X.arc(p[0],p[1],6,0,6.2832); X.fill(); X.restore();
+        if(lab[i]) aPill(lab[i],p[0],p[1]-145+dy,Math.round(fs*0.5),col,cl((lt-st-0.2)/0.3,0,1)); }); }
+    else if(k==='path'&&pts.length>=2){ const P=smoothPts(pts), t0=annoCues(L,1)[0], span=Math.max(0.4,(L.till||D-0.3)-t0), u=sio2(cl((lt-t0)/span,0,1)), h=polyAt(P,u);
+      if(Array.isArray(L.from)){ const o=PX2(L.from); X.save(); X.setLineDash([16,14]); X.lineDashOffset=-lt*60; X.strokeStyle=col; X.globalAlpha*=0.85; X.lineWidth=4; X.beginPath(); X.moveTo(o[0],o[1]); X.lineTo(h[0],h[1]); X.stroke(); X.restore(); }
+      for(let j=14;j>=0;j--){ const q=polyAt(P,Math.max(0,u-j*0.012)); X.save(); X.globalAlpha*=(1-j/15)*0.9; X.fillStyle=col; X.shadowColor=col; X.shadowBlur=22; X.beginPath(); X.arc(q[0],q[1],Math.max(2,15-j*0.8),0,6.2832); X.fill(); X.restore(); }
+      X.fillStyle='#FFF8E8'; X.beginPath(); X.arc(h[0],h[1],7,0,6.2832); X.fill(); }
+    else if(k==='wave'){ const y0=(L.y==null?0.86:L.y)*1920, x0=(L.x0==null?0.06:L.x0)*1080, x1=(L.x1==null?0.94:L.x1)*1080, base=(L.amp==null?0.12:+L.amp); let A=base;
+      for(const w of (L.burst||[])){ const a=+w[0], b=+w[1]; if(lt>a-0.25&&lt<b+0.35){ const ein=cl((lt-a+0.25)/0.25,0,1), eout=cl((b+0.35-lt)/0.35,0,1); A=Math.max(A,Math.min(ein,eout)); } }
+      const amp=A*130, g=p3o(cl(lt/0.5,0,1)); X.save(); X.strokeStyle=col; X.lineWidth=4; X.shadowColor=col; X.shadowBlur=20; X.globalAlpha*=g; X.beginPath();
+      for(let x=x0;x<=x1;x+=6){ const u=(x-x0)/Math.max(1,x1-x0), win=Math.sin(Math.PI*u), yy=y0+amp*win*(Math.sin(x*0.045+lt*9)*0.5+Math.sin(x*0.11-lt*13)*0.32+Math.sin(x*0.021+lt*4)*0.18); x===x0?X.moveTo(x,yy):X.lineTo(x,yy); } X.stroke(); X.restore(); }
+    else if(k==='tap'){ const [x,y]=PX2([L.x==null?0.5:L.x,L.y==null?0.5:L.y]), ev=+L.every||1.1, u=((lt-0.1)%ev)/ev, r=(L.r||0.08)*1080; if(lt>0.1){ const pr=cl(u/0.55,0,1);
+        gRing(x,y,r*(0.35+0.75*p3o(pr)),L.color||'#FFFFFF',5,(1-pr)*0.9); if(pr<0.35){ X.save(); X.globalAlpha*=0.22*(1-pr/0.35); X.fillStyle=L.color||'#FFFFFF'; X.beginPath(); X.arc(x,y,r*0.42,0,6.2832); X.fill(); X.restore(); } } }
+    else if(k==='boxes'){ const R=(L.rects||[]).filter(q=>Array.isArray(q)&&q.length>=4), cu=annoCues(L,R.length);
+      R.forEach((q,i)=>{ const g=p3o(cl((lt-cu[i])/0.3,0,1)); if(g<=0) return; const x=q[0]*1080, y=q[1]*1920, w=q[2]*1080, h=q[3]*1920, sc=1.12-0.12*g; X.save(); X.globalAlpha*=g; X.translate(x+w/2,y+h/2); X.scale(sc,sc);
+        X.strokeStyle=col; X.lineWidth=5; X.shadowColor=col; X.shadowBlur=22; rr(-w/2,-h/2,w,h,8); X.stroke(); X.restore(); const tg=lab[i]||L.tag; if(tg) aPill(tg,x+w/2,y-fs*0.16,Math.round(fs*0.46),col,cl((lt-cu[i]-0.15)/0.25,0,1)); }); }
+    else if(k==='tags'&&pts.length){ const cu=annoCues(L,pts.length); pts.forEach((p,i)=>{ const g=cl((lt-cu[i])/0.25,0,1); if(g<=0) return; X.save(); X.translate(p[0],p[1]); X.scale(0.6+0.4*back(g),0.6+0.4*back(g)); aPill(lab[i]||'',0,0,Math.round(fs*0.4),col,g); X.restore(); }); }
+    X.restore(); }
 
   /* ── شريط اسم (Lower third): الاسم وتحته صفته ── */
   function ltLayer(L,t,K){ const lt=t-L.s, st=L.style||'bar', fam=L.font||CAP.font||FONT, fs=L.size||64, nm=L.text||'', sub=L.sub||'', right=(L.side||'right')==='right', y=(L.y==null?0.7:L.y)*1920, acc=L.accent||ACC, col=L.color||'#FFFFFF';
