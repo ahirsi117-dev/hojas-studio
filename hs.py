@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Hojas Studio 4.15 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
+"""Hojas Studio 4.16 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
 
   python hs.py open   <work> [--engine <مجلد المحرّك>] [--port 8800] [--no-browser]
         يشغّل الخادم بالخلفية ويفتح المتصفح. شغّله أول ما تبدأ المونتاج، حتى قبل ما يجهز أي ملف.
@@ -74,7 +74,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.15"
+VERSION = "4.16"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json", "takes.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -461,7 +461,7 @@ def hist_step(work, back=True):
         return True, (rj(J(work, "cut.json"), {}) or {}).get("keep") != old_keep, e.get("why") or ""
 def hist_counts(work): return len(_hlist(work, "undo")), len(_hlist(work, "redo"))
 HIST_WHY = {"/api/save": "تعديل", "/hs/remove": "قص", "/hs/takes_apply": "اختيار الجمل", "/hs/cuts_fix": "تصليح القص", "/hs/ver_restore": "استرجاع نسخة",
-            "/hs/takes_set": "اختيار الجمل", "/hs/plan_set": "الخطة", "/hs/unsure": "الكلمات المشكوك فيها", "/hs/rmbg": "شيل الخلفية", "/hs/sv": "صوت استوديو"}
+            "/hs/takes_set": "اختيار الجمل", "/hs/plan_set": "الخطة", "/hs/plan_build": "بناء الخطة", "/hs/unsure": "الكلمات المشكوك فيها", "/hs/rmbg": "شيل الخلفية", "/hs/sv": "صوت استوديو"}
 def cmd_undo(work, back=True):
     ok, rb, why = hist_step(work, back)
     if not ok: print("ما فيه خطوة " + ("ترجع لها." if back else "تعيدها.")); return
@@ -1204,7 +1204,7 @@ def tk_fit(work, target):
         it["drop"] = True; it["tags"].append("fit"); it["why"] = "عشان المقطع يوصل %d ث" % target; total -= (it["e"] - it["s"]) + 0.2; out.append(it)
     data["summary"] = takes_mod().summary(data); wj(J(work, "takes.json"), data); return out, total
 # (6) الخطة قبل البناء: Claude يكتب وش يطلع بكل جزء، وتوافق أو تعدّل قبل ما يصرف وقت وتوليد
-PLAN_KINDS = {"web": "من النت", "archive": "أرشيف حقيقي", "gen": "صورة مولّدة", "overlay": "عنصر فوق الفيديو", "screen": "لقطة شاشة أو موقع", "text": "نص أو موشن", "none": "وجهك بس"}
+PLAN_KINDS = {"web": "من النت", "archive": "أرشيف حقيقي", "gen": "صورة مولّدة", "draw": "رسمة بالكود", "overlay": "عنصر فوق الفيديو", "screen": "لقطة شاشة أو موقع", "text": "نص أو موشن", "none": "وجهك بس"}
 def plan_load(work): return rj(J(work, "plan.json"), None)
 def plan_view(work):
     p = plan_load(work)
@@ -1214,6 +1214,107 @@ def plan_view(work):
         it["built"] = bool(it.get("status") == "done" or any(L["s"] < float(it.get("e", 0)) and L["e"] > float(it.get("s", 0)) for L in Ls))
         it["kindAr"] = PLAN_KINDS.get(it.get("kind"), it.get("kind", ""))
     return {"ok": True, **p}
+# ───────────────────────── 4.16: القصة البصرية: يتابع الكلام، مثال قريب لكل فكرة، وموشن مربوط بالكلمات ─────────────────────────
+PLAN_FX = ("focus", "zoomblur", "whip", "stretch")
+def plan_beats(work, maxlen=5.0, minlen=1.8, pause=0.45):
+    """يقسم الكلام لمقاطع (كل مقطع فكرة وحدة تقريباً): ينقطع عند نهاية الجملة أو سكتة أو لو طال."""
+    cards = (rj(J(work, "caps.json"), {}) or {}).get("cards") or []; beats = []; cur = None
+    for c in cards:
+        txt = " ".join(w["t"] for w in c.get("w") or []).strip()
+        if not txt: continue
+        if cur and (c["s"] - cur["e"] >= pause or cur["e"] - cur["s"] >= maxlen or re.search(r"[.!؟?]$", cur["speech"])): beats.append(cur); cur = None
+        if cur: cur["e"] = c["e"]; cur["speech"] += " " + txt
+        else: cur = {"s": round(c["s"], 2), "e": round(c["e"], 2), "speech": txt}
+    if cur: beats.append(cur)
+    out = []
+    for b in beats:   # القصيرة تنضم للي قبلها
+        if out and b["e"] - b["s"] < minlen and b["e"] - out[-1]["s"] <= maxlen + 1.5: out[-1]["e"] = b["e"]; out[-1]["speech"] += " " + b["speech"]
+        else: out.append(dict(b))
+    return [{**b, "e": round(b["e"], 2)} for b in out]
+def plan_draft(work, force=False):
+    if plan_load(work) and not force: return None
+    items = [{"id": i + 1, "s": b["s"], "e": b["e"], "speech": b["speech"], "title": "", "idea": "", "example": "", "show": "", "kind": "gen", "prompt": "", "move": {}, "anno": [], "glow": None}
+             for i, b in enumerate(plan_beats(work))]
+    p = {"approved": False, "feedback": "", "style": "", "look": "cinema", "items": items, "callback": None}
+    wj(J(work, "plan.json"), p); return p
+def cue_times(work, cues, s, e):
+    """كلمات (أو جزء منها) ← وقت كل وحدة بالترتيب داخل [s,e]. يرجّع أوقات مطلقة."""
+    words = [w for c in (rj(J(work, "caps.json"), {}) or {}).get("cards") or [] for w in c.get("w") or []]
+    out = []; t0 = s - 0.25
+    for q in ([cues] if isinstance(cues, str) else cues or []):
+        if isinstance(q, (int, float)): out.append(float(q)); t0 = float(q); continue
+        k = _norm(str(q)); hit = None
+        for w in words:
+            if w["s"] < t0 or w["s"] > e + 0.3: continue
+            nw = _norm(w["t"])
+            if k and (nw == k or k in nw or (len(nw) > 2 and nw in k)): hit = w["s"]; break
+        if hit is None: continue
+        out.append(round(hit, 3)); t0 = hit + 0.05
+    return out
+def plan_build(work):
+    """يبني من الخطة: صورة ملء الشاشة بحركة، وتعليقات على الصورة تطلع مع الكلمات، وكلمة متوهجة، والربط بالنهاية. يعيد البناء بدون تكرار."""
+    p = plan_load(work) or {}; st = load_studio(work); hs = hs_of(st); Ls = [L for L in hs.get("layers") or [] if L.get("auto") != "plan"]; n = 0; miss = []
+    for i, it in enumerate(p.get("items") or []):
+        src = it.get("src") or it.get("img"); s0, e0 = float(it.get("s", 0)), float(it.get("e", 0)); pid = it.get("id", i + 1)
+        if it.get("kind") == "none" or e0 - s0 < 0.4: continue
+        n += plan_mg(work, it, Ls, s0, e0, pid, bool(src))   # موشن جرافيك وشعارات وكلمة متوهجة: تشتغل بدون صورة
+        g = it.get("glow")
+        if g:
+            g = {"text": g} if isinstance(g, str) else dict(g); tt = cue_times(work, g.get("cue") or g["text"].split()[0], s0, e0); gs = tt[0] if tt else s0 + 0.2
+            Ls.append({"id": new_id(Ls), "type": "text", "text": g["text"], "anim": "glow", "size": g.get("size", 165), "y": g.get("y", 0.16), "color": g.get("color", "#FFE7B3"), "s": round(gs, 3), "e": round(float(g.get("e", e0)), 3), "track": 2, "auto": "plan", "pid": pid}); n += 1
+        if not src:
+            if it.get("kind") in ("gen", "web", "archive", "screen", "draw"): miss.append(pid)
+            continue
+        mv = it.get("move") if isinstance(it.get("move"), dict) else {}
+        L = {"id": new_id(Ls), "type": "image", "src": src, "fit": "cover", "s": round(s0, 3), "e": round(e0, 3), "track": 0, "anim": "fade", "auto": "plan", "pid": pid,
+             "move": mv.get("type", "push"), "hand": mv.get("hand", True), "inFx": mv.get("in", PLAN_FX[i % len(PLAN_FX)])}
+        for k_ in ("fx", "fy", "amount", "outFx"):
+            if mv.get(k_) is not None: L[k_] = mv[k_]
+        if mv.get("shake"): L["shake"] = [round(t - s0, 3) for t in cue_times(work, mv["shake"], s0, e0)] or None
+        Ls.append(L); n += 1
+        for a in it.get("anno") or []:
+            A = {k_: v for k_, v in a.items() if k_ not in ("cue",)}; A.update({"type": "anno", "track": 1, "anim": "none", "auto": "plan", "pid": pid})
+            A.setdefault("kind", "ring"); A["s"] = round(float(a.get("s", s0 + 0.12)), 3); A["e"] = round(float(a.get("e", e0)), 3)
+            if a.get("cue"): A["at"] = [round(max(0.0, t - A["s"]), 3) for t in cue_times(work, a["cue"], s0, e0)] or None
+            A["id"] = new_id(Ls); Ls.append(A); n += 1
+    cb = p.get("callback") or {}
+    if cb.get("items"):   # الربط: أشياء القصة ترجع جنب وجهه بالنهاية
+        cs, ce = float(cb.get("s", 0)), float(cb.get("e", 0))
+        for j, src in enumerate(cb["items"][:4]):
+            left = j % 2 == 0; row = j // 2
+            if isinstance(src, dict): src = src.get("src") or (logo_to_project(work, src["logo"]) if src.get("logo") else None)
+            if not src: continue
+            Ls.append({"id": new_id(Ls), "type": "image", "src": src, "fit": "free", "w": cb.get("w", 0.15), "x": 0.12 if left else 0.88, "y": 0.27 + row * 0.12, "s": round(cs + 0.12 * j, 3), "e": round(ce, 3), "track": 1, "anim": "pop", "move": "float", "auto": "plan", "pid": "callback"}); n += 1
+    hs["layers"] = Ls
+    if p.get("look") and not hs.get("look") and p["look"] in looks_all(): wj(J(work, "studio.json"), st); look_apply(work, p["look"]); st = load_studio(work); hs_of(st)["layers"] = Ls
+    wj(J(work, "studio.json"), st); return n, miss
+PLAN_MG_AT = ("stat", "slam", "ring", "callout", "logo", "quote")   # هذي تطلع لحظة ما يقول الكلمة، والقوائم كل سطر مع كلمته
+def plan_mg(work, it, Ls, s0, e0, pid, over):
+    n = 0; ms = it.get("mg"); ms = [ms] if isinstance(ms, dict) else list(ms or [])
+    lg = it.get("logo"); lg = [lg] if isinstance(lg, (str, dict)) else list(lg or [])
+    if lg:   # الشعارات: كل شعار يطلع لما يقول اسمه، ويبقى لين اللي بعده
+        ents = [({"name": x} if isinstance(x, str) else dict(x)) for x in lg]; tt = []
+        for x in ents: c = cue_times(work, x.get("cue") or x["name"], s0, e0); tt.append(c[0] if c else None)
+        for j, x in enumerate(ents):
+            if tt[j] is None: tt[j] = (tt[j - 1] + 0.9) if j and tt[j - 1] is not None else s0 + 0.15 + j * max(0.8, (e0 - s0) / max(1, len(ents)))
+        for j, x in enumerate(ents):
+            a = max(s0, tt[j] - 0.1); b = min(e0, max(a + 0.8, (tt[j + 1] - 0.1) if j + 1 < len(ents) else e0))
+            ms.append({"kind": "logo", "name": x["name"], "s": a, "e": b, **{k_: x[k_] for k_ in ("y", "src", "size") if x.get(k_) is not None}})
+    for m in ms:
+        k = m.get("kind")
+        if k not in MG_KINDS: continue
+        M = {k_: v for k_, v in m.items() if k_ != "cue"}; M.update({"type": "mg", "auto": "plan", "pid": pid}); M.setdefault("track", 2 if over else 1)
+        cs = cue_times(work, m["cue"], s0, e0) if m.get("cue") else []
+        M["s"] = round(float(m["s"]) if m.get("s") is not None else (max(s0, cs[0] - 0.12) if cs and k in PLAN_MG_AT else s0 + 0.1), 3)
+        M["e"] = round(float(m["e"]) if m.get("e") is not None else e0, 3)
+        if cs and k not in PLAN_MG_AT: M["at"] = [round(max(0.0, t - M["s"]), 3) for t in cs]
+        if k == "logo" and not M.get("src"): M["src"] = logo_to_project(work, M.get("name", ""))
+        if k == "logo" and M.get("name2") and not M.get("src2"): M["src2"] = logo_to_project(work, M["name2"])
+        if M["e"] - M["s"] < 0.5: continue
+        for t_ in ("text", "title"):
+            if isinstance(M.get(t_), list): M[t_] = "\n".join(M[t_])
+        M["id"] = new_id(Ls); Ls.append(M); n += 1
+    return n
 def plan_check(work):
     p = plan_load(work); total = (rj(J(work, "caps.json"), {}) or {}).get("total") or 0; bad = []
     if not p: return ["ما فيه plan.json"]
@@ -1221,6 +1322,14 @@ def plan_check(work):
         if it.get("kind") not in PLAN_KINDS: bad.append("البند %d: النوع لازم واحد من %s" % (i + 1, ", ".join(PLAN_KINDS)))
         if not (0 <= float(it.get("s", -1)) < float(it.get("e", 0)) <= total + 0.5): bad.append("البند %d: الوقت برا المقطع" % (i + 1))
         if not it.get("show"): bad.append("البند %d: ناقص «وش يطلع»" % (i + 1))
+        if it.get("kind") in ("gen", "web", "archive") and not (it.get("example") or "").strip(): bad.append("البند %d: ناقص «المثال» (وش الشي اللي يشوفه الناس ويفهمون منه الفكرة)" % (i + 1))
+        ms = it.get("mg"); ms = [ms] if isinstance(ms, dict) else list(ms or [])
+        for m in ms:
+            if m.get("kind") not in MG_KINDS: bad.append("البند %d: نوع الموشن لازم واحد من %s" % (i + 1, ", ".join(MG_KINDS)))
+        lg = it.get("logo"); lg = [lg] if isinstance(lg, (str, dict)) else list(lg or [])
+        for a in (it.get("anno") or []) + ms + [x for x in lg if isinstance(x, dict)]:
+            if a.get("cue") and not cue_times(work, a["cue"], float(it.get("s", 0)), float(it.get("e", 0))): bad.append("البند %d: ما لقيت الكلمة %s بكلامه بهالجزء" % (i + 1, json.dumps(a["cue"], ensure_ascii=False)))
+        if it.get("kind") == "text" and not (ms or lg or it.get("glow")): bad.append("البند %d: نوعه نص أو موشن بس ما فيه mg ولا logo ولا glow" % (i + 1))
     return bad
 def cmd_plan(work, args):
     sub = args[0] if args else "show"
@@ -1242,7 +1351,16 @@ def cmd_plan(work, args):
             time.sleep(2)
     elif sub in ("approve", "unapprove"):
         p = plan_load(work) or sys.exit("ما فيه خطة"); p["approved"] = sub == "approve"; wj(J(work, "plan.json"), p); print("تم.")
-    else: sys.exit("plan: show | check | wait | approve | unapprove")
+    elif sub == "draft":   # 4.16: المقاطع من كلامه، وأنت تعبّي الفكرة والمثال والصورة والموشن
+        p = plan_draft(work, force="--force" in args)
+        if p is None: sys.exit("فيه خطة. --force يكتب فوقها.")
+        for it in p["items"]: print("%2d %6.1f-%-6.1f %s" % (it["id"], it["s"], it["e"], it["speech"]))
+        print("\nعبّ لكل بند: idea و example و show و prompt و move و anno (cue = الكلمة) و glow. القواعد: engine/references/visual-story.md")
+    elif sub == "build":
+        n, miss = plan_build(work); print("بنيت %d طبقة من الخطة." % n + ("" if not miss else " ناقصها صورة: " + ", ".join(str(x) for x in miss)))
+    elif sub == "cues" and len(args) >= 4:
+        print(cue_times(work, args[3:], float(args[1]), float(args[2])))
+    else: sys.exit("plan: show | check | wait | approve | unapprove | draft [--force] | build | cues <من> <إلى> <كلمة>…")
 # (10) خطوات المشروع: وين وصل ووش الباقي
 def steps(work):
     tk = tk_load(work); caps = rj(J(work, "caps.json"), None); p = plan_load(work); st = load_studio(work); Ls = [L for L in hs_of(st).get("layers") or [] if not L.get("off")]
@@ -2736,7 +2854,7 @@ def cmd_selftest(work=None, engine=None):
         chk("4.10: القص من التسجيل الأصلي (المحذوف يروح كابشنه، والمرجّع يرجع من التفريغ، والطبقات تتبع)", st_["drop"] and t1.count("نتكلم") == 1 and r1["total"] < 6.0 and t2.count("نتكلم") == 2 and r2["total"] > r1["total"] and abs(L1["s"] - 3.0) < 0.05,
             "%s | %s | %.2f %.2f" % (" ".join(t1), " ".join(t2), r1["total"], r2["total"]))
         # الخطة والخطوات والأرقام والتقصير
-        wj(os.path.join(td, "plan.json"), {"approved": False, "items": [{"id": 1, "s": 0, "e": 2, "show": "صورة", "kind": "gen"}, {"id": 2, "s": 3, "e": 99, "show": "", "kind": "x"}]})
+        wj(os.path.join(td, "plan.json"), {"approved": False, "items": [{"id": 1, "s": 0, "e": 2, "show": "صورة", "kind": "gen", "example": "مثال"}, {"id": 2, "s": 3, "e": 99, "show": "", "kind": "x"}]})
         pb = plan_check(td); sp = steps(td); wj(os.path.join(td, "caps.json"), {"total": 30, "cards": [{"s": 1, "e": 3, "w": [{"t": x, "s": 1 + k * 0.3, "e": 1.2 + k * 0.3} for k, x in enumerate("Claude Opus 5.5 أفضل من GPT بسعر 20 دولار".split())]}]})
         fc = facts(td); shutil.rmtree(td, ignore_errors=True)
         chk("4.10: الخطة تنفحص · الخطوات · أرقام وموديلات تتأكد منها", len(pb) == 3 and [x["state"] for x in sp][:2] == ["done", "now"] and fc and "رقم أو سعر" in fc[0]["why"] and "نسخة أو موديل" in fc[0]["why"], json.dumps([pb, [x["state"] for x in sp], fc], ensure_ascii=False)[:160])
@@ -2822,6 +2940,42 @@ def cmd_selftest(work=None, engine=None):
         chk("4.15: حركة الصور (دفع، تحريك، يد، هزّة، دخول وخروج) والتعليق عليها (8 أنواع) والكلمة المتوهجة، بالمحرك والاستوديو", "function imgMove" in ex and "function annoLayer" in ex and kinds_ok and "an==='glow'" in ex
             and all(x in ap for x in ("function annoInsp", "function imgMoveInsp", "function pickAt", "data-add=\"anno:")) and "ak_ring:" in i18 and "im_push:" in i18)
     except Exception as e: chk("4.15: حركة الصور", False, str(e)[:200])
+    try:   # 4.16: القصة البصرية من الخطة
+        td = tempfile.mkdtemp(prefix="hs-st-")
+        try:
+            W_ = [("كلود", 0.0), ("أفضل", 0.5), ("من", 0.8), ("شات", 1.0), ("جي", 1.3), ("بي", 1.5), ("تي.", 1.7), ("الكريدت", 2.6), ("مثل", 3.0), ("الرصيد", 3.3), ("اللي", 3.7), ("تستعمله", 4.0),
+                  ("Low", 5.2), ("Medium", 5.8), ("High", 6.4), ("Extra", 7.0), ("Max", 7.6), ("هذا", 8.6), ("اليوم", 8.9), ("الأول", 9.3)]
+            cards = [{"s": W_[i][1], "e": W_[i + 1][1] - 0.02 if i + 1 < len(W_) else 9.8, "w": [{"t": t, "s": s, "e": s + 0.25} for t, s in W_[i:i + 2]]} for i in range(0, len(W_), 2)]
+            wj(os.path.join(td, "caps.json"), {"total": 10.0, "cards": cards}); wj(os.path.join(td, "studio.json"), {"hs": {"layers": [{"id": "L1", "type": "text", "s": 0, "e": 1, "text": "يدوي"}]}})
+            bt = plan_beats(td); p0 = plan_draft(td); again = plan_draft(td)
+            ct_ = cue_times(td, ["الرصيد", "تستعمله"], 2.5, 4.6); ct2 = cue_times(td, ["Low", "Medium", "High", "Extra", "Max"], 5.0, 8.0)
+            P_ = {"approved": True, "look": "", "items": [
+                {"id": 1, "s": 0.0, "e": 2.4, "kind": "text", "show": "x", "logo": [{"name": "Claude", "cue": "كلود", "src": "x.svg"}], "mg": [{"kind": "logo", "name": "Claude", "name2": "ChatGPT", "rel": "أفضل من", "cue": "أفضل", "src": "a.svg", "src2": "b.svg"}]},
+                {"id": 2, "s": 2.5, "e": 5.0, "kind": "draw", "show": "x", "example": "عداد بنزين", "src": "assets/story/fuel.png", "move": {"type": "push"},
+                 "anno": [{"kind": "tags", "pts": [[0.5, 0.35]], "labels": ["رصيدك"], "cue": ["الرصيد"]}, {"kind": "path", "pts": [[0.6, 0.3], [0.4, 0.3]], "cue": ["تستعمله"]}]},
+                {"id": 3, "s": 5.0, "e": 8.4, "kind": "draw", "show": "x", "example": "القير", "src": "assets/story/gear.png", "anno": [{"kind": "spots", "pts": [[0.5, 0.6], [0.5, 0.5], [0.5, 0.4], [0.5, 0.3], [0.5, 0.2]], "cue": ["Low", "Medium", "High", "Extra", "Max"]}]},
+                {"id": 4, "s": 5.0, "e": 8.4, "kind": "gen", "show": "x", "example": "شاحنة", "prompt": "truck", "mg": {"kind": "steps", "text": ["Low", "Max"], "cue": ["Low", "Max"]}},
+                {"id": 5, "s": 8.5, "e": 9.8, "kind": "text", "show": "x", "glow": {"text": "اليوم الأول", "cue": "اليوم"}}],
+                "callback": {"s": 8.5, "e": 9.8, "items": ["assets/story/gear.png", {"src": "assets/story/fuel.png"}]}}
+            wj(os.path.join(td, "plan.json"), P_); bad0 = plan_check(td)
+            n1, miss1 = plan_build(td); L1 = hs_of(load_studio(td))["layers"]; n2, _ = plan_build(td); L2 = hs_of(load_studio(td))["layers"]
+            by = lambda k, v: [L for L in L2 if L.get(k) == v]
+            sp_ = next(L for L in L2 if L.get("kind") == "spots"); gl_ = next(L for L in L2 if L.get("anim") == "glow"); lg_ = [L for L in L2 if L.get("type") == "mg" and L.get("kind") == "logo"]
+            stp = next(L for L in L2 if L.get("kind") == "steps")
+            P_["items"][1]["anno"][0]["cue"] = ["مو موجودة"]; P_["items"].append({"id": 6, "s": 0, "e": 1, "kind": "gen", "show": "x"}); P_["items"].append({"id": 7, "s": 0, "e": 1, "kind": "text", "show": "x"})
+            P_["items"].append({"id": 8, "s": 0, "e": 1, "kind": "text", "show": "x", "mg": [{"kind": "وهمي"}]}); wj(os.path.join(td, "plan.json"), P_); bad1 = plan_check(td)
+            chk("4.16: القصة البصرية: الخطة تنقسم على الكلام، وكل حركة مع كلمتها، والبناء يعيد بدون تكرار", len(bt) >= 2 and p0 and again is None and len(p0["items"]) == len(bt)
+                and len(ct_) == 2 and abs(ct_[0] - 3.3) < 0.01 and abs(ct_[1] - 4.0) < 0.01 and [round(x, 1) for x in ct2] == [5.2, 5.8, 6.4, 7.0, 7.6] and not bad0
+                and n1 == n2 and len(L1) == len(L2) and any(L.get("text") == "يدوي" for L in L2) and miss1 == [4]
+                and [round(x + sp_["s"], 1) for x in sp_["at"]] == [5.2, 5.8, 6.4, 7.0, 7.6] and abs(gl_["s"] - 8.9) < 0.01 and len(lg_) == 2 and abs(next(L for L in lg_ if L.get("name2"))["s"] - 0.38) < 0.01
+                and stp["text"] == "Low\nMax" and len(stp["at"]) == 2 and len(by("pid", "callback")) == 2 and all(L.get("auto") == "plan" for L in L2 if L.get("text") != "يدوي")
+                and len(bad1) >= 4, "beats=%d n=%s/%s miss=%s bad0=%s bad1=%d" % (len(bt), n1, n2, miss1, bad0, len(bad1)))
+        finally: shutil.rmtree(td, ignore_errors=True)
+        ex = open(os.path.join(HERE, "ext.js"), encoding="utf-8").read(); ap = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); i18 = open(os.path.join(HERE, "i18n.js"), encoding="utf-8").read()
+        chk("4.16: زر «ابنِ من الخطة» والفكرة والمثال بالاستوديو، والأفياش (خطوط من نقطة وحدة) والعدّاد مع الكلمات بالمحرّك، ومرجع الطريقة",
+            "data-planbuild" in ap and "'/hs/plan_build'" in ap and "planExample:" in i18 and "planBuild:" in i18 and "pts[L.hub?0:i-1]" in ex and "L.pins===false" in ex and "Array.isArray(L.at)&&L.at.length){ let n=0" in ex
+            and os.path.isfile(os.path.join(HERE, "engine", "references", "visual-story.md")) and "visual-story.md" in open(os.path.join(HERE, "SKILL.md"), encoding="utf-8").read())
+    except Exception as e: chk("4.16: القصة البصرية", False, str(e)[:240])
     chk("الرسم الحر بالمحرّك والاستوديو", "function drawLayer" in txt.get("ext.js", "") and "function drawStart" in txt.get("app.js", ""))
     try:   # 4.6: كتم الكلمات
         m0, p0 = bleep_filters(bleep_of({})); ct = {"cards": [{"s": 0, "e": 2, "w": [{"t": "شركة", "s": 0.1, "e": 0.4}, {"t": "والشركه", "s": 0.5, "e": 0.9}, {"t": "شركات", "s": 1.0, "e": 1.3}]}]}
@@ -3631,6 +3785,8 @@ def serve(work, port, engine):
                     if data.get("rm") is not None: pl["items"] = [x for x in pl.get("items") or [] if str(x.get("id")) != str(data["rm"])]
                     if data.get("feedback") is not None: pl["feedback"] = str(data["feedback"])[:1500]; pl["approved"] = False
                     wj(P("plan.json"), pl); return self._json(200, plan_view(work))
+                if p == "/hs/plan_build":   # 4.16: ابنِ الصور والموشن من الخطة
+                    n_, miss_ = plan_build(work); return self._json(200, {"ok": True, "n": n_, "miss": miss_, "plan": plan_view(work)})
                 if p == "/hs/unsure":
                     u = caps_unsure(work); return self._json(200, {"ok": True, "n": len(u), "items": u[:200]})
                 if p == "/hs/cuts_fix":
