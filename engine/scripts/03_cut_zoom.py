@@ -37,6 +37,12 @@ CALM=str(_th.get("pace","")).lower()=="calm"
 Z=([1.00,1.00,1.04,1.00,1.00,1.06,1.00,1.03] if CALM
    else [1.00,1.08,1.00,1.06,1.00,1.12,1.04,1.14,1.00,1.08,1.00,1.05,1.10,1.00]); ANCH=0.30
 MINHOLD=4.0 if CALM else 0.0
+# 4.27: مكان الفيديو بالكادر يحدده هو من الاستوديو (studio.json ← hs.vpos): x مكان القص بالعرض، y بالطول، z تكبير، still بدون زوم متغيّر
+try: _FR=(json.load(open(os.path.join(W,"studio.json"))).get("hs") or {}).get("vpos") or {}
+except Exception: _FR={}
+FZ=max(1.0,min(3.0,float(_FR.get("z") or 1.0))); FX=_FR.get("x")
+if _FR.get("still"): Z=[1.00]
+if _FR.get("y") is not None: ANCH=max(0.0,min(1.0,float(_FR["y"])))
 print("الإيقاع:", "هادي (زوم أخف · لا تغيير قبل 4 ثوانٍ)" if CALM else "عادي")
 p=subprocess.run(["ffprobe","-v","error","-select_streams","v:0","-show_entries",
    "stream=width,height","-of","csv=p=0:s=x",SRC],capture_output=True,text=True).stdout.strip()
@@ -72,11 +78,12 @@ for i,(s,e) in enumerate(k):
     held+=(e-s)
     z=Z[zi%len(Z)]
     if WIDE:
-        bw=SH*9/16; cw=int(bw/z)//2*2; ch=int(SH/z)//2*2
-        x=int(max(0,min(SW-cw,_cx((s+e)/2)*SW-cw/2)))//2*2; y=int((SH-ch)*ANCH)
+        bw=SH*9/16; cw=int(bw/(z*FZ))//2*2; ch=int(SH/(z*FZ))//2*2
+        _c=float(FX) if FX is not None else _cx((s+e)/2)
+        x=int(max(0,min(SW-cw,_c*SW-cw/2)))//2*2; y=int((SH-ch)*ANCH)
     else:
-        cw=int(SW/z)//2*2; ch=int(SH/z)//2*2
-        x=(SW-cw)//2; y=int((SH-ch)*ANCH)
+        cw=int(SW/(z*FZ))//2*2; ch=int(SH/(z*FZ))//2*2
+        x=int(max(0,min(SW-cw,(float(FX) if FX is not None else 0.5)*SW-cw/2)))//2*2; y=int((SH-ch)*ANCH)
     _h=0.5/float(_F)   # نص فريم قبل الحد: كل جزء ياخذ فريماته بالضبط مهما كان تقريب الأرقام
     fc.append(f"[0:v]trim=start={max(0.0,s-_h):.6f}:end={e-_h:.6f},setpts=PTS-STARTPTS,crop={cw}:{ch}:{x}:{y},"
               f"scale=1080:1920:flags=lanczos,setsar=1[v{i}]")

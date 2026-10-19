@@ -79,7 +79,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.26"
+VERSION = "4.27"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json", "takes.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -693,6 +693,33 @@ def quality_preview(work, t, level):
     out = J(work, ".hs", "qprev.jpg")
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "%.3f" % max(0.0, o), "-i", src, "-frames:v", "1", "-filter_complex", vf, "-q:v", "2", out], check=True, timeout=60)
     return out
+# ── 4.27: مكان الفيديو بالكادر: تشوف الصورة الأصلية كاملة وتحرك المربع وتكبّر، والفيديو يتقص من الأصل من جديد ──
+def vpos_info(work):
+    cut_ = rj(J(work, "cut.json"), {}) or {}; src = J(work, "src.mov")
+    can = os.path.isfile(src) and cut_.get("src") != "cutz" and bool(cut_.get("keep"))
+    sw, sh = vid_size(src) if can else (1080, 1920)
+    ks = ((rj(J(work, "reframe.json"), {}) or {}).get("keys") or [])
+    return {"ok": True, "can": can, "sw": sw, "sh": sh, "wide": sw / max(1, sh) > 0.75, "vpos": hs_of(load_studio(work)).get("vpos") or {}, "auto": [round(float(k[1]), 3) for k in ks][:12]}
+def vpos_thumb(work, t):
+    """صورة من الأصل (قبل القص العمودي) عند نفس اللحظة بالتايم لاين."""
+    keep = _segs((rj(J(work, "cut.json"), {}) or {}).get("keep")); o = float(t); acc = 0.0; srcT = keep[0][0] if keep else 0.0
+    for a, b in keep:
+        if o < acc + (b - a): srcT = a + (o - acc); break
+        acc += b - a; srcT = b - 0.05
+    out = J(work, ".hs", "vthumb.jpg"); os.makedirs(J(work, ".hs"), exist_ok=True)
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "%.3f" % max(0.0, srcT), "-i", J(work, "src.mov"), "-frames:v", "1", "-vf", "scale=640:-2", "-q:v", "4", out], check=True, timeout=60)
+    return out
+def vpos_set(work, fr):
+    st = load_studio(work); h = hs_of(st)
+    if fr is None: h.pop("vpos", None)
+    else:
+        f = {}
+        if fr.get("x") is not None: f["x"] = round(min(1.0, max(0.0, float(fr["x"]))), 4)
+        if fr.get("y") is not None: f["y"] = round(min(1.0, max(0.0, float(fr["y"]))), 4)
+        f["z"] = round(min(3.0, max(1.0, float(fr.get("z") or 1))), 3)
+        if fr.get("still"): f["still"] = True
+        h["vpos"] = f
+    wj(J(work, "studio.json"), st)
 # ── 4.25: مشروع بدون cut.json (مبني بطريقة ثانية، مثل مقاطع الموشن): الفيديو الحالي هو الأصل، والقص والتصدير يشتغلون عليه ──
 def cut_init(work):
     if os.path.isfile(J(work, "cut.json")): return False
@@ -3429,6 +3456,14 @@ def cmd_selftest(work=None, engine=None):
             and wp.get("tr") == "ar" and wp.get("dub") == "es" and wp.get("host") is False and "--download-sections" in me_ and "count=int(n or 5) * 2" in me_ and "fresh=True" in me_
             and "data-ntr" in hb_ and "#epMore" in hb_.replace("'epMore'", "#epMore") and "youtube-nocookie.com/embed" in hb_ and "function dubSec()" in ap_ and "## 6ص)" in open(os.path.join(HERE, "SKILL.md"), encoding="utf-8").read())
     except Exception as e: chk("4.26: بودكاست والدبلجة", False, str(e)[:240])
+    try:   # 4.27: شكل البودكاست الافتراضي + قوالب الاسم + مكان الفيديو
+        cz_ = open(os.path.join(find_engine(None) or "", "scripts", "03_cut_zoom.py"), encoding="utf-8").read(); ex_ = open(os.path.join(HERE, "ext.js"), encoding="utf-8").read(); ap_ = open(os.path.join(HERE, "app.js"), encoding="utf-8").read()
+        hb_ = open(os.path.join(HERE, "hub.html"), encoding="utf-8").read()
+        hot_ = pod_hot([{"words": [{"word": w} for w in "طيب اذا انت في الوظائف السيفي حقك كل شوي طالع".split()]}])
+        chk("4.27: البودكاست بالشكل الجديد (الاسم من العنوان، الكلمة الذهبية، كادر ثابت) وقوالب الاسم ومكان الفيديو",
+            pod_speaker("كيف تنجح العلاقات مع ياسر الحزيمي | بودكاست فنجان") == "ياسر الحزيمي" and pod_speaker("حلقة عن المال") == "" and hot_[:1] == ["الوظائف"] and POD_CAP["active"] != POD_CAP["color"]
+            and '.get("vpos")' in cz_ and "FZ=" in cz_ and "hotLine" in ex_ and "function tplApply" in ap_ and "function vposSec" in ap_ and "/hs/vpos" in ap_ and "u.focus({preventScroll:true})" in hb_ and "host:false}" in hb_)
+    except Exception as e: chk("4.27: شكل البودكاست وقوالب الاسم ومكان الفيديو", False, str(e)[:240])
     try:   # 4.26: حارس: ولا متغيّر داخل السيرفر يغطّي D (مجلد الكاش) أو P أو S، كان يخلّي الفريمات والصور المصغّرة ما تطلع
         me_ = open(os.path.abspath(__file__), encoding="utf-8").read(); hb_ = open(os.path.join(HERE, "hub.html"), encoding="utf-8").read()
         bad_ = [l.strip()[:60] for l in me_.split(chr(10)) if re.match(r"^ {16,}(D|P|S|base|work) = ", l)]
@@ -4008,6 +4043,11 @@ def serve(work, port, engine):
                 Dd = dub_get(work) or {}; segs = Dd.get("segs") or []; txt = open(J(work, "dub-script.txt"), encoding="utf-8").read() if os.path.isfile(J(work, "dub-script.txt")) else ""   # Dd مو D: D مجلد الكاش حق السيرفر
                 return self._json(200, {"ok": True, "has": bool(Dd), "lang": Dd.get("lang"), "name": DUB_LANGS.get(Dd.get("lang") or "", ""), "n": len(segs), "tr": sum(1 for x in segs if x.get("tr")), "aud": sum(1 for x in segs if x.get("file")), "track": bool(Dd.get("track")),
                                         "on": dub_on(work), "want": hs_of(load_studio(work)).get("dubWant") or "", "script": txt})
+            if p == "/hs/vpos_info": return self._json(200, vpos_info(work))   # 4.27
+            if p == "/hs/vpos_thumb":
+                try: f_ = vpos_thumb(work, float((q.get("t") or ["0"])[0]))
+                except Exception as e: return self._json(500, {"ok": False, "msg": str(e)[:200]})
+                b_ = open(f_, "rb").read(); self.send_response(200); self.send_header("Content-Type", "image/jpeg"); self.send_header("Content-Length", str(len(b_))); self.send_header("Cache-Control", "no-store"); self.end_headers(); self.wfile.write(b_); return
             if p == "/hs/quality_preview":   # 4.25: قبل وبعد
                 try: f_ = quality_preview(work, float((q.get("t") or ["0"])[0]), (q.get("level") or ["light"])[0])
                 except Exception as e: return self._json(500, {"ok": False, "msg": str(e)[:200]})
@@ -4302,6 +4342,12 @@ def serve(work, port, engine):
                         try: dub_build(work, base.log)
                         except Exception as e: return self._json(400, {"ok": False, "msg": str(e)[:200]})
                     mx["dub"] = bool(data.get("on")); wj(J(work, "studio.json"), st_); return self._json(200, {"ok": True, "on": mx["dub"]})
+                if p == "/hs/vpos":   # 4.27: مكان الفيديو بالكادر ← يتقص من الأصل من جديد
+                    if not vpos_info(work)["can"]: return self._json(400, {"ok": False, "msg": "هالمشروع ما فيه الفيديو الأصلي، فما أقدر أحرك مكانه"})
+                    if base.JOB["running"]: return self._json(409, {"ok": False, "msg": "فيه عملية شغالة"})
+                    vpos_set(work, None if data.get("reset") else data)
+                    def go(): rebuild_video(work, S, base.log); base.JOB["reload"] = True
+                    ok = base.job("vpos", go); return self._json(200 if ok else 409, {"ok": ok, "msg": "" if ok else "فيه عملية شغالة"})
                 if p == "/hs/quality":   # 4.25: تحسين الجودة (يطلّع الفريمات من جديد بالتحسين)
                     lv = data.get("level") if data.get("level") in ENH_LEVELS else "off"
                     st_ = load_studio(work); hs_of(st_)["enhance"] = {"level": lv}; wj(J(work, "studio.json"), st_)
@@ -4727,8 +4773,28 @@ def cmd_dahih(work, args):
     else: sys.exit("dahih <work> on [--title \"…\"] [--tag \"#…\"] [--avatar assets/x.jpg] [--logo claude|none|assets/x.png] [--layout window|full] [--side right|left] [--bg paper] | bg <mode> --at ث | off | show")
 
 # ───────────────────────── 4.3: مقاطع من حلقة طويلة (بودكاست مترجم) ─────────────────────────
-POD_CAP = {"on": True, "font": "Cairo", "weight": 700, "size": 44, "color": "#FFFFFF", "active": "#FFFFFF", "bg": "none", "shadow": True, "stroke": 0,
-           "hl": "none", "enter": "fade", "chunk": 0, "lines": 2, "width": 880, "x": 50, "y": 74, "actScale": 1}
+# 4.27: شكل البودكاست الافتراضي (من مقطع أرسله راكان): سطرين أبيض بظل بدون خلفية، والكلمة المهمة ذهبي، واسم المتكلم بصندوق غامق فوق يمين
+POD_CAP = {"on": True, "font": "Cairo", "weight": 800, "size": 56, "color": "#FFFFFF", "active": "#F5A524", "bg": "none", "shadow": True, "stroke": 0,
+           "hl": "color", "enter": "fade", "chunk": 0, "lines": 2, "width": 760, "x": 50, "y": 74, "actScale": 1}
+POD_NAME = {"type": "text", "x": 0.74, "y": 0.088, "size": 44, "weight": 800, "font": "Cairo", "color": "#FFFFFF", "bg": "box", "bgColor": "#1E1915", "bgOpacity": 0.88, "track": 3, "anim": "fade", "auto": "name"}
+def pod_speaker(title):
+    """اسم الضيف من عنوان الحلقة: «… مع ياسر الحزيمي | بودكاست فنجان» ← ياسر الحزيمي."""
+    m = re.search(r"(?:^|\s)(?:مع|with|ft\.?|feat\.?)\s+([^|\-–—:(\[\]#،,]{3,40})", str(title or ""), re.I)
+    return re.sub(r"\s+", " ", m.group(1)).strip() if m else ""
+def pod_hot(segs, every=8):
+    """كلمة مهمة وحدة لكل 8 كلمات تقريباً (تنلوّن ذهبي). Claude يقدر يغيّرها بعدين."""
+    out = []
+    for s in segs:
+        ws = [x["word"].strip() for x in (s.get("words") or []) if x.get("word")]
+        for i in range(0, len(ws), every):
+            best, sc = None, 0
+            for w in ws[i:i + every]:
+                b = re.sub(r"[^\w]", "", _bare(w.lower()))
+                if not b or b in STOP_W or w in WEAK_START or len(b) < 4: continue
+                v = len(b) + (4 if (b in HOOK_W or w in HOOK_W) else 0) + (3 if w.startswith(("ال", "وال", "بال", "فال", "لل")) else 0)   # الأسماء أوضح من الأفعال
+                if v > sc: best, sc = w, v
+            if best and best not in out: out.append(best)
+    return out
 def tsec(v):
     """12:30 · 1:02:03 · 754.2 ← ثواني"""
     v = str(v).strip(); p = v.split(":")
@@ -4826,21 +4892,25 @@ def clip_make(d, a_, b_, title="", credit="", name=None, style=None):
         segs.append({"start": ws[0]["start"], "end": ws[-1]["end"], "text": " ".join(x["word"].strip() for x in ws), "words": ws}); fix.append([x["word"].strip() for x in ws])
     lang = cfg.get("lang", "en")
     wj(J(w, "a.json"), {"text": " ".join(s["text"] for s in segs), "segments": segs, "language": lang})
-    if not os.path.isfile(J(w, "fixes.json")): wj(J(w, "fixes.json"), {"fix": fix, "hot": []})
+    style = style or ("pod" if (cfg.get("lang", "en") != "ar" or (cfg.get("want") or {}).get("pod")) else "plain")   # 4.27: اللي من صفحة البودكاست بودكاست حتى لو عربي
+    if not os.path.isfile(J(w, "fixes.json")): wj(J(w, "fixes.json"), {"fix": fix, "hot": pod_hot(segs) if style == "pod" else []})
     eng = find_engine(None)
     if eng and not os.path.isfile(J(w, "compose.html")): shutil.copy(os.path.join(eng, "scripts", "compose.REFERENCE.html"), J(w, "compose.html"))
     if not os.path.isfile(J(w, "theme.json")): wj(J(w, "theme.json"), dict(THEME_DEF))
     wj(J(w, "sfx.json"), {"outro": 0})
-    st = load_studio(w); hs = hs_of(st); style = style or ("pod" if lang != "ar" else "plain")
+    st = load_studio(w); hs = hs_of(st)
     if title: hs["title"] = title
     if style == "pod":
         want_ = cfg.get("want") or {}; trl = want_.get("tr") or ("ar" if lang != "ar" else "en")
-        hs["pod"] = {"on": True, "title": title, "credit": credit, "lang": lang, "orig": lang != trl, "tr": trl, "src": os.path.basename(cfg.get("src") or "") or cfg.get("remote") or "", "from": round(a_, 2), "to": round(b_, 2)}
+        spk = want_.get("speaker") or pod_speaker(cfg.get("title"))
+        hs["pod"] = {"on": True, "title": title, "titleOn": False, "speaker": spk, "credit": credit, "lang": lang, "orig": lang != trl, "tr": trl, "src": os.path.basename(cfg.get("src") or "") or cfg.get("remote") or "", "from": round(a_, 2), "to": round(b_, 2)}
+        hs["vpos"] = {**(hs.get("vpos") or {}), "still": True}   # 4.27: بدون زوم يتغيّر بين اللقطات
+        if spk: hs.setdefault("layers", []).append({**POD_NAME, "id": "LN1", "text": spk, "s": 0, "e": round(b_ - a_, 2)})
         if want_.get("dub"): hs["dubWant"] = want_["dub"]   # 4.26: طلب دبلجة: Claude يكمّلها (hs dub)
         H = host_cfg()
-        if want_.get("host", True) and H.get("on"):   # 4.26: شخصية المقدّم الثابتة بزاوية المقطع
+        if want_.get("host", False) and H.get("on"):   # 4.26: شخصية المقدّم الثابتة بزاوية المقطع
             hs.setdefault("layers", []).append({"id": "LH1", "type": "char", "char": H.get("char") or "robo", "color": H.get("color") or "#D97757", "x": 0.84, "y": 0.8, "size": 0.16, "s": 0, "e": round(b_ - a_, 2), "track": 3, "auto": "host"})
-            if H.get("name"): hs["layers"].append({"id": "LH2", "type": "text", "text": H["name"], "x": 0.84, "y": 0.885, "size": 34, "weight": 800, "color": "#FFFFFF", "bg": "box", "bgColor": "#141413", "s": 0, "e": round(b_ - a_, 2), "track": 3, "anim": "fade", "auto": "host"})
+            if H.get("name") and H["name"].strip() != spk: hs["layers"].append({"id": "LH2", "type": "text", "text": H["name"], "x": 0.84, "y": 0.885, "size": 34, "weight": 800, "color": "#FFFFFF", "bg": "box", "bgColor": "#141413", "s": 0, "e": round(b_ - a_, 2), "track": 3, "anim": "fade", "auto": "host"})
         hs["cap"] = {**(hs.get("cap") or {}), **POD_CAP}; hs["en"] = {**(hs.get("en") or {}), "on": True}
     hs["clip"] = {"from": round(a_, 2), "to": round(b_, 2), "ep": os.path.basename(d)}
     wj(J(w, "studio.json"), st)
@@ -5787,7 +5857,7 @@ def yt_section(url, a, b, out, log=print):
 def pod_want(w, data):
     """اختيارات البودكاست من المكتبة (لغة الترجمة، الدبلجة، المقدّم) تنحفظ قبل ما يبدأ الشغل."""
     if (data or {}).get("mode") != "clips": return
-    tr = str(data.get("tr") or "").strip()[:5]; dub = str(data.get("dub") or "").strip()[:5]; host = str(data.get("host", "1")) not in ("0", "false", "False", "")
+    tr = str(data.get("tr") or "").strip()[:5]; dub = str(data.get("dub") or "").strip()[:5]; host = str(data.get("host", "0")) not in ("0", "false", "False", "")
     cfg = clips_cfg(w); W_ = cfg.get("want") or {}; W_.update({"tr": tr if tr in DUB_LANGS else "", "dub": dub if dub in DUB_LANGS else "", "host": host, "pod": True}); cfg["want"] = W_; os.makedirs(w, exist_ok=True); wj(J(w, "clips.json"), cfg)
 def host_cfg(): return {"on": True, "name": "", "char": "robo", "color": "#D97757", **(rj(os.path.join(HOME_CFG, "host.json"), {}) or {})}
 def host_set(**kw):

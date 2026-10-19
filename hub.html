@@ -614,7 +614,7 @@ function openAt(id,tt){ const g=((SR&&SR.items)||[]).find(x=>x.id===id); if(!g) 
   try{ if(v!=null) localStorage.setItem('hsPos:'+g.work,String(v)); }catch(e){} go(id); }
 let PEND_SEEK=null;
 /* ── مشروع جديد ── */
-const NW={src:'link',mode:'clips',pick:'me',n:5,len:'30-60',file:null,tr:'ar',dub:'',host:true};
+const NW={src:'link',mode:'clips',pick:'me',n:5,len:'30-60',file:null,tr:'ar',dub:'',host:false};
 function newSheet(){ NW.file=null; if(!DATA||(!DATA.claude&&NW.mode==='auto')) NW.mode=NW.src==='link'?'clips':'manual'; drawNew(); }
 function drawNew(){ const y=DATA&&DATA.ytdlp, cl=DATA&&DATA.claude;
   let o='<h2 style="margin-bottom:14px">'+t('newTitle')+'</h2><div class="src2"><button data-nsrc="link" class="'+(NW.src==='link'?'on':'')+'">'+IC.link+t('srcLink')+'</button><button data-nsrc="file" class="'+(NW.src==='file'?'on':'')+'">'+IC.file+t('srcFile')+'</button></div>';

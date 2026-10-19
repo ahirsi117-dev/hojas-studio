@@ -183,7 +183,13 @@
     X.restore();
     if(HSX.nocap||!CAP.on) return;
     const c=CAPS.find(c=>t>=c.s&&t<c.e); if(!c) return;
-    const key=cardKey(c), tr=((EN.map||{})[key]||'').trim(), ar=P.lang==='ar';
+    const key=cardKey(c), tr0=((EN.map||{})[key]||'').trim(), tr=tr0.replace(/\*/g,''), ar=P.lang==='ar';
+    /* 4.27: الكلمة المهمة بلون: من كلماته المميزة، أو بالترجمة اللي بين نجمتين *كذا* */
+    const HN=w=>String(w).replace(/[.,،؟?!:؛"«»()]/g,''), HOT=new Set();
+    if(ar||!tr) c.w.forEach(w=>{ if(w.hot) HOT.add(HN(w.t)); }); else (tr0.match(/\*[^*]+\*/g)||[]).forEach(m=>m.slice(1,-1).split(/\s+/).forEach(x=>HOT.add(HN(x))));
+    const hotLine=(l,x,y,rtl)=>{ const ws=l.split(' '); if(!HOT.size||!ws.some(w=>HOT.has(HN(w)))){ X.fillText(l,x,y); return; }
+      const sp=X.measureText(' ').width, wd=ws.map(w=>X.measureText(w).width), tot=wd.reduce((a,b)=>a+b,0)+sp*(ws.length-1), al=X.textAlign; X.textAlign='left'; let px=rtl?x+tot/2:x-tot/2;
+      ws.forEach((w,i)=>{ if(rtl) px-=wd[i]; X.fillStyle=HOT.has(HN(w))?(CAP.active||'#F5A524'):(CAP.color||'#FFFFFF'); X.fillText(w,px,y); px+=rtl?-sp:wd[i]+sp; }); X.textAlign=al; X.fillStyle=CAP.color||'#FFFFFF'; };
     const main=ar?key:(tr||key), sub=ar?(EN.on?tr:''):((P.orig!==false&&tr)?key:'');
     const lt=t-c.s, rt=c.e-t, a=Math.min(1,lt/0.12,rt/0.1); if(a<=0) return;
     const fs=+CAP.size||44, sfs=Math.round(fs*(+P.subScale||0.62)), mf=(CAP.weight||700)+' '+fs+'px '+F(CAP.font), sf='500 '+sfs+'px '+F(EN.font||'Cairo');
@@ -193,7 +199,7 @@
     if(CAP.bg==='box'){ let bw=0; X.font=mf; ML.forEach(l=>bw=Math.max(bw,X.measureText(l).width)); X.font=sf; SL.forEach(l=>bw=Math.max(bw,X.measureText(l).width));
       X.fillStyle=rgba(CAP.bgColor||'#000000',CAP.bgOpacity==null?0.55:CAP.bgOpacity); rr(cx-bw/2-fs*0.5,top-fs*0.3,bw+fs,H+fs*0.6,fs*0.3); X.fill(); }
     if(CAP.shadow!==false){ X.shadowColor='rgba(0,0,0,0.8)'; X.shadowBlur=Math.round(fs*0.35); X.shadowOffsetY=2; }
-    X.font=mf; X.fillStyle=CAP.color||'#FFFFFF'; X.direction=(ar||tr)?'rtl':'ltr'; ML.forEach((l,i)=>X.fillText(l,cx,top+lh*i+lh/2));
+    X.font=mf; X.fillStyle=CAP.color||'#FFFFFF'; X.direction=(ar||tr)?'rtl':'ltr'; ML.forEach((l,i)=>hotLine(l,cx,top+lh*i+lh/2,X.direction==='rtl'&&hasAr(l)));
     if(SL.length){ X.font=sf; X.fillStyle='rgba(255,255,255,0.78)'; X.direction=ar?'ltr':'auto'; SL.forEach((l,i)=>X.fillText(l,cx,top+ML.length*lh+10+slh*i+slh/2)); }
     X.restore(); }
   let CAPFORCE=false;

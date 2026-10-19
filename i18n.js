@@ -230,6 +230,13 @@ blSound:['الصوت','Sound'], blBeep:['بيب','Beep'], blMute:['صمت','Sile
 blRange:['مقطع صوت','Audio range'], blNone:['ما فيه كلمات مكتومة.','No bleeped words yet.'], blHint:['يلقى الكلمة بكل مكان انقالت فيه (حتى مع و ب ال قبلها وبدون همزات). وتنكتم بالتصدير والترجمة SRT، وتسمعها بالمعاينة.','Finds every time the word is said (with prefixes, ignoring hamza). Applied to the export and SRT, and you hear it in preview.'],
 blWords:['اكتم كلمة','Bleep a word'], blWordHint:['اضغط الكلمة عشان تنكتم بصوت بيب وتطلع نجوم بالكابشن، واضغطها مرة ثانية عشان ترجع.','Tap a word to bleep it and star it in captions. Tap again to undo.'],
 blNotFound:['ما لقيت الكلمة بالكلام','That word isn’t in the speech'],
+/* 4.27: قوالب الكابشن مع الاسم + مكان الفيديو */
+tplTitle:['قوالب جاهزة مع الاسم','Ready templates with a name'], tplHint:['كل قالب يغيّر الكابشن وصندوق الاسم مع بعض. الاسم طبقة نص: اضغطه واكتب الاسم، واسحبه لمكان ثاني.','Each template sets the caption and the name tag together. The name is a text layer: click it to type, drag it to move.'],
+tplName:['اكتب الاسم بالخانة اللي يمين','Type the name in the box on the right'], nameDef:['الاسم','Name'],
+tpl_talk:['مقابلة','Interview'], tpl_box:['صندوق','Box'], tpl_paper:['ورقة','Paper'], tpl_bold:['عريض','Bold'], tpl_soft:['هادي','Soft'], tpl_low:['الاسم تحت','Name low'],
+vpTitle:['مكان الفيديو','Video position'], vpAutoOn:['تلقائي','auto'], vpZoom:['تكبير','Zoom'], vpStill:['ثابت: بدون زوم يتغيّر بين اللقطات','Steady: no zoom changes between shots'],
+vpAuto:['رجّعه تلقائي','Back to auto'], vpApply:['طبّق','Apply'], vpWorking:['أقص الفيديو على مكانك الجديد…','Re-cutting the video to your framing…'], vpDone:['تغيّر مكان الفيديو','Video position updated'],
+vpHint:['هذي الصورة الأصلية كاملة: اسحب المربع على اللي تبيه يبان، وكبّر لو تبي أقرب، ثم «طبّق». «تلقائي» يرجّعه يتبع اللي يتكلم.','This is the full original: drag the box over what should show, zoom in if you want it closer, then Apply. Auto goes back to following the speaker.'],
 /* 4.26: الدبلجة */
 dubTitle:['الدبلجة','Dubbing'], dubOn:['شغّل الدبلجة','Use the dub'], dubOnSub:['صوته الأصلي ينشال كامل وتنسمع الدبلجة بنفس سكتاته','The original voice is removed and the dub plays with the same pauses'],
 dubStat:['{0} جملة · مترجم {1} · فيه صوت {2}','{0} lines · {1} translated · {2} with audio'], dubTrack:['ملف كامل','full track'], dubCopy:['انسخ السكربت بالتوقيت','Copy timed script'], dubUp:['ارفع ملف دبلجة كامل','Upload a full dub'],

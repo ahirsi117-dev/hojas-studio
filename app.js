@@ -689,6 +689,7 @@ function renderRight(){ const B=$('#body'), h=hs(); let o='';
     o+=tog('cap.on',t('capFull'),t('capFullSub'),c.on);
     if(!c.on){ o+='<div class="sec"><h4>'+t('engineStyle')+'</h4><select id="capStyle">'+['card','shadow','big','underline','bar','type'].map(k=>'<option value="'+k+'"'+((ST.theme.capStyle||'card')===k?' selected':'')+'>'+t('cs_'+k)+'</option>').join('')+'</select><p class="hint">'+t('capOffHint')+'</p></div>'; }
     else { const sz=INFO.safe; if(sz&&(c.y>sz.capMax+0.01||c.y<sz.capMin-12)) o+='<div class="warnbox">'+t('capSafeWarn',sz.capMin,sz.capMax)+'</div>';
+      o+=tplSec(h);   // 4.27: قوالب الكابشن مع الاسم
       o+='<div class="sec"><h4>'+t('capPresets')+'</h4><div class="grid3">'+Object.keys(CAPPRE).map(preTile).join('')+'</div></div>';
       o+='<div class="sec"><h4>'+t('font')+'<button class="sm" data-up="font">'+t('addFont')+'</button></h4><div class="fonts">'+[...h.fonts.map(f=>f.name),...AR_FONTS].map(f=>'<div class="fcard'+(c.font===f?' on':'')+'" data-font="'+esc(f)+'"><b style="font-family:\''+f+'\'">متابعة</b><span>'+esc(f)+'</span></div>').join('')+'</div></div>';
       o+='<div class="sec"><h4>'+t('look')+'</h4>'+pick(t('weight'),'cap.weight',weightsOf(c.font).map(w=>[w,t('w_'+w)]),c.weight)+slider(t('size'),'cap.size',34,150,c.size)+swatches(t('textColor'),'cap.color',c.color)+swatches(t('activeColor'),'cap.active',c.active)
@@ -737,6 +738,7 @@ function renderRight(){ const B=$('#body'), h=hs(); let o='';
   else if(RTAB==='claude'){ o+=askCtxHtml(); o+='<div class="sec"><h4>'+t('askClaude')+(PULSE.agent&&PULSE.agent.running?'<button class="sm" id="agStop">'+t('stop')+'</button>':'')+'</h4><textarea id="agTx" rows="3" dir="auto" placeholder="'+t('askPh')+'"></textarea><div class="row" style="margin-top:8px"><button class="pri" id="agGo"'+(PULSE.agent&&PULSE.agent.running?' disabled':'')+'>'+t(INFO.claude?'run':'copyReq')+'</button><span class="hint" style="margin:0">'+t(INFO.claude?'askHint':'askNoCli')+'</span></div><div id="agOut"></div></div>';
     o+='<div class="sec"><h4>'+t('stagesTitle')+'</h4><div class="stages" id="pStages"></div></div><div class="sec"><h4>'+t('feedTitle')+'</h4><div class="feed" id="pFeed"></div></div>'; }
   else if(RTAB==='proj'){
+    o+=vposSec();   // 4.27: مكان الفيديو بالكادر
     o+=qualitySec(h);
     o+=styleSec(h);
     o+='<div class="sec"><h4>'+t('exportTitle')+'</h4><label class="item"><input type="checkbox" id="exHooks"'+(h.hooks.on&&h.hooks.items.filter(x=>x&&x.text).length>1?'':' disabled')+'><span>'+t('exHooks')+'</span></label><div class="row"><button class="pri" id="doRender" style="flex:1">'+t('exportFinal')+'</button><button id="doClean2">'+t('exportClean')+'</button></div><div id="dl">'+(INFO.finals||[]).map(f=>'<div class="item" style="cursor:default"><span><a href="/'+f+'?v='+Date.now()+'" download>'+t('download')+' '+f+'</a></span><button class="sm" data-phone="'+f+'">'+t('toPhone')+'</button></div>').join('')+'</div><div id="log" style="margin-top:8px;display:none"></div></div>';
@@ -1157,6 +1159,58 @@ document.addEventListener('click',async e=>{ const b=e.target.closest('[data-qlv
   if(b.dataset.qlv){ QLV=b.dataset.qlv; renderRight(); return; }
   if(b.id==='qCmp'){ const lv=(QLV&&QLV!=='off')?QLV:'light', o=$('#qOut'); if(o) o.innerHTML='<p class="hint">'+t('qWait')+'</p><img alt="" style="width:100%;border-radius:10px;margin-top:6px" src="/hs/quality_preview?t='+T.toFixed(2)+'&level='+lv+'&v='+Date.now()+'"><div class="row" style="justify-content:space-between;font-size:12px;color:var(--mut)"><span>'+t('qBefore')+'</span><span>'+t('qAfter',t(lv==='strong'?'qStrong':'qLight'))+'</span></div>'; return; }
   if(b.id==='qApply'){ const lv=QLV||'off'; hs().enhance={level:lv}; await save(); const r=await api('/hs/quality',{level:lv}); if(!r.ok){ toast(r.msg||t('busyJob')); return; } stLoader('rebuild',t('qWorking')); pollJob(async()=>{ try{ QLV=null; await reloadLite(); toast(t('qDone')); } finally{ stLoaderHide(); } }); } });
+
+/* ───── 4.27: قوالب الكابشن مع الاسم: كل قالب يغيّر شكل الكابشن وصندوق الاسم مع بعض. الاسم طبقة نص عادية تحركها وتعدّلها ───── */
+const TPLS={
+  talk:{cap:{font:'Cairo',weight:800,size:56,color:'#FFFFFF',active:'#F5A524',bg:'none',shadow:true,stroke:0,hl:'color',lines:2,width:760,y:74,enter:'fade'},name:{bg:'box',bgColor:'#1E1915',bgOpacity:0.88,color:'#FFFFFF',x:0.74,y:0.088,size:44}},
+  box:{cap:{font:'Cairo',weight:800,size:52,color:'#FFFFFF',active:'#FFD21F',bg:'box',bgColor:'#000000',bgOpacity:0.7,shadow:false,stroke:0,hl:'color',lines:2,width:760,y:76,enter:'fade'},name:{bg:'box',bgColor:'#F5A524',bgOpacity:1,color:'#141413',x:0.26,y:0.088,size:42}},
+  paper:{cap:{font:'Cairo',weight:800,size:50,color:'#141413',active:'#D97757',bg:'box',bgColor:'#FAF9F5',bgOpacity:0.95,shadow:false,stroke:0,hl:'color',lines:2,width:760,y:76,enter:'fade'},name:{bg:'box',bgColor:'#141413',bgOpacity:0.92,color:'#FAF9F5',x:0.5,y:0.088,size:42}},
+  bold:{cap:{font:'Cairo',weight:900,size:62,color:'#FFFFFF',active:'#FFD21F',bg:'none',shadow:true,stroke:5,strokeColor:'#000000',hl:'color',lines:2,width:800,y:72,enter:'pop'},name:{bg:'box',bgColor:'#FFD21F',bgOpacity:1,color:'#141413',x:0.74,y:0.088,size:46}},
+  soft:{cap:{font:'IBM Plex Sans Arabic',weight:700,size:50,color:'#FFFFFF',active:'#8FD3FF',bg:'none',shadow:true,stroke:0,hl:'color',lines:2,width:760,y:76,enter:'fade'},name:{bg:'glass',color:'#FFFFFF',x:0.5,y:0.09,size:40}},
+  low:{cap:{font:'Tajawal',weight:800,size:54,color:'#FFFFFF',active:'#43D17A',bg:'none',shadow:true,stroke:0,hl:'color',lines:2,width:760,y:80,enter:'rise'},name:{bg:'box',bgColor:'#43D17A',bgOpacity:1,color:'#0E1A12',x:0.5,y:0.66,size:40}} };
+function tplTile(k){ const T_=TPLS[k], c=T_.cap, n=T_.name, on=(hs().cap.font===c.font&&hs().cap.active===c.active&&+hs().cap.y===c.y);
+  const nb=n.bg==='glass'?'background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45)':'background:'+(n.bgColor||'#000');
+  const nx=n.x<0.4?'left:8%':n.x>0.6?'right:8%':'left:50%;transform:translateX(-50%)';
+  const cb=c.bg==='box'?'background:'+c.bgColor+';padding:2px 5px;border-radius:4px;':'';
+  return '<div class="tile'+(on?' sel':'')+'" data-tpl="'+k+'"><div class="pv" dir="rtl" style="position:relative;aspect-ratio:9/12;background:linear-gradient(160deg,#4a4038,#1d1a17);font-family:\''+c.font+'\';overflow:hidden">'
+    +'<span style="all:unset;position:absolute;top:'+(n.y*100)+'%;'+nx+';'+nb+';color:'+n.color+';font:800 9px Cairo;padding:2px 5px;border-radius:4px;white-space:nowrap">'+t('nameDef')+'</span>'
+    +'<span style="all:unset;position:absolute;top:'+(c.y-14)+'%;left:8%;right:8%;text-align:center;font-weight:'+c.weight+';font-size:10px;line-height:1.5;color:'+c.color+';'+(c.shadow&&c.bg!=='box'?'text-shadow:0 1px 3px #000;':'')+'"><span style="all:unset;'+cb+'">كلام <span style="color:'+c.active+'">مهم</span> هنا</span></span></div><span>'+t('tpl_'+k)+'</span></div>'; }
+function tplSec(h){ return '<div class="sec"><h4>'+t('tplTitle')+'</h4><div class="grid3">'+Object.keys(TPLS).map(tplTile).join('')+'</div><p class="hint">'+t('tplHint')+'</p></div>'; }
+function tplApply(k){ const T_=TPLS[k], h=hs(); snap(); Object.assign(h.cap,{...CAPRESET,...T_.cap,on:true});
+  let L=h.layers.find(l=>l.auto==='name');
+  if(!L){ const id='L'+(Math.max(0,...h.layers.map(l=>parseInt(String(l.id).replace(/\D/g,''))||0))+1); L={id,type:'text',s:0,e:r3(total()),track:3,anim:'fade',auto:'name',text:(h.pod&&h.pod.speaker)||t('nameDef')}; h.layers.push(L); }
+  ['bg','bgColor','bgOpacity','x','y','size'].forEach(f=>delete L[f]); Object.assign(L,{font:'Cairo',weight:800,...T_.name});
+  if(h.pod&&h.pod.on) h.pod.titleOn=false;
+  select({kind:'layer',id:L.id}); live(); renderRight(); if(L.text===t('nameDef')) toast(t('tplName')); }
+document.addEventListener('click',e=>{ const b=e.target.closest('[data-tpl]'); if(!b||!ST) return; tplApply(b.dataset.tpl); });
+
+/* ───── 4.27: مكان الفيديو بالكادر: الصورة الأصلية كاملة ومربع تسحبه وتكبّر، ثم يتقص الفيديو من الأصل على مكانك ───── */
+let VPI=null, VPD=null, _vpL=0;
+function vpLoad(){ if(Date.now()-_vpL<3000) return; _vpL=Date.now(); api('/hs/vpos_info').then(r=>{ VPI=r; if(RTAB==='proj') renderRight(); }).catch(()=>{}); }
+function vpCur(){ const f=VPD||(VPI&&VPI.vpos)||{}, au=VPI&&VPI.auto&&VPI.auto.length?VPI.auto[0]:0.5; return {x:f.x==null?au:f.x, y:f.y==null?0.3:f.y, z:f.z||1, still:!!f.still, auto:f.x==null}; }
+function vpRect(){ const I=VPI, c=vpCur(), rw=(I.wide?Math.min(1,(I.sh*9/16)/I.sw):1)/c.z, rh=1/c.z; return {l:Math.max(0,Math.min(1-rw,c.x-rw/2)), t:(1-rh)*c.y, w:rw, h:rh}; }
+function vpDraw(){ const r=$('#vpRect'); if(!r) return; const R=vpRect(); Object.assign(r.style,{left:R.l*100+'%',top:R.t*100+'%',width:R.w*100+'%',height:R.h*100+'%'}); const a=$('#vpApply'); if(a) a.disabled=!VPD; }
+function vposSec(){ vpLoad(); const I=VPI; if(!I||!I.can) return ''; const c=vpCur(), R=vpRect(), box=I.wide?'width:100%':'height:280px;width:'+Math.round(280*I.sw/I.sh)+'px';
+  return '<div class="sec"><h4>'+t('vpTitle')+(c.auto&&!VPD?' <span class="st">'+t('vpAutoOn')+'</span>':'')+'</h4>'
+    +'<div id="vpBox" style="position:relative;'+box+';aspect-ratio:'+I.sw+'/'+I.sh+';margin:0 auto 8px;border-radius:10px;overflow:hidden;background:#000 url(/hs/vpos_thumb?t='+T.toFixed(1)+') center/100% 100% no-repeat;touch-action:none;cursor:grab">'
+    +'<div id="vpRect" style="position:absolute;left:'+R.l*100+'%;top:'+R.t*100+'%;width:'+R.w*100+'%;height:'+R.h*100+'%;border:2px solid #D97757;box-shadow:0 0 0 999px rgba(0,0,0,.55);border-radius:3px;pointer-events:none"></div></div>'
+    +'<div class="row"><label>'+t('vpZoom')+'</label><input type="range" id="vpZ" min="100" max="250" value="'+Math.round(c.z*100)+'" style="flex:1"></div>'
+    +'<label class="item"><input type="checkbox" id="vpStill"'+(c.still?' checked':'')+'><span>'+t('vpStill')+'</span></label>'
+    +'<div class="row"><button class="sm" id="vpAuto">'+t('vpAuto')+'</button><button class="pri sm" id="vpApply"'+(VPD?'':' disabled')+'>'+t('vpApply')+'</button></div><p class="hint">'+t('vpHint')+'</p></div>'; }
+let _vpDrag=null;
+document.addEventListener('pointerdown',e=>{ const b=e.target.closest('#vpBox'); if(!b||!VPI) return; e.preventDefault(); b.setPointerCapture(e.pointerId); const B=b.getBoundingClientRect(), R=vpRect();
+  const px=(e.clientX-B.left)/B.width, py=(e.clientY-B.top)/B.height, inside=px>=R.l&&px<=R.l+R.w&&py>=R.t&&py<=R.t+R.h;
+  _vpDrag={B, ox:inside?px-(R.l+R.w/2):0, oy:inside?py-(R.t+R.h/2):0}; vpMove(e); });
+function vpMove(e){ if(!_vpDrag) return; const {B,ox,oy}=_vpDrag, c=vpCur(), R=vpRect(); const cx=(e.clientX-B.left)/B.width-ox, cy=(e.clientY-B.top)/B.height-oy;
+  const x=Math.max(R.w/2,Math.min(1-R.w/2,cx)), y=(1-R.h)>0.001?Math.max(0,Math.min(1,(cy-R.h/2)/(1-R.h))):c.y; VPD={...c,x:+x.toFixed(4),y:+y.toFixed(4)}; delete VPD.auto; vpDraw(); }
+document.addEventListener('pointermove',vpMove); document.addEventListener('pointerup',()=>{ _vpDrag=null; });
+document.addEventListener('input',e=>{ if(e.target.id!=='vpZ'||!VPI) return; const c=vpCur(); VPD={...c,z:+e.target.value/100}; if(c.auto) delete VPD.x; delete VPD.auto; vpDraw(); });
+document.addEventListener('change',e=>{ if(e.target.id!=='vpStill'||!VPI) return; const c=vpCur(); VPD={...c,still:e.target.checked}; if(c.auto) delete VPD.x; delete VPD.auto; vpDraw(); });
+async function vpGo(body){ const h=hs(); if(body.reset) delete h.vpos; else h.vpos=body; await save(); const r=await api('/hs/vpos',body); if(!r.ok){ toast(r.msg||t('busyJob')); return; }
+  stLoader('rebuild',t('vpWorking')); pollJob(async()=>{ try{ VPD=null; VPI=null; _vpL=0; await reloadLite(); toast(t('vpDone')); } finally{ stLoaderHide(); } }); }
+document.addEventListener('click',e=>{ const b=e.target.closest('#vpApply,#vpAuto'); if(!b||!ST) return;
+  if(b.id==='vpApply'&&VPD){ const d={...VPD}; delete d.auto; if(!d.still) delete d.still; vpGo(d); }
+  if(b.id==='vpAuto') vpGo({reset:true}); });
 
 /* ───── 4.26: الدبلجة بالاستوديو: حالتها، تشغيل وإطفاء، السكربت بالتوقيت، ورفع ملف دبلجة كامل ───── */
 let DUBS=null, _dubL=0;
