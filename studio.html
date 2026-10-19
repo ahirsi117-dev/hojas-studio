@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0e0e11;--s1:#15151a;--s2:#1c1c23;--s3:#262630;--bd:#2a2a34;--tx:#e9e9ef;--mut:#8d8d9b;--cap:#8f73f5;--fx:#d2558f;--lay:#e08a3c;--chr:#3aa7a0;--au:#43b072;--note:#4c8dff;--warn:#e0a53a;--bad:#e5484d}
+:root{--bg:#0e0e11;--s1:#15151a;--s2:#1c1c23;--s3:#262630;--bd:#2a2a34;--tx:#e9e9ef;--mut:#8d8d9b;--cap:#8f73f5;--fx:#d2558f;--lay:#e08a3c;--chr:#3aa7a0;--au:#43b072;--note:#D97757;--warn:#e0a53a;--bad:#e5484d}
 *{box-sizing:border-box}
 @font-face{font-family:"HS UI";src:url("/hs/ui-font.otf") format("opentype");font-display:swap;size-adjust:118%;unicode-range:U+0600-06FF,U+0750-077F,U+FB50-FDFF,U+FE70-FEFF}
 button,input,select,textarea{font-family:inherit}
@@ -95,7 +95,7 @@ mark{background:rgba(224,165,58,.4);color:inherit;border-radius:3px}
 .note img{width:50px;height:89px;object-fit:cover;border-radius:6px;flex:none;background:#000}
 .st{font-size:10.5px;border-radius:5px;padding:1px 6px;background:var(--s3);color:var(--mut);white-space:nowrap}
 .st.done,.st.ok{background:rgba(67,176,114,.18);color:var(--au)}
-.st.sent{background:rgba(76,141,255,.18);color:var(--note)}
+.st.sent{background:rgba(217,119,87,.18);color:var(--note)}
 .st.bad{background:rgba(229,72,77,.16);color:var(--bad)}
 .st.ai{background:rgba(167,139,250,.2);color:#C4B5FD}
 .note.ai{border-inline-start:3px solid #A78BFA}.note.ai.wait{background:rgba(167,139,250,.08)}
@@ -438,29 +438,29 @@ body.m #stage{position:relative;top:auto;height:auto}
   body:not(.m) #bin{border-right:1px solid var(--bd)}
 }
 /* ── لمسة Hojas: زجاج وأزرق ── */
-:root{--bg:#0a0c11;--s1:#11141b;--s2:rgba(255,255,255,.065);--s3:rgba(255,255,255,.11);--bd:rgba(255,255,255,.09);--tx:#f1f4fa;--mut:#8b93a7;--y:#4C8DFF;--yk:#fff;--glass:blur(16px) saturate(140%)}
-body{background:radial-gradient(60% 35% at 90% -10%,rgba(76,141,255,.16),transparent 70%),var(--bg)}
+:root{--bg:#0a0c11;--s1:#11141b;--s2:rgba(255,255,255,.065);--s3:rgba(255,255,255,.11);--bd:rgba(255,255,255,.09);--tx:#f1f4fa;--mut:#8b93a7;--y:#D97757;--yk:#fff;--glass:blur(16px) saturate(140%)}
+body{background:radial-gradient(60% 35% at 90% -10%,rgba(217,119,87,.16),transparent 70%),var(--bg)}
 html,body{background-color:var(--bg)}
 #top,#tl,.side{background:transparent}
 .side{background:rgba(255,255,255,.02)}
 /* 4.7.1: بدون تغبيش خلف الأزرار والعناصر: كل عنصر مغبّش طبقة رسم لحالها (كانت أكثر من 200) وتعلّق التايم لاين */
 button,button.ic{background:linear-gradient(180deg,rgba(255,255,255,.085),rgba(255,255,255,.035));border:1px solid rgba(255,255,255,.11);box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
-button.pri,body.m #mMic,button.mic.rec{background:linear-gradient(180deg,#6aa2ff,#3f7ff0);color:#fff;border:1px solid rgba(255,255,255,.22);box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
-body.m #mMic.rec{background:linear-gradient(180deg,#86b4ff,#4C8DFF);transform:scale(1.06)}
+button.pri,body.m #mMic,button.mic.rec{background:#D97757;color:#fff;border:1px solid rgba(255,255,255,.22);box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
+body.m #mMic.rec{background:#C96442;transform:scale(1.06)}
 button.ghost{background:transparent;box-shadow:none}
 .tabs button,.seg button,#binTabs button{background:transparent!important;box-shadow:none;border:0}
-.seg button.on{background:rgba(76,141,255,.22)!important;color:#fff}
+.seg button.on{background:rgba(217,119,87,.22)!important;color:#fff}
 .card,.tog,.note,.item{background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.07)}
-#ph,#ph::before{background:#4C8DFF}
+#ph,#ph::before{background:#D97757}
 #wrap{box-shadow:0 0 0 1px rgba(255,255,255,.08)}
-body.m #msh .in{background:rgba(18,21,29,.88);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
-body.m #mtabs button.on{background:rgba(76,141,255,.22);color:#fff}
-#rec.on{background:rgba(18,21,29,.85);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-color:#4C8DFF}
+body.m #msh .in{background:rgba(31,30,29,.88);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
+body.m #mtabs button.on{background:rgba(217,119,87,.22);color:#fff}
+#rec.on{background:rgba(31,30,29,.85);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-color:#D97757}
 .pill{background:rgba(255,255,255,.06)}
-.pill.work i{background:#4C8DFF}
-#ticker{display:none;position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:6;max-width:min(86%,520px);align-items:center;gap:8px;padding:8px 14px;border-radius:16px;background:rgba(14,18,28,.72);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(76,141,255,.45);font-size:12.5px;cursor:pointer}
+.pill.work i{background:#D97757}
+#ticker{display:none;position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:6;max-width:min(86%,520px);align-items:center;gap:8px;padding:8px 14px;border-radius:16px;background:rgba(31,30,29,.72);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(217,119,87,.45);font-size:12.5px;cursor:pointer}
 #ticker.on{display:flex}
-#ticker i{width:8px;height:8px;border-radius:50%;background:#4C8DFF;flex:none;animation:recb 1.2s infinite}
+#ticker i{width:8px;height:8px;border-radius:50%;background:#D97757;flex:none;animation:recb 1.2s infinite}
 #ticker span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .quick{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
 .quick button{border-radius:14px;font-size:12.5px;padding:6px 11px}
@@ -471,7 +471,7 @@ body.m #mtools{gap:6px;padding:10px 12px 4px}body.m #mtools .ic{width:42px;heigh
 /* ═══ 4.3: الكمبيوتر بنفس روح الجوال ═══ */
 @media (min-width:761px){
   body:not(.m) #app{grid-template-rows:64px minmax(0,1fr) 300px}
-  body:not(.m) #top{height:64px;padding:0 18px;gap:10px;border-bottom:1px solid var(--bd);background:rgba(10,12,17,.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+  body:not(.m) #top{height:64px;padding:0 18px;gap:10px;border-bottom:1px solid var(--bd);background:rgba(31,30,29,.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
   body:not(.m) #top .name{display:none}
   body:not(.m) #top .proj{font-family:"HS UI","IBM Plex Sans Arabic",sans-serif;font-size:22px;font-weight:700;color:var(--tx);max-width:34vw}
   body:not(.m) #top button.sm{height:38px;padding:0 14px;border-radius:13px;font-size:13.5px;display:inline-flex;align-items:center;gap:6px}
@@ -482,7 +482,7 @@ body.m #mtools{gap:6px;padding:10px 12px 4px}body.m #mtools .ic{width:42px;heigh
   body:not(.m) .side{background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.02));border:1px solid var(--bd)!important;border-radius:22px;overflow:hidden}
   body:not(.m) .tabs{border:0;padding:10px 10px 6px;gap:6px;display:flex;flex-wrap:wrap}
   body:not(.m) .tabs button{flex:1 1 auto;border-radius:12px!important;padding:8px 10px;font-size:13px;color:var(--mut);border:1px solid transparent!important;background:rgba(255,255,255,.04)!important}
-  body:not(.m) .tabs button.on{background:rgba(76,141,255,.2)!important;color:#fff;border-color:rgba(76,141,255,.45)!important}
+  body:not(.m) .tabs button.on{background:rgba(217,119,87,.2)!important;color:#fff;border-color:rgba(217,119,87,.45)!important}
   body:not(.m) .body{padding:6px 14px 16px}
   body:not(.m) #binTabs{flex-wrap:nowrap}body:not(.m) #binTabs button{flex:1 1 0}
   body:not(.m) #stage{flex-direction:column;gap:12px;padding:0 0 4px;justify-content:flex-start}
@@ -495,7 +495,7 @@ body.m #mtools{gap:6px;padding:10px 12px 4px}body.m #mtools .ic{width:42px;heigh
   body:not(.m) #mtools .ic{width:42px;height:42px;border-radius:13px}
   body:not(.m) #mClock{font-size:17px;color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
   body:not(.m) #mClock b{color:var(--tx);font-weight:600}
-  body:not(.m) #mPlay2{border-radius:50%!important;background:linear-gradient(180deg,#6aa2ff,#3f7ff0)!important;color:#fff;border-color:rgba(255,255,255,.22)!important}
+  body:not(.m) #mPlay2{border-radius:50%!important;background:#D97757!important;color:#fff;border-color:rgba(255,255,255,.22)!important}
   body:not(.m) #tl{margin:12px 14px 14px;border:1px solid var(--bd)!important;border-radius:22px;overflow:hidden;background:rgba(255,255,255,.025)!important}
   body:not(.m) #tlbar{border-bottom:1px solid var(--bd);padding:0 12px;gap:10px}
   body:not(.m) #tlbar #pp,body:not(.m) #tlbar #tm{display:none}
@@ -554,13 +554,13 @@ body.m #tlGrip{display:none}
 .tkc{font-size:12px;color:var(--mut);border:1px solid var(--bd);border-radius:7px;padding:3px 8px;display:inline-block}.tk.keep span{color:var(--tx)}.tk span{color:var(--mut)}
 .covs{display:flex;gap:8px;overflow-x:auto;padding:2px 0 4px;scrollbar-width:thin}
 .covs canvas{flex:none;width:31%;max-width:120px;aspect-ratio:9/16;height:auto;border-radius:10px;border:2px solid transparent;cursor:pointer;background:#000}
-.covs canvas.on{border-color:#4C8DFF}
+.covs canvas.on{border-color:#D97757}
 .covs.car canvas{width:30%;max-width:110px;aspect-ratio:4/5;cursor:default}
 .lbl2{display:block;font-size:12.5px;color:var(--mut);margin:12px 0 5px}
 .pfg{display:grid;grid-template-columns:1fr 1fr;gap:8px}.pfg label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mut)}
 /* ═══ 4.4: رسم حر ═══ */
-#drawCv{position:absolute;inset:0;width:100%;height:100%;z-index:7;cursor:crosshair;touch-action:none;border-radius:inherit;box-shadow:inset 0 0 0 2px rgba(76,141,255,.7)}
-#drawBar{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:9;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:18px;background:rgba(14,18,28,.88);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(76,141,255,.5);flex-wrap:wrap;max-width:calc(100% - 20px);width:max-content;direction:ltr;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+#drawCv{position:absolute;inset:0;width:100%;height:100%;z-index:7;cursor:crosshair;touch-action:none;border-radius:inherit;box-shadow:inset 0 0 0 2px rgba(217,119,87,.7)}
+#drawBar{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:9;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:18px;background:rgba(31,30,29,.88);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(217,119,87,.5);flex-wrap:wrap;max-width:calc(100% - 20px);width:max-content;direction:ltr;box-shadow:0 10px 30px rgba(0,0,0,.45)}
 #drawBar .sp{flex:1;min-width:4px}
 .dsw{display:flex;gap:6px;align-items:center}
 .dsw i{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid rgba(255,255,255,.25);transition:transform .12s}
@@ -569,7 +569,7 @@ body.m #tlGrip{display:none}
 .dw{display:flex;gap:4px}
 .dw button{width:34px;height:34px;padding:0;display:grid;place-items:center;border-radius:10px}
 .dw button i{display:block;border-radius:50%;background:#fff}
-.dw button.on{border-color:#4C8DFF;background:rgba(76,141,255,.28)}
+.dw button.on{border-color:#D97757;background:rgba(217,119,87,.28)}
 #drawBar .ic{width:34px;height:34px;border-radius:10px}
 #drawBar button.sm{height:34px}
 body.drawing #sideTools,body.drawing #giz,body.drawing #ticker,body.drawing #gestHint{display:none!important}
@@ -589,7 +589,7 @@ body.drawing #sideTools,body.drawing #giz,body.drawing #ticker,body.drawing #ges
   body:not(.m) #saved::before{content:"";width:7px;height:7px;border-radius:50%;background:#36c58a}
   body:not(.m) #saved:empty::before{display:none}
   body:not(.m) #mid{grid-template-columns:330px minmax(0,1fr) 400px;gap:16px;padding:14px 16px 0}
-  body:not(.m) #stage{background:radial-gradient(60% 55% at 50% 42%,rgba(76,141,255,.10),transparent 72%);border-radius:24px}
+  body:not(.m) #stage{background:radial-gradient(60% 55% at 50% 42%,rgba(217,119,87,.10),transparent 72%);border-radius:24px}
   body:not(.m) #wrap{box-shadow:0 0 0 1px rgba(255,255,255,.1),0 24px 60px rgba(0,0,0,.55)}
   body:not(.m) #sideTools{gap:8px}
   body:not(.m) #sideTools .ic{width:42px;height:42px;border-radius:14px}
@@ -651,9 +651,88 @@ body.drawing #sideTools,body.drawing #giz,body.drawing #ticker,body.drawing #ges
 #boot .tx.out{opacity:0;transform:translateY(6px)}
 #boot .sub{color:#8b93a7;font-size:13.5px;margin-top:6px;max-width:440px;line-height:1.7}
 #boot .line{width:190px;height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;margin:20px auto 0}
-#boot .line i{display:block;width:35%;height:100%;background:#4C8DFF;border-radius:2px;animation:bootind 1.5s ease-in-out infinite}
+#boot .line i{display:block;width:35%;height:100%;background:#D97757;border-radius:2px;animation:bootind 1.5s ease-in-out infinite}
 @keyframes bootind{0%{margin-inline-start:-35%}100%{margin-inline-start:100%}}
 #boot .slow{color:#8b93a7;font-size:12.5px;margin-top:14px}
+/* ═══════════ 4.17: ألوان كلود (غامق دافي، كريمي، برتقالي كلود، بدون تدرجات ولا توهج) ═══════════ */
+:root{--bg:#1f1e1d;--s1:#262624;--s2:#30302e;--s3:#3a3937;--bd:rgba(222,220,209,.12);--tx:#faf9f5;--mut:#9c9a92;--y:#d97757;--yk:#fff;
+  --cap:#c96442;--note:#6a9bcc;--au:#788c5d;--fx:#a3845b;--lay:#a3845b;--chr:#5b88b5;--warn:#d4a24c;--bad:#d4554a}
+html,body,body{background:var(--bg)}
+button,button.ic{background:var(--s2);border:1px solid var(--bd);box-shadow:none}
+button.pri,body.m #mMic,button.mic.rec{background:var(--y);color:#fff;border:1px solid transparent;box-shadow:none}
+body.m #mMic.rec{background:#c96442}
+.card,.tog,.note,.item{background:var(--s1);border:1px solid var(--bd)}
+body:not(.m) .side{background:var(--s1)}
+body:not(.m) #stage{background:none}
+body:not(.m) #mPlay2{background:var(--y)!important}
+.clip.cap,body:not(.m) .clip.cap{background:#c96442}
+.clip.image,.clip.viz,.clip.split,.clip.pip,.clip.bg,.clip.broll,.clip.sc,.clip.behind,.clip.collage,.clip.char,
+body:not(.m) .clip.image,body:not(.m) .clip.viz,body:not(.m) .clip.split,body:not(.m) .clip.pip,body:not(.m) .clip.bg{background:#4f7aa8}
+.clip.text,.clip.lt,.clip.mark,.clip.mg,.clip.kinetic,.clip.desk{background:#9a7b4f}
+.clip.draw,.clip.anno,body:not(.m) .clip.draw{background:#6b7d50}
+.clip.fx,.clip.cursor{background:#5e5d58}
+.clip.sfx{background:#7d6a8f}
+.clip.outro{background:#3a3937}
+/* ═══════════ 4.18: وضعين بصفحة وحدة: «Claude يمنتج» و«مونتاج يدوي» ═══════════ */
+#modeSw{display:flex;flex:none;gap:2px;padding:3px;border-radius:12px;background:var(--s1);border:1px solid var(--bd)}
+#modeSw button{border:0;background:none;padding:6px 12px;border-radius:9px;font-size:13px;color:var(--mut);white-space:nowrap;box-shadow:none}
+#modeSw button.on{background:var(--s3);color:var(--tx)}
+body:not([data-mode=manual]) #bAsk{display:none!important}
+body.asking #bAsk{border-color:var(--y);color:var(--tx)}
+/* وضع Claude: معاينة كبيرة، الخطة وتقدّمه وملاحظاتك والفحص والنشر، والتايم لاين نحيف بدون أدوات */
+body[data-mode=claude]:not(.m) #bin{display:none}
+body[data-mode=claude]:not(.m) #mid{grid-template-columns:minmax(0,1fr) var(--panw,420px)!important}
+body[data-mode=claude] #tabs button:is([data-tab=sel],[data-tab=cap],[data-tab=tr],[data-tab=audio]),
+body[data-mode=claude] #mtabs button:is([data-mv=sel],[data-mv=cap],[data-mv=tr],[data-mv=audio],[data-mv=takes],[data-mv=text],[data-mv=files]){display:none}
+body[data-mode=claude] #tlbar .grp{display:none}
+/* مونتاج يدوي: المحرّر كامل، وClaude مخفي لين تضغط «اسأل Claude» */
+body[data-mode=manual]:not(.asking) :is(#tabs button[data-tab=claude],#mtabs button[data-mv=claude]),
+body[data-mode=manual] :is(#tabs button[data-tab=plan],#mtabs button[data-mv=plan]){display:none}
+.askctx{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 10px;border-radius:10px;background:var(--s2);border:1px solid var(--bd);font-size:12.5px}
+.askctx b{font-weight:600}
+.askctx .sp{flex:1}
+/* 4.20: الهوك بالتايم لاين، ودائرة السحب بلون كلود */
+.clip.hook{background:#b5533a;font-weight:600}
+#giz{background:rgba(217,119,87,.6)}
+/* 4.20: تكبّر وتصغّر الأقسام بالسحب من طرفها (دبل كلك يرجّعها) */
+body:not(.m) .side{position:relative}
+.colgrip{position:absolute;top:0;bottom:0;width:7px;z-index:6;cursor:col-resize;touch-action:none}
+.colgrip.r{right:0}.colgrip.l{left:0}
+.colgrip.on{background:var(--y);opacity:.55}
+body.m .colgrip{display:none}
+/* 4.20: النص اللي مو مربوط باللقطة إطاره متقطع */
+.clip.free{outline:1px dashed rgba(250,249,245,.7);outline-offset:-2px}
+body.cw:not(.m) #mid{grid-template-columns:var(--binw,330px) minmax(0,1fr) var(--panw,400px)!important}
+body.cw[data-mode=claude]:not(.m) #mid{grid-template-columns:minmax(0,1fr) var(--panw,420px)!important}
+/* 4.19: «من رصيدك» يبان على الخيار المختار */
+.chips button.on .tkb{color:#fff;background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.35)}
+/* ═══════════ 4.21: سكرول بشكل الموقع، والأرقام ما تطلع برّا، وأقسام الأصوات ═══════════ */
+*{scrollbar-width:thin;scrollbar-color:rgba(222,220,209,.24) transparent}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(222,220,209,.24);border-radius:8px}::-webkit-scrollbar-button{display:none}
+#body,#lbody{overflow-x:hidden}
+.pfg{grid-template-columns:repeat(2,minmax(0,1fr))}
+.pfg input{width:100%;min-width:0;box-sizing:border-box;background:var(--s2);color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:8px 10px;font:inherit}
+.sfxgrp{margin:12px 0 4px;font-size:12.5px;font-weight:600;color:var(--tx);display:flex;align-items:center;gap:6px}.sfxgrp small{color:var(--mut);font-weight:400}
+.sfxrow button.playing{border-color:var(--y);color:var(--y)}
+.pp-ic{display:inline-block;width:12px;height:12px;vertical-align:middle}
+/* 4.21: علامة السرعة لما تعلّق على المسافة */
+#rateBadge{position:absolute;top:12px;left:12px;z-index:8;display:none;padding:4px 10px;border-radius:9px;background:rgba(31,30,29,.85);border:1px solid var(--bd);color:var(--tx);font-size:13px;font-weight:700;direction:ltr}
+body.fast #rateBadge{display:block}
+/* 4.21: قائمة كليك يمين */
+#ctx{position:fixed;z-index:60;min-width:210px;max-width:280px;padding:6px;border-radius:12px;background:var(--s1);border:1px solid var(--bd);display:none;direction:rtl}
+#ctx.on{display:block}
+#ctx button{display:flex;width:100%;align-items:center;gap:10px;justify-content:space-between;background:none;border:0;border-radius:8px;padding:8px 10px;font:inherit;font-size:13px;color:var(--tx);text-align:start;box-shadow:none}
+#ctx button:hover{background:var(--s3)}
+#ctx button.bad{color:#e8806f}
+#ctx kbd{font-size:11px;color:var(--mut);background:none;border:0;direction:ltr}
+#ctx hr{border:0;border-top:1px solid var(--bd);margin:5px 4px}
+#ctx .ttl{font-size:11.5px;color:var(--mut);padding:4px 10px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 4.23: نقل اللقطة بالسحب */
+#mvMark{position:absolute;top:0;bottom:0;width:3px;margin-left:-1px;background:var(--y);z-index:9;display:none;pointer-events:none;border-radius:2px}
+#mvGhost{position:absolute;top:0;bottom:0;z-index:8;display:none;pointer-events:none;border:2px solid var(--y);background:rgba(217,119,87,.18);border-radius:5px}
+/* 4.23: كم بتقص وأنت تسحب طرف اللقطة */
+#trimBadge{position:fixed;z-index:70;display:none;padding:3px 9px;border-radius:8px;background:var(--y);color:#fff;font-size:12.5px;font-weight:700;direction:ltr;pointer-events:none}
+#tFilm .region .rl,#tFilm .region .rr{cursor:col-resize}
 </style>
 </head>
 <body>
@@ -661,6 +740,7 @@ body.drawing #sideTools,body.drawing #giz,body.drawing #ticker,body.drawing #ges
   <div id="top">
     <button class="ic" id="bBack" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button><span class="name">Hojas Studio</span><span class="proj" id="proj" dir="auto"></span><span class="pill" id="pill"><i></i><span></span></span>
     <span id="busy"><i></i><span id="busyTx"></span></span>
+    <div id="modeSw" role="tablist"><button data-mode="claude" data-t="modeClaude"></button><button data-mode="manual" data-t="modeManual"></button></div>
     <span class="sp"></span>
     <span id="saved"></span>
     <button class="sm ghost" id="bLang">EN</button>
@@ -668,6 +748,7 @@ body.drawing #sideTools,body.drawing #giz,body.drawing #ticker,body.drawing #ges
     <button class="sm mic" id="bMic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span data-t="micBtn"></span></button>
     <button class="sm" id="bNote"><span data-t="note"></span> <kbd>M</kbd></button>
     <button class="sm" id="bQR" data-t="phone"></button>
+    <button class="sm" id="bAsk" data-t="askBtn"></button>
     <button class="sm pri" id="bExport" data-t="export"></button>
   </div>
   <div id="mid">
@@ -680,7 +761,7 @@ body.drawing #sideTools,body.drawing #giz,body.drawing #ticker,body.drawing #ges
         <div id="safe"></div>
         <div id="giz"></div>
       </div>
-      <div id="ticker"><i></i><span id="tickTx"></span></div><div id="gestHint"></div>
+      <div id="ticker"><i></i><span id="tickTx"></span></div><div id="rateBadge">2×</div><div id="gestHint"></div>
       <div id="sideTools"><button class="ic" id="bFull"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button><button class="ic" id="bDraw" data-tt="drawTool"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 4-2 5-4s2-3 4-3 3 2 5 2 4-2 4-2"/><path d="M14 4l6 6-8 8-6-6z"/></svg></button><button class="ic" id="bPen"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-1L19 8l-3-3L5 16z"/></svg></button></div>
       <div id="stageBtns"><button class="sm" id="bSafe" data-t="safeZones"></button><button class="sm" id="bCover" data-t="coverShot"></button></div>
       <div id="live"><div class="in">
@@ -702,10 +783,11 @@ body.drawing #sideTools,body.drawing #giz,body.drawing #ticker,body.drawing #ges
       <span id="tm">00:00.00</span>
       <div class="grp">
         <button class="sm" data-tool="select"><span data-t="toolSelect"></span> <kbd>A</kbd></button>
-        <button class="sm" data-tool="blade"><span data-t="toolBlade"></span> <kbd>B</kbd></button>
+        <button class="sm" id="bCutHere" title=""><span data-t="toolBlade"></span> <kbd>S</kbd></button>
         <button class="sm" id="bMag"><span data-t="toolMagnet"></span> <kbd>N</kbd></button>
-        <button class="sm" id="bSkim"><span data-t="toolSkim"></span> <kbd>S</kbd></button>
+        <button class="sm" id="bSkim"><span data-t="toolSkim"></span> <kbd>K</kbd></button>
         <button class="sm" id="bLink"><span data-t="toolLink"></span> <kbd>L</kbd></button>
+        <button class="sm" id="bPin"><span data-t="toolPin"></span></button>
       </div>
       <span class="sp"></span>
       <input type="range" id="zoom" min="16" max="260" value="80">
@@ -732,6 +814,7 @@ body.drawing #sideTools,body.drawing #giz,body.drawing #ticker,body.drawing #ges
 <div id="brief"></div>
 <div id="modal"><div id="mbox"></div></div>
 <div id="toast"></div>
+<div id="ctx"></div>
 <div id="boot" class="on"></div>
 <input type="file" id="fileIn" hidden>
 <script src="/hs/qr.js"></script>

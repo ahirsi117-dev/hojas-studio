@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Hojas Studio 4.16 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
+"""Hojas Studio 4.21 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
 
   python hs.py open   <work> [--engine <مجلد المحرّك>] [--port 8800] [--no-browser]
         يشغّل الخادم بالخلفية ويفتح المتصفح. شغّله أول ما تبدأ المونتاج، حتى قبل ما يجهز أي ملف.
@@ -17,6 +17,11 @@
   python hs.py auto   <work> zooms | transitions [type=curve dir=right] | beats | clear zooms|transitions|beats
   python hs.py caps   <work> regroup [wpl=5 lines=2] | names | clean [--dry]     الكابشن 5 كلمات بالسطر على الأنفاس · الأسماء بالإنجليزي · شيل جمل whisper المخترعة
   python hs.py look   <work> list | apply <اسم> | off           طابع جاهز (ملف سري · كينوت · سينما صامتة · مشربية …)
+  python hs.py sound  providers [set elevenlabs higgsfield | off]   خدمات الأصوات المربوطة بحسابه (يسألك عنها بصفحة الأسئلة)
+  python hs.py dub    <work> script <ar|en|es…> | import <json> | add <رقم> <ملف> | track <ملف> | build | off | status   الدبلجة بسكتات المقطع
+  python hs.py quality <work> off | light | strong | preview <ث>   تحسين الجودة: ينظّف ويحدّد ويرفع لـ1080 (قبل الكابشن)
+  python hs.py media  <work> [fresh]                            القص الفوري: هل الفيديو على آخر قص؟ و fresh يبنيه الحين
+  python hs.py mode   <work> [claude | manual]                    وضع الاستوديو: Claude يمنتج، أو مونتاج يدوي (و«اسأل Claude» لو احتجته)
   python hs.py beat   <work> [ملف | my2] [--at ث]                 يقيس إيقاع الموسيقى (للقص على الضربة)
 
   python hs.py text   <work> [show | <رقم الجملة> "النص الجديد"]
@@ -56,7 +61,7 @@
   python hs.py selftest [<work>]      فحص ذاتي: صياغة الملفات · النصوص العربية سليمة · كل مفاتيح الواجهة موجودة · الخادم يرد
 """
 import sys, os, json, time, re, shutil, subprocess, threading, secrets, base64, array, glob, zipfile, difflib, hashlib, tempfile, math
-import importlib.util, urllib.parse, urllib.request, urllib.error, socket
+import importlib.util, urllib.parse, urllib.request, urllib.error, socket, html
 
 # ويندوز: الخادم يشتغل بلا نافذة، فأي برنامج يشغّله (ffmpeg · node · bash) كان يفتح نافذة تيرمنال تومض.
 # نخلّي كل تشغيل مخفي افتراضياً إلا لو الأمر حدد أعلامه بنفسه.
@@ -74,7 +79,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.16"
+VERSION = "4.26"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json", "takes.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -259,6 +264,18 @@ def _stages(work):
         if k == "render" and total and 0 < nout < total - 1: d["pct"] = round(100 * nout / total)
         out.append(d)
     return out
+# 4.18: وضع الاستوديو لكل مشروع: claude (Claude يمنتج: المعاينة والخطة وتقدّمه) · manual (المحرّر كامل، وClaude لما تطلبه)
+STUDIO_MODES = ("claude", "manual")
+def studio_mode(work): return (load_studio(work).get("hs") or {}).get("mode")
+def studio_mode_set(work, mode, only_if_unset=False):
+    if mode not in STUDIO_MODES: return None
+    st = load_studio(work); hs = hs_of(st)
+    if only_if_unset and hs.get("mode") in STUDIO_MODES: return hs["mode"]
+    hs["mode"] = mode; wj(J(work, "studio.json"), st); return mode
+def cmd_mode(work, args):
+    if not args: print(studio_mode(work) or "manual (الافتراضي)"); return
+    if args[0] not in STUDIO_MODES: sys.exit("mode لازم: claude | manual")
+    studio_mode_set(work, args[0]); print("الاستوديو صار على: " + ("Claude يمنتج" if args[0] == "claude" else "مونتاج يدوي"))
 def ready(work): return os.path.exists(J(work, "compose.html")) and bool((rj(J(work, "caps.json"), {}) or {}).get("cards")) and os.path.isdir(J(work, "vfr")) and os.path.exists(J(work, "cutz.mp4"))
 def signature(work):
     h = hashlib.md5()
@@ -329,7 +346,7 @@ def pv_build(work):
         finally: _PV["busy"] = False
     threading.Thread(target=go, daemon=True).start()
 def vsig(work):
-    try: return "%x" % int(os.path.getmtime(J(work, "cutz.mp4")) * 10)
+    try: return "%x" % int(os.path.getmtime(J(work, "cutz.mp4")) * 10) + "-" + str(int((rj(J(work, ".hs", "enhance.json"), {}) or {}).get("at") or 0) % 100000)
     except OSError: return "0"
 def keep_seams(work):
     keep = (rj(J(work, "cut.json"), {}) or {}).get("keep") or []; acc = 0.0; out = []
@@ -448,7 +465,7 @@ def hist_step(work, back=True):
         src, dst = ("undo", "redo") if back else ("redo", "undo")
         e = _hpop(work, src)
         if not e or not isinstance(e.get("files"), dict): return False, False, ""
-        old_keep = (rj(J(work, "cut.json"), {}) or {}).get("keep"); now = hist_state(work)
+        media_pin(work); old_keep = (rj(J(work, "cut.json"), {}) or {}).get("keep"); now = hist_state(work)
         _hpush(work, dst, {"files": {f: now.get(f) for f in e["files"]}, "why": e.get("why"), "at": e.get("at")})
         for f, txt in e["files"].items():
             if f not in HIST_FILES: continue
@@ -458,9 +475,10 @@ def hist_step(work, back=True):
             else:
                 tmp = p + ".tmp"; open(tmp, "w", encoding="utf-8").write(txt); os.replace(tmp, p)
         _hwrite(os.path.join(_hdir(work), "cur.json"), hist_state(work))
-        return True, (rj(J(work, "cut.json"), {}) or {}).get("keep") != old_keep, e.get("why") or ""
+        changed = (rj(J(work, "cut.json"), {}) or {}).get("keep") != old_keep
+        return True, changed and not media_map(work)[0], e.get("why") or ""   # 4.23: يعيد البناء بس لو الفيديو الحالي ما يغطي القص
 def hist_counts(work): return len(_hlist(work, "undo")), len(_hlist(work, "redo"))
-HIST_WHY = {"/api/save": "تعديل", "/hs/remove": "قص", "/hs/takes_apply": "اختيار الجمل", "/hs/cuts_fix": "تصليح القص", "/hs/ver_restore": "استرجاع نسخة",
+HIST_WHY = {"/api/save": "تعديل", "/hs/remove": "قص", "/hs/move_shot": "نقل لقطة", "/hs/takes_apply": "اختيار الجمل", "/hs/cuts_fix": "تصليح القص", "/hs/ver_restore": "استرجاع نسخة",
             "/hs/takes_set": "اختيار الجمل", "/hs/plan_set": "الخطة", "/hs/plan_build": "بناء الخطة", "/hs/unsure": "الكلمات المشكوك فيها", "/hs/rmbg": "شيل الخلفية", "/hs/sv": "صوت استوديو"}
 def cmd_undo(work, back=True):
     ok, rb, why = hist_step(work, back)
@@ -478,10 +496,229 @@ def run(cmd, log, cwd=None, check=True, env=None):
     if check and r.returncode: raise RuntimeError(os.path.basename(str(cmd[1] if len(cmd) > 1 else cmd[0])) + " فشل: " + out[-300:])
     return r
 
+# ── 4.23: القص الفوري: القص يغيّر الكابشن والطبقات والتايم لاين على طول، والمعاينة تعرض من الفيديو الحالي وتتخطّى المقصوص.
+#    الفيديو ينبني من جديد بس وقت التصدير (أو لو رجّعت جزء مو موجود بالفيديو الحالي). .hs/media.json = القص اللي انبنى منه cutz.mp4 (برّا التراجع والنسخ).
+def _segs(keep): return [(float(a), float(b)) for a, b in (keep or [])]
+def media_path(work): return J(work, ".hs", "media.json")
+def media_pin(work):
+    """لو ما ندري الفيديو انبنى من أي قص: هو القص الحالي (قبل ما يتغيّر)."""
+    if os.path.isfile(media_path(work)): return
+    k = (rj(J(work, "cut.json"), {}) or {}).get("keep")
+    if k: os.makedirs(J(work, ".hs"), exist_ok=True); wj(media_path(work), {"keep": k})
+def media_map(work):
+    """(الفيديو الحالي يغطي القص؟، خريطة [بداية جديدة، نهاية جديدة، بداية بالفيديو] أو None لو مطابق)."""
+    keep = _segs((rj(J(work, "cut.json"), {}) or {}).get("keep")); med = _segs((rj(media_path(work), {}) or {}).get("keep")) or keep
+    if not keep: return True, None
+    if len(keep) == len(med) and all(abs(a - c) < 1e-3 and abs(b - d) < 1e-3 for (a, b), (c, d) in zip(keep, med)): return True, None
+    mo, acc = [], 0.0
+    for a, b in med: mo.append(acc); acc += b - a
+    out, nacc = [], 0.0
+    for a, b in keep:
+        x = a
+        while x < b - 1e-4:
+            j = next((i for i, (ma, mb) in enumerate(med) if ma - 0.06 <= x < mb - 1e-4), None)   # القص يلقط الحدود على الفريمات: فرق أقل من فريمين عادي
+            if j is None: return False, None
+            ma, mb = med[j]; y = b if b - mb <= 0.06 else mb; o = mo[j] + min(max(0.0, x - ma), mb - ma)
+            if out and abs(out[-1][1] - nacc) < 1e-4 and abs(out[-1][2] + (out[-1][1] - out[-1][0]) - o) < 2e-3: out[-1][1] = round(nacc + (y - x), 4)
+            else: out.append([round(nacc, 4), round(nacc + (y - x), 4), round(o, 4)])
+            nacc += y - x; x = y
+    return True, out
+def ensure_media(work, S, log):
+    """قبل التصدير: لو الفيديو مبني من قص قديم يتبني من جديد. يرجّع True لو بناه."""
+    ok, vm = media_map(work)
+    if ok and vm is None: return False
+    log("أركّب الفيديو على آخر قص (القص كان فوري بالاستوديو)…"); rebuild_video(work, S, log); return True
+# ── 4.23: تنقل لقطة لمكان ثاني: الترتيب يتغيّر بالقص نفسه، والكابشن والطبقات والمؤثرات تمشي معها، والمعاينة فورية ──
+def move_shot(work, s, e, to):
+    cut_init(work); cm = cutmap_mod(); cut = rj(J(work, "cut.json")); keep = [list(map(float, x)) for x in cut["keep"]]; off, total = cm.offsets(keep)
+    s, e, to = max(0.0, float(s)), min(total, float(e)), min(max(0.0, float(to)), total)
+    if e - s < 0.1: raise ValueError("اللقطة قصيرة")
+    if s - 0.01 <= to <= e + 0.01: raise ValueError("نفس مكانها")
+    def split_at(k, t):
+        o_, _ = cm.offsets(k)
+        for i, ((a, b), o) in enumerate(zip(k, o_)):
+            if o + 1e-4 < t < o + (b - a) - 1e-4: x = round(a + (t - o), 6); return k[:i] + [[a, x], [x, b]] + k[i + 1:]
+        return k
+    for t in (s, e, to): keep = split_at(keep, t)
+    off, _ = cm.offsets(keep); segs = [(o, o + (b - a), [a, b]) for (a, b), o in zip(keep, off)]
+    mid = [g for g in segs if g[0] >= s - 1e-4 and g[1] <= e + 1e-4]; rest = [g for g in segs if g not in mid]
+    if not mid: raise ValueError("ما لقيت اللقطة")
+    idx = next((i for i, g in enumerate(rest) if g[0] >= to - 1e-4), len(rest)); order = rest[:idx] + mid + rest[idx:]
+    ns, acc = {}, 0.0
+    for g in order: ns[g[0]] = acc; acc += g[1] - g[0]
+    def remap(t, mode=None):
+        for g in segs:
+            if g[0] - 1e-6 <= t < g[1] - 1e-6 or (g is segs[-1] and t <= g[1] + 1e-6): return round(ns[g[0]] + (t - g[0]), 3)
+        return t
+    media_pin(work); snapshot(work, "قبل نقل اللقطة (تلقائي)")
+    bounds = sorted({round(x, 4) for x in (s, e, to)})
+    caps = rj(J(work, "caps.json")); cards = []
+    for c in caps.get("cards") or []:   # الجملة اللي يمر فيها حد اللقطة تنقسم عنده
+        grp = []
+        for w in c.get("w") or []:
+            if grp and any(grp[-1]["e"] <= b + 1e-3 and (w["s"] + w["e"]) / 2 > b for b in bounds): cards.append({**c, "w": grp}); grp = []
+            grp.append(w)
+        if grp: cards.append({**c, "w": grp})
+    out = []
+    for c in cards:
+        ws = c["w"]; lead = min(0.3, max(0.0, ws[0]["s"] - c.get("s", ws[0]["s"]))) if len(ws) == len(c["w"]) else 0.05; tail = min(0.5, max(0.0, c.get("e", ws[-1]["e"]) - ws[-1]["e"]))
+        nw = [{**w, "s": remap(w["s"]), "e": round(remap(w["s"]) + (w["e"] - w["s"]), 3)} for w in ws]
+        out.append({**c, "s": round(max(0.0, nw[0]["s"] - lead), 3), "e": round(nw[-1]["e"] + tail, 3), "w": nw})
+    out.sort(key=lambda c: c["s"])
+    for i in range(len(out) - 1):
+        if out[i]["e"] > out[i + 1]["s"] - 0.02: out[i]["e"] = round(max(out[i]["w"][-1]["e"], out[i + 1]["s"] - 0.02), 3)
+    wj(J(work, "caps.json"), {**caps, "cards": out})
+    cut["keep"] = [g[2] for g in order]; cut["edited"] = True; wj(J(work, "cut.json"), cut)
+    # الطبقات والمؤثرات وغيرها: بدايتها تمشي مع اللقطة ومدتها نفسها (الثابتة بثانيتها ما تتحرك)
+    st = load_studio(work); hs = hs_of(st); pin_all = hs.get("pinLayers", True) is not False
+    def mvd(x):
+        s0 = float(x.get("s", 0)); d = float(x.get("e", 0)) - s0; s1 = remap(s0); return {**x, "s": round(s1, 3), "e": round(min(total, s1 + d), 3)}
+    hs["layers"] = [mvd(x) if (x.get("pin") if x.get("pin") is not None else pin_all) else x for x in hs.get("layers") or []]
+    for k in ("blank",): hs[k] = sorted([mvd(x) for x in hs.get(k) or []], key=lambda x: x["s"]) if hs.get(k) else hs.get(k)
+    if (hs.get("mix") or {}).get("vr"): hs["mix"]["vr"] = sorted([mvd(x) for x in hs["mix"]["vr"]], key=lambda x: x["s"])
+    if (hs.get("bleep") or {}).get("items"): hs["bleep"]["items"] = sorted([mvd(x) for x in hs["bleep"]["items"]], key=lambda x: x["s"])
+    for k in ("stickers", "brollClips"):
+        if st.get(k): st[k] = sorted([mvd(x) for x in st[k]], key=lambda x: x["s"])
+    if hs.get("marks"): hs["marks"] = []
+    wj(J(work, "studio.json"), st)
+    sfx = rj(J(work, "sfx.json"), None)
+    if sfx is not None:
+        for k, v in list(sfx.items()):
+            if isinstance(v, list): sfx[k] = sorted([([remap(t[0])] + list(t[1:])) if isinstance(t, list) else remap(t) for t in v], key=lambda t: t[0] if isinstance(t, list) else t)
+        wj(J(work, "sfx.json"), sfx)
+    return {"to": remap(s), "n": len(mid)}
+# ── 4.26: الدبلجة: سكربت بتوقيت كل جملة وسكتتها، صوت لكل جملة (ElevenLabs من حسابه أو ملف يجيبه)، ويتركّب بنفس السكتات والصوت الأصلي ينشال ──
+DUB_LANGS = {"ar": "العربية", "en": "الإنجليزية", "es": "الإسبانية", "fr": "الفرنسية", "de": "الألمانية", "tr": "التركية", "ur": "الأوردو", "hi": "الهندية", "id": "الإندونيسية", "pt": "البرتغالية", "it": "الإيطالية", "ru": "الروسية", "zh": "الصينية", "ja": "اليابانية", "ko": "الكورية"}
+DUB_WPS = {"ar": 2.3, "en": 2.6, "es": 2.8, "fr": 2.7, "de": 2.3}
+def dub_path(work): return J(work, "dub.json")
+def dub_get(work): return rj(dub_path(work), None)
+def dub_script(work, lang):
+    """يكتب dub.json وdub-script.txt: كل جملة بوقتها ومدتها والسكتة اللي بعدها، وكم كلمة تقريباً تتسع."""
+    if lang not in DUB_LANGS: raise ValueError("اللغة لازم وحدة من: " + " · ".join(DUB_LANGS))
+    cards = (rj(J(work, "caps.json"), {}) or {}).get("cards") or []
+    if not cards: raise ValueError("ما فيه كابشن بالمشروع")
+    old = {x.get("key"): x for x in ((dub_get(work) or {}).get("segs") or [])}
+    segs = []
+    for i, c in enumerate(cards):
+        k = card_key(c); s0, e0 = float(c["w"][0]["s"]), float(c["w"][-1]["e"]); nxt = float(cards[i + 1]["w"][0]["s"]) if i + 1 < len(cards) else e0 + 1.0
+        o = old.get(k) or {}
+        segs.append({"i": i, "key": k, "s": round(s0, 3), "e": round(e0, 3), "pause": round(max(0.0, nxt - e0), 2), "words": max(1, round((e0 - s0) * DUB_WPS.get(lang, 2.5))), "tr": o.get("tr", ""), "file": o.get("file")})
+    D = {"lang": lang, "segs": segs, "at": int(time.time())}; wj(dub_path(work), D); dub_txt(work, D); return D
+def dub_txt(work, D=None):
+    D = D or dub_get(work) or {}; L = ["سكربت الدبلجة (%s): كل جملة بوقتها. خلّ الترجمة بنفس الطول تقريباً، والسكتة بعدها نفسها." % DUB_LANGS.get(D.get("lang"), D.get("lang")), ""]
+    for x in D.get("segs") or []:
+        L.append("#%d  %d:%04.1f ← %d:%04.1f  (%.1f ث، تقريباً %d كلمة)  ثم سكتة %.1f ث" % (x["i"] + 1, x["s"] // 60, x["s"] % 60, x["e"] // 60, x["e"] % 60, x["e"] - x["s"], x["words"], x["pause"]))
+        L.append("    الأصل: " + x["key"]); L.append("    الدبلجة: " + (x.get("tr") or "…")); L.append("")
+    open(J(work, "dub-script.txt"), "w", encoding="utf-8").write("\n".join(L)); return J(work, "dub-script.txt")
+def dub_import(work, items):
+    D = dub_get(work) or {}; S = {x["i"]: x for x in D.get("segs") or []}; n = 0
+    for it in items or []:
+        x = S.get(int(it.get("i", -1)))
+        if x is not None and isinstance(it.get("tr"), str): x["tr"] = it["tr"].strip(); n += 1
+    wj(dub_path(work), D); dub_txt(work, D)
+    st = load_studio(work); en = hs_of(st).setdefault("en", {}); mp = en.setdefault("map", {})
+    for x in D.get("segs") or []:
+        if x.get("tr"): mp[x["key"]] = x["tr"]
+    en["on"] = True; wj(J(work, "studio.json"), st); return n
+def dub_add(work, i, src):
+    D = dub_get(work) or {}; x = next((y for y in D.get("segs") or [] if y["i"] == int(i)), None)
+    if x is None: raise ValueError("ما فيه جملة رقم %s" % i)
+    os.makedirs(J(work, "dub"), exist_ok=True); dst = J(work, "dub", "%03d%s" % (int(i), os.path.splitext(src)[1].lower() or ".mp3"))
+    if os.path.abspath(src) != os.path.abspath(dst): shutil.copy(src, dst)
+    x["file"] = os.path.relpath(dst, work).replace("\\", "/"); wj(dub_path(work), D); return dst
+def dub_track(work, src):
+    """ملف دبلجة كامل جاهز (من ElevenLabs Dubbing أو سجّله هو) على نفس توقيت المقطع."""
+    D = dub_get(work) or {"lang": "", "segs": []}; os.makedirs(J(work, "dub"), exist_ok=True); dst = J(work, "dub", "track" + (os.path.splitext(src)[1].lower() or ".mp3"))
+    if os.path.abspath(src) != os.path.abspath(dst): shutil.copy(src, dst)
+    D["track"] = os.path.relpath(dst, work).replace("\\", "/"); wj(dub_path(work), D); return dst
+def dub_build(work, log=print):
+    """يركّب dub.wav على توقيت الفيديو الحالي: كل جملة عند بدايتها، ولو أطول من مكانها (مدتها + سكتتها) تتسرّع لين ×1.3."""
+    D = dub_get(work)
+    if not D: raise ValueError("ما فيه دبلجة. ابدأ بـ: hs dub <work> script <اللغة>")
+    caps = rj(J(work, "caps.json"), {}) or {}; cards = caps.get("cards") or []; total = float(caps.get("total") or 0)
+    ok_, vm_ = media_map(work); med = lambda t: next((m0 + max(0.0, t - s0) for s0, e0, m0 in vm_ if t < e0), t) if vm_ else t
+    mtot = med(total) if vm_ else total; out = J(work, "dub.wav")
+    if D.get("track") and os.path.isfile(J(work, D["track"])):
+        run(["ffmpeg", "-v", "error", "-y", "-i", J(work, D["track"]), "-ac", "2", "-ar", "48000", "-af", "apad", "-t", "%.3f" % mtot, out], log); D["built"] = int(time.time()); wj(dub_path(work), D); return out, 0
+    pos = {card_key(c): (float(c["w"][0]["s"]), float(c["w"][-1]["e"]), (float(cards[i + 1]["w"][0]["s"]) if i + 1 < len(cards) else total)) for i, c in enumerate(cards)}
+    ins, fl, n, miss = [], [], 0, 0
+    for x in D.get("segs") or []:
+        f = J(work, x["file"]) if x.get("file") else None
+        if not f or not os.path.isfile(f) or x["key"] not in pos: miss += 1; continue
+        s0, e0, nx = pos[x["key"]]; room = max(0.3, nx - s0 - 0.05); d = ffdur(f) or room; sp = min(1.3, max(1.0, d / room))
+        ins += ["-i", f]; fl.append("[%d:a]aresample=48000,aformat=channel_layouts=stereo%s,adelay=%d|%d[d%d]" % (n, (",atempo=%.3f" % sp) if sp > 1.001 else "", int(med(s0) * 1000), int(med(s0) * 1000), n)); n += 1
+        if sp >= 1.299: log("تنبيه: الجملة #%d أطول من مكانها حتى بعد التسريع. قصّر ترجمتها." % (x["i"] + 1))
+    if not n: raise ValueError("ما فيه ولا ملف صوت للجمل. أضفها بـ: hs dub <work> add <رقم> <ملف>")
+    fc = ";".join(fl) + ";" + "".join("[d%d]" % i for i in range(n)) + "amix=inputs=%d:duration=longest:normalize=0,apad,atrim=0:%.3f[o]" % (n, mtot)
+    run(["ffmpeg", "-v", "error", "-y"] + ins + ["-filter_complex", fc, "-map", "[o]", "-ac", "2", "-ar", "48000", out], log)
+    D["built"] = int(time.time()); wj(dub_path(work), D); return out, miss
+def dub_on(work): return bool((hs_of(load_studio(work)).get("mix") or {}).get("dub")) and os.path.isfile(J(work, "dub.wav"))
+# ── 4.25: تحسين الجودة: ينظّف التشويش ويحدّد التفاصيل ويرفع الدقة لـ1080 على فيديوك قبل الكابشن والعناصر (فالنص يبقى نظيف) ──
+ENH_LEVELS = ("off", "light", "strong")
+def enh_level(work):
+    l = (hs_of(load_studio(work)).get("enhance") or {}).get("level"); return l if l in ENH_LEVELS else "off"
+def vid_size(path):
+    try: w, h = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0:s=x", path], capture_output=True, text=True, timeout=30).stdout.strip().split("x")[:2]; return int(w), int(h)
+    except Exception: return 0, 0
+def enh_filter(level, src_w=0, src_h=0):
+    """سلسلة فلاتر ffmpeg (تشتغل بويندوز وماك: كلها فلاتر داخلية، ولو فلتر ناقص ينحط بديله)."""
+    if level not in ("light", "strong"): return ""
+    f = []
+    if src_w and src_h and (src_w < 1080 or src_h < 1920): f.append("scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:1920")
+    if ff_has("hqdn3d"): f.append("hqdn3d=1.5:1.5:6:6" if level == "light" else "hqdn3d=3:2.5:8:8")
+    if level == "strong" and ff_has("deband"): f.append("deband")
+    f.append(("cas=%.2f" % (0.5 if level == "light" else 0.85)) if ff_has("cas") else ("unsharp=5:5:%.1f:5:5:0" % (0.8 if level == "light" else 1.3)))
+    if level == "strong": f.append("unsharp=7:7:0.35:7:7:0")
+    f.append("eq=saturation=%.2f:contrast=%.2f" % ((1.05, 1.03) if level == "light" else (1.08, 1.05)))
+    return ",".join(f)
+def vfr_extract(work, log, level=None):
+    """يطلّع فريمات المعاينة والتصدير من cutz.mp4 (بالتحسين لو مشغّل). تنكتب بمجلد مؤقت وتتبدّل مرة وحدة."""
+    level = level or enh_level(work); src = J(work, "cutz.mp4"); w, h = vid_size(src); ch = enh_filter(level, w, h)
+    new, old = J(work, ".hs", "vfr.new"), J(work, ".hs", "vfr.old")
+    shutil.rmtree(new, ignore_errors=True); shutil.rmtree(old, ignore_errors=True); os.makedirs(new)
+    if ch: log("أحسّن الجودة (%s)…" % {"light": "خفيف", "strong": "قوي"}[level])
+    run(["ffmpeg", "-v", "error", "-i", src, "-vf", "fps=30" + ("," + ch if ch else ""), "-q:v", "2", "-y", os.path.join(new, "%05d.jpg")], log, cwd=work)
+    if os.path.isdir(J(work, "vfr")): os.replace(J(work, "vfr"), old)
+    os.replace(new, J(work, "vfr")); shutil.rmtree(old, ignore_errors=True)
+    os.makedirs(J(work, ".hs"), exist_ok=True); wj(J(work, ".hs", "enhance.json"), {"level": level, "at": int(time.time())})
+def quality_preview(work, t, level):
+    """قبل وبعد لنفس اللقطة (تفاصيل بالحجم الحقيقي من نص الصورة)."""
+    ok, vm = media_map(work); o = float(t)
+    if vm:
+        for s0, e0, m0 in vm:
+            if o < e0: o = m0 + max(0.0, o - s0); break
+    src = J(work, "cutz.mp4"); w, h = vid_size(src); ch = enh_filter(level if level in ("light", "strong") else "light", w, h)
+    base = "scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:1920"
+    vf = "[0:v]%s,split[o][x];[x]%s[e];[o]crop=540:760:270:520[oc];[e]crop=540:760:270:520[ec];[oc][ec]hstack" % (base, ch or "null")
+    out = J(work, ".hs", "qprev.jpg")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "%.3f" % max(0.0, o), "-i", src, "-frames:v", "1", "-filter_complex", vf, "-q:v", "2", out], check=True, timeout=60)
+    return out
+# ── 4.25: مشروع بدون cut.json (مبني بطريقة ثانية، مثل مقاطع الموشن): الفيديو الحالي هو الأصل، والقص والتصدير يشتغلون عليه ──
+def cut_init(work):
+    if os.path.isfile(J(work, "cut.json")): return False
+    cz = J(work, "cutz.mp4"); base = J(work, "src-cutz.mp4")
+    if not os.path.isfile(cz) and not os.path.isfile(base): raise ValueError("ما لقيت فيديو المشروع (cutz.mp4)")
+    if not os.path.isfile(base): shutil.copy2(cz, base)   # نسخة مو رابط: لو أي أداة كتبت فوق cutz.mp4 الأصل ما يتأثر
+    d = round(probe_dur(base) or float((rj(J(work, "caps.json"), {}) or {}).get("total") or 0), 3)
+    if d <= 0: raise ValueError("ما قدرت أقرأ مدة الفيديو")
+    keep = [[0.0, d]]; wj(J(work, "cut.json"), {"keep": keep, "total": d, "src": "cutz"}); os.makedirs(J(work, ".hs"), exist_ok=True); wj(media_path(work), {"keep": keep}); return True
+def _concat_cutz(work, keep, log):
+    """يركّب cutz.mp4 من قطع src-cutz.mp4 بالترتيب (بدل 03_cut_zoom اللي يحتاج src.mov)."""
+    base = J(work, "src-cutz.mp4"); has_a = "audio" in subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type", "-of", "csv=p=0", base], capture_output=True, text=True).stdout
+    fc, ins = [], ""
+    for i, (a, b) in enumerate(keep):
+        fc.append("[0:v]trim=start=%.4f:end=%.4f,setpts=PTS-STARTPTS[v%d]" % (a, b, i)); ins += "[v%d]" % i
+        if has_a: fc.append("[0:a]atrim=start=%.4f:end=%.4f,asetpts=PTS-STARTPTS[a%d]" % (a, b, i)); ins += "[a%d]" % i
+    fc.append("%sconcat=n=%d:v=1:a=%d[v]%s" % (ins, len(keep), 1 if has_a else 0, "[a]" if has_a else ""))
+    tmp = J(work, ".hs", "cutz.tmp.mp4"); os.makedirs(J(work, ".hs"), exist_ok=True)
+    run(["ffmpeg", "-v", "error", "-y", "-i", base, "-filter_complex", ";".join(fc), "-map", "[v]"] + (["-map", "[a]", "-c:a", "aac", "-b:a", "192k"] if has_a else []) + ["-c:v", "libx264", "-preset", "veryfast", "-crf", "17", "-pix_fmt", "yuv420p", "-r", "30", "-movflags", "+faststart", tmp], log)
+    os.replace(tmp, J(work, "cutz.mp4")); wj(media_path(work), {"keep": [list(map(float, x)) for x in keep]})
+    log("✅ cutz.mp4 من %d قطعة" % len(keep))
 def rebuild_video(work, S, log):
-    log("أقص وأركّب الفيديو من جديد…"); run([PY, os.path.join(S, "03_cut_zoom.py"), work], log, cwd=work)
-    log("أطلّع الفريمات…"); shutil.rmtree(J(work, "vfr"), ignore_errors=True); os.makedirs(J(work, "vfr"))
-    run(["ffmpeg", "-v", "error", "-i", J(work, "cutz.mp4"), "-vf", "fps=30", "-q:v", "3", "-y", J(work, "vfr", "%05d.jpg")], log, cwd=work)
+    cut_ = rj(J(work, "cut.json"), {}) or {}
+    if cut_.get("src") == "cutz" and os.path.isfile(J(work, "src-cutz.mp4")): log("أركّب الفيديو من القطع…"); _concat_cutz(work, cut_["keep"], log)
+    else: log("أقص وأركّب الفيديو من جديد…"); run([PY, os.path.join(S, "03_cut_zoom.py"), work], log, cwd=work)
+    log("أطلّع الفريمات…"); vfr_extract(work, log)
     for f in ("behind.json", "sfx.wav"):
         try: os.remove(J(work, f))
         except FileNotFoundError: pass
@@ -518,7 +755,12 @@ def retime_project(work, remap, total, new_total):
         st["scenes"] = sc
     for k in ("stickers", "brollClips"):
         if st.get(k): st[k] = mv(st[k])
-    if hs.get("layers"): hs["layers"] = mv(hs["layers"])
+    if hs.get("layers"):   # 4.20: المربوطة باللقطة تمشي معها، والثابتة تبقى بثانيتها
+        pin_all = hs.get("pinLayers", True) is not False; out = []
+        for x in hs["layers"]:
+            if (x.get("pin") if x.get("pin") is not None else pin_all): out += mv([x])
+            elif float(x.get("s", 0)) < new_total - 0.1: out.append({**x, "e": round(min(float(x.get("e", 0)), new_total), 3)})
+        hs["layers"] = out
     if (hs.get("bleep") or {}).get("items"):   # 4.6: الكلمات المكتومة تزحف مع القص
         hs["bleep"]["items"] = [{**x, "s": shift(float(x["s"])), "e": shift(float(x["e"]))} for x in hs["bleep"]["items"] if shift(float(x["e"])) - shift(float(x["s"])) >= 0.04]
     if (hs.get("mix") or {}).get("vr"):   # 4.11: مستوى صوت الأجزاء يزحف مع القص
@@ -547,7 +789,7 @@ def remove_ranges(work, S, log, ranges=(), cards=(), words=(), rebuild=True):
     iv = sorted(x for x in iv if x[1] - x[0] > 0.03)
     if not iv: raise ValueError("ما فيه شي ينشال")
     # 4.9: الحذف يمر من خريطة القص: كل وقت ينحسب من مكانه بالأصل، وحدود القص على أهدأ نقطة، فالكابشن ما يتأخر ولا يبقى كابشن لكلام انشال
-    cm = cutmap_mod(); cut = rj(J(work, "cut.json")); keep = [list(x) for x in cut["keep"]]
+    cut_init(work); media_pin(work); cm = cutmap_mod(); cut = rj(J(work, "cut.json")); keep = [list(x) for x in cut["keep"]]
     guards = [(w["s"], w["e"]) for i, c in enumerate(cs) if i not in drop_cards for j, w in enumerate(c["w"]) if (i, j) not in drop_words and not any(a <= (w["s"] + w["e"]) / 2 <= b for a, b in iv)]
     new_keep, remap, gone = cm.remove(work, keep, iv, guards)
     new_total = round(sum(b - a for a, b in new_keep), 3)
@@ -962,6 +1204,9 @@ def sv_ext_file(work):
     return f if os.path.isfile(f) and m.get("keep") == _keep_key(work) else None
 def voice_track(work, mix, log=print):
     """الصوت اللي يدخل التصدير: (مسار أو None للأصلي، الطريقة)."""
+    if mix.get("dub") and dub_get(work):   # 4.26: الدبلجة بدل الصوت الأصلي كامل
+        try: f, _ = dub_build(work, log); return f, "dub"
+        except Exception as ex: log("تنبيه: الدبلجة ما تركّبت (%s). أكمل بالصوت الأصلي." % str(ex)[:160])
     mode = sv_mode(mix)
     if mode == "ext":
         f = sv_ext_file(work)
@@ -1527,7 +1772,29 @@ def my_list(sync=True):
             meta.append({"id": nid, "name": os.path.splitext(f)[0][:60], "file": f, "dur": d, "note": ""}); ch = True
         if ch: wj(my_meta_path(), meta)
     return meta
-def my_import(src, name=None, note=""):
+# 4.19: أصوات من حسابه بخدمة أصوات مربوطة بـ Claude (موصّل، بدون مفاتيح API). Claude يسجّل وش المربوط، وصفحة الأسئلة تسأله منين الأصوات
+SOUND_KNOWN = {"elevenlabs": {"name": "ElevenLabs", "can": ["sfx", "music", "voice"]}, "higgsfield": {"name": "Higgsfield", "can": ["sfx", "music"]}}
+def sound_cfg_path(): return os.path.join(HOME_CFG, "sound.json")
+def sound_providers(): return [p for p in ((rj(sound_cfg_path(), {}) or {}).get("providers") or []) if isinstance(p, dict) and p.get("id")]
+def sound_set(ids, names=None):
+    out = []
+    for i, x in enumerate(ids):
+        k = re.sub(r"[^a-z0-9_-]+", "", str(x).lower())
+        if not k: continue
+        kn = SOUND_KNOWN.get(k) or {}; out.append({"id": k, "name": ((names or [None] * len(ids))[i] if names and i < len(names) else None) or kn.get("name") or x, "can": kn.get("can") or ["sfx", "music"]})
+    os.makedirs(HOME_CFG, exist_ok=True); wj(sound_cfg_path(), {"providers": out, "at": int(time.time())}); return out
+def sound_name(pid): return next((p["name"] for p in sound_providers() if p["id"] == pid), (SOUND_KNOWN.get(pid) or {}).get("name") or pid)
+def cmd_sound(args):
+    sub = args[0] if args else "providers"
+    if sub != "providers": sys.exit("sound providers [set <elevenlabs|higgsfield|…> [--name \"…\"] | off]")
+    rest = list(args[1:])
+    if rest[:1] == ["off"]: sound_set([]); print("انشالت خدمات الأصوات. الأصوات من المكتبة المجانية بس."); return
+    if rest[:1] == ["set"]:
+        names = []
+        if "--name" in rest: i = rest.index("--name"); names = [rest[i + 1]]; del rest[i:i + 2]
+        P = sound_set(rest[1:], names); print("الخدمات المربوطة: " + (" · ".join(p["name"] for p in P) or "ولا وحدة")); return
+    P = sound_providers(); print(chr(10).join("%-12s %s  (%s)" % (p["id"], p["name"], "، ".join(p["can"])) for p in P) or "ما فيه خدمة أصوات مربوطة. الأصوات من المكتبة المجانية (CC0).")
+def my_import(src, name=None, note="", gen=None, prompt=None):
     if not os.path.isfile(src) or not src.lower().endswith(AUD_EXT): raise ValueError("مو ملف صوت: " + src)
     base = re.sub(r"[^\w.\- ]+", "_", os.path.basename(src)); dst = os.path.join(my_dir(), base)
     if os.path.abspath(src) != os.path.abspath(dst): shutil.copy(src, dst)
@@ -1535,6 +1802,8 @@ def my_import(src, name=None, note=""):
     if not m: raise RuntimeError("ما قدرت أقرأ الصوت: " + base)
     if name: m["name"] = name[:60]
     if note: m["note"] = note[:200]
+    if gen: m["gen"] = re.sub(r"[^a-z0-9_-]+", "", str(gen).lower())[:30]; m["at"] = int(time.time())   # 4.19: مولّد من حسابه
+    if prompt: m["prompt"] = str(prompt)[:300]
     wj(my_meta_path(), meta); return m
 def my_edit(i, name=None, note=None, delete=False):
     meta = my_list(False); m = next((x for x in meta if x["id"] == i), None)
@@ -1639,19 +1908,17 @@ def cmd_sfx(work, args):
         print("\n✓ = منزّل على هذا الجهاز. نزّل الباقي: hs sfx <work> fetch · قسم واحد: hs sfx <work> list music")
         print("cc-… كلها CC0 (حرة للاستخدام التجاري بدون ذكر المصدر). القواعد: references/editing-rules.md")
         print("\nأصوات المستخدم (ملفاته هو، قدّمها على المكتبة لما تناسب اللحظة):" if mine else "\nما عنده أصوات خاصة بعد. مجلدها: " + my_dir())
-        for m in mine: print("%-7s %-6s %s%s%s" % (m["id"], "%ss" % m.get("dur", 0), m["name"], "  ← " + m["note"] if m.get("note") else "", "  (طويل: يصلح خلفية أو موسيقى، حدد المدة [ث, قوة, مدة])" if float(m.get("dur") or 0) > 8 else ""))
+        for m in mine: print("%-7s %-6s %s%s%s%s" % (m["id"], "%ss" % m.get("dur", 0), m["name"], "  ← " + m["note"] if m.get("note") else "", "  [مولّد من %s]" % sound_name(m["gen"]) if m.get("gen") else "", "  (طويل: يصلح خلفية أو موسيقى، حدد المدة [ث, قوة, مدة])" if float(m.get("dur") or 0) > 8 else ""))
         return
     if sub == "import":
-        rest = list(args[1:]); nm = nt = None
-        for flag_ in ("--name", "--note"):
-            if flag_ in rest:
-                i = rest.index(flag_); v = rest[i + 1]; del rest[i:i + 2]
-                if flag_ == "--name": nm = v
-                else: nt = v
-        if not rest: sys.exit("sfx import <ملف صوت أو مجلد> [--name \"…\"] [--note \"متى ينستخدم\"]")
+        rest = list(args[1:]); fl = {}
+        for flag_ in ("--name", "--note", "--gen", "--prompt"):
+            if flag_ in rest: i = rest.index(flag_); fl[flag_] = rest[i + 1]; del rest[i:i + 2]
+        nm, nt = fl.get("--name"), fl.get("--note")
+        if not rest: sys.exit("sfx import <ملف صوت أو مجلد> [--name \"…\"] [--note \"متى ينستخدم\"] [--gen elevenlabs --prompt \"…\"]")
         src = os.path.abspath(rest[0]); files = [os.path.join(src, f) for f in sorted(os.listdir(src)) if f.lower().endswith(AUD_EXT)] if os.path.isdir(src) else [src]
         for f in files:
-            try: m = my_import(f, nm if len(files) == 1 else None, nt or ""); print("انضاف: %s ← %s (%ss)" % (m["id"], m["name"], m.get("dur")))
+            try: m = my_import(f, nm if len(files) == 1 else None, nt or "", fl.get("--gen"), fl.get("--prompt")); print("انضاف: %s ← %s (%ss)%s" % (m["id"], m["name"], m.get("dur"), ("  مولّد من " + sound_name(m["gen"])) if m.get("gen") else ""))
             except Exception as e: print("فشل: %s ← %s" % (os.path.basename(f), str(e)[:100]))
         return
     if sub == "fetch":
@@ -1790,6 +2057,41 @@ def vr_filters(mix):
         except Exception: continue
         if e - s >= 0.02 and abs(g - 1) > 1e-3: out += "volume=%.3f:enable='between(t,%.3f,%.3f)'," % (g, s, e)
     return out
+# 4.21: حارس الصوت: المؤثرات ما تعلو على صوتك، والموسيقى تبقى تحته بوضوح (يقيس صوتك بالمقطع نفسه)
+def _rms_windows(path, sr=8000, win=0.4, limit=None):
+    try: raw = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-ac", "1", "-ar", str(sr)] + (["-t", str(limit)] if limit else []) + ["-f", "s16le", "-"], capture_output=True, timeout=120).stdout
+    except Exception: return []
+    a = array.array("h"); a.frombytes(raw[: len(raw) // 2 * 2]); n = int(sr * win); out = []
+    for i in range(0, len(a) - n + 1, n):
+        seg = a[i:i + n]; ss = sum(x * x for x in seg) / n
+        out.append((i / sr, 10 * math.log10(ss / 1073741824.0 + 1e-12)))
+    return out
+def voice_guard(work, mix, log, voice_src, sfx_margin=3.0, bg_margin=12.0):
+    """يرجّع (معامل المؤثرات، مستوى الموسيقى). صوتك = وسط مستوى الكلام، والمؤثر الأعلى ما يتعدى صوتك ناقص 3 dB، والموسيقى صوتك ناقص 12 dB."""
+    bg = float(mix.get("bg", 0.28) or 0)
+    if mix.get("guard") is False: return 1.0, bg
+    words = sorted((w["s"], w["e"]) for c in (rj(J(work, "caps.json"), {}) or {}).get("cards", []) for w in c.get("w", []))
+    V = _rms_windows(voice_src)
+    if not V or not words: return 1.0, bg
+    sp, j = [], 0
+    for t0, db in V:
+        tc = t0 + 0.2
+        while j < len(words) and words[j][1] < tc: j += 1
+        if j < len(words) and words[j][0] <= tc <= words[j][1] and db > -60: sp.append(db)
+    if len(sp) < 5: return 1.0, bg
+    sp.sort(); vlev = sp[len(sp) // 2] + 20 * math.log10(max(float(mix.get("voice", 1) or 1), 1e-3)); g = 1.0
+    if os.path.exists(J(work, "sfx.wav")):
+        Sx = [db for _, db in _rms_windows(J(work, "sfx.wav"))]
+        if Sx and max(Sx) > vlev - sfx_margin:
+            g = 10 ** ((vlev - sfx_margin - max(Sx)) / 20); log("حارس الصوت: خفّضت المؤثرات %.1f dB عشان ما تعلو على صوتك" % (20 * math.log10(g)))
+    mf = music_file(work)
+    if mf and bg > 0:
+        M = sorted(db for _, db in _rms_windows(mf, limit=90) if db > -60)
+        if M:
+            eff = M[int(len(M) * 0.75)] + 20 * math.log10(bg)
+            if eff > vlev - bg_margin:
+                nb = bg * 10 ** ((vlev - bg_margin - eff) / 20); log("حارس الصوت: الموسيقى %.2f ← %.2f عشان تبقى تحت صوتك" % (bg, nb)); bg = nb
+    return g, round(bg, 4)
 def encode(work, S, log, out_final, out_master, mix):
     caps = rj(J(work, "caps.json")); sfx = rj(J(work, "sfx.json"), {"outro": 0}) or {}
     dur = round(caps["total"] + sfx.get("outro", 0), 3); fade = round(dur - 0.6, 3)
@@ -1797,23 +2099,25 @@ def encode(work, S, log, out_final, out_master, mix):
     voice = float(mix.get("voice", 1)); chain = (CLEAN_AF if mix.get("clean") and not svf else "") + VOICE_FX.get(mix.get("voiceFx") or "", "") + "volume=%.3f," % voice + vr_filters(mix)
     has_sfx = os.path.exists(J(work, "sfx.wav")); ins = ["-framerate", "30", "-i", J(work, "out", "%05d.jpg"), "-i", J(work, "cutz.mp4")] + (["-i", J(work, "sfx.wav")] if has_sfx else []) + (["-i", svf] if svf else [])
     bm, bp = bleep_filters(bleep_of(hs_of(load_studio(work)))); a0 = "a0"; ain = "[%d:a]" % (3 if has_sfx else 2) if svf else "[1:a]"
-    if svf: log("الصوت: " + ("اللي عالجته من برا" if svm == "ext" else "صوت استوديو"))
+    g_sfx, bg_lv = voice_guard(work, mix, log, svf or J(work, "cutz.mp4"))
+    if svf: log("الصوت: " + {"ext": "اللي عالجته من برا", "dub": "الدبلجة", "local": "صوت استوديو"}.get(svm, "صوت استوديو"))
     fc = "[0:v]scale=in_range=pc:out_range=tv:out_color_matrix=bt709,format=yuv420p[vo];%s%s%sapad=pad_dur=8[a0];" % (ain, chain, bm)
     if bp: fc += "%s[bp];[a0][bp]amix=inputs=2:duration=first:normalize=0[a0b];" % bp; a0 = "a0b"
-    fc += ("[%s][2:a]amix=inputs=2:duration=first:normalize=0[am];" % a0 if has_sfx else "[%s]anull[am];" % a0)
+    fc += ("[2:a]volume=%.4f[sx];[%s][sx]amix=inputs=2:duration=first:normalize=0[am];" % (g_sfx, a0) if has_sfx else "[%s]anull[am];" % a0)
     fc += "[am]atrim=0:%s,asetpts=PTS-STARTPTS,afade=t=out:st=%s:d=0.6[ao]" % (dur, fade)
     for f in (out_final, out_master):
         try: os.remove(f)
         except FileNotFoundError: pass
     log("تجميع…")
-    run(["ffmpeg", "-v", "error", "-nostats"] + ins + ["-filter_complex", fc, "-map", "[vo]", "-map", "[ao]", "-c:v", "libx264", "-preset", "slow", "-crf", "21",
-         "-maxrate", "6M", "-bufsize", "12M", "-profile:v", "high", "-level", "4.0", "-pix_fmt", "yuv420p", "-color_range", "tv", "-colorspace", "bt709",
-         "-color_primaries", "bt709", "-color_trc", "bt709", "-r", "30", "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart", "-y", out_final], log)
-    log("معايرة الصوت…"); env = dict(os.environ); env["BG_GAIN"] = str(mix.get("bg", 0.28)); env["BG_FADE_IN"], env["BG_FADE_OUT"] = bg_fades(mix)
+    run(["ffmpeg", "-v", "error", "-nostats"] + ins + ["-filter_complex", fc, "-map", "[vo]", "-map", "[ao]", "-c:v", "libx264", "-preset", "slow", "-crf", "18",
+         "-maxrate", "10M", "-bufsize", "20M", "-profile:v", "high", "-level", "4.0", "-pix_fmt", "yuv420p", "-color_range", "tv", "-colorspace", "bt709",
+         "-color_primaries", "bt709", "-color_trc", "bt709", "-r", "30", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart", "-y", out_final], log)
+    log("معايرة الصوت…"); env = dict(os.environ); env["BG_GAIN"] = str(bg_lv); env["BG_FADE_IN"], env["BG_FADE_OUT"] = bg_fades(mix)
     r = run(["bash", os.path.join(S, "06b_master.sh"), work, out_final, out_master], log, cwd=work, check=False, env=env)
     if not os.path.exists(out_master): log("المعايرة ما اشتغلت — أسلّم الملف بلا معايرة"); shutil.copy(out_final, out_master)
 def export(work, S, log, kind="final", hooks=False, frame=None):
     """kind: final | clean (بلا كابشن). hooks=True يطلّع نسخة لكل صيغة هوك."""
+    ensure_media(work, S, log)   # 4.23: القص الفوري يتركّب هنا
     st = load_studio(work); hs = hs_of(st); mix = hs.get("mix") or {}; outs = []
     if kind == "clean": hs["nocap"] = True; wj(J(work, "studio.json"), st)
     try:
@@ -1969,7 +2273,10 @@ def brief_apply(work):
         if nz: done.append("زووم عند الكلمات المميّزة (%d)" % nz)
         else: todo.append("بعد ما يجهز الفيديو: python hs.py auto <work> zooms")
     if fx.get("transitions") and stl_ not in ("dahih", "podcast"): todo.append("بعد القص: python hs.py auto <work> transitions")
-    if fx.get("bg"): todo.append("يبي صوت بالخلفية: اطلب منه ملف bg-audio.mp3 أو اسأله من وين")
+    src_ = fx.get("src") if fx.get("src") in {p["id"] for p in sound_providers()} else None
+    if src_ and fx.get("sfx") != "none":   # 4.19: اختار يجيب الأصوات من حسابه
+        todo.append("الأصوات من %s من حسابه (وافق إنها تصرف من رصيده): المكتبة وأصواته أول، وولّد بس اللحظات اللي ما لها صوت مناسب. احفظ كل صوت بـ <work>/assets/sfx/ ثم hs sfx <work> import <الملف> --name \"…\" --note \"متى ينستخدم\" --gen %s --prompt \"الوصف\" وبعدها hs sfx <work> add <id> <ثانية>. قل له كم صوت بتولّد قبل ما تبدأ" % (sound_name(src_), src_))
+    if fx.get("bg"): todo.append("يبي صوت بالخلفية: اطلب منه ملف bg-audio.mp3 أو اسأله من وين" + ((" أو ولّدها من %s لو وافق (موسيقى بدون كلام، بطول المقطع)" % sound_name(src_)) if src_ and "music" in next((p["can"] for p in sound_providers() if p["id"] == src_), []) else ""))
     c = a.get("cut") or {}; cmd = []
     if c.get("drop"):
         cmd += ["--cards"] + [str(i + 1) for i in c["drop"]]; cc_ = (rj(J(work, "caps.json"), {"cards": []}) or {"cards": []})["cards"]
@@ -2121,7 +2428,7 @@ def brief_print(work):
     for r in R: print("  %s %-8s %s%s" % ("✓" if r["ok"] else "□", r["k"], r["label"], ("  ← " + r["why"]) if r["why"] and (not r["ok"] or r["man"]) else ""))
     return R
 # ───────────────────────── صور حقيقية برخص حرّة (ويكيميديا كومنز) ─────────────────────────
-CAP_STYLE_KEYS = ("bg", "bgColor", "bgOpacity", "stroke", "strokeColor", "shadow", "shadowColor", "hl", "chunk", "actScale", "fill", "mode", "enter", "lines")
+CAP_STYLE_KEYS = ("bg", "bgColor", "bgOpacity", "stroke", "strokeColor", "shadow", "shadowColor", "hl", "chunk", "actScale", "fill", "mode", "enter", "exit", "lines")
 MEDIA_UA = {"User-Agent": "hojas-studio/%s (image search for video b-roll)" % VERSION}
 LIC_OK = ("Public domain", "CC0", "CC BY 2.0", "CC BY 2.5", "CC BY 3.0", "CC BY 4.0", "CC BY-SA", "PDM", "No restrictions")
 def http_json(url, data=None, headers=None, timeout=60, method=None):
@@ -2556,6 +2863,10 @@ def cmd_caps(work, args):
 def looks_all(): return {k: v for k, v in (rj(os.path.join(HERE, "looks.json"), {}) or {}).items() if not k.startswith("_")}
 def look_apply(work, name):
     st = load_studio(work); hs = hs_of(st)
+    old_acc = (hs.get("cardDefault") or {}).get("accent")   # 4.17: الموشن اللي أخذ لون الطابع القديم يمشي مع الجديد
+    if old_acc:
+        for Ly in hs.get("layers") or []:
+            if Ly.get("type") in ("mg", "anno") and Ly.get("accent") == old_acc: Ly.pop("accent", None)
     if name in ("off", "none", ""):
         hs.pop("look", None); hs.pop("grade", None); wj(J(work, "studio.json"), st); return "انشال الطابع."
     L = looks_all().get(name) or sys.exit("ما فيه طابع بهذا الاسم. شوف: hs look <work> list")
@@ -2980,6 +3291,159 @@ def cmd_selftest(work=None, engine=None):
             "function vtiles" in ap and all(("vtiles('%s'" % g) in ap for g in ("style", "length", "pace", "pos", "media.mode", "media.amount", "fx.sfx")) and all(k in ap for k in ("dahih:()=>", "'fx.zoom':()=>", "'hook.use':()=>"))
             and all(("bv_%s:" % k) in i18 for k in ("style_dahih", "style_paper", "length_tight", "pace_fast", "pos_mid", "media_mix", "amount_many", "sfx_rich")) and "bg_goal_explain:" in i18 and ".vts{" in sh_)
     except Exception as e: chk("4.16: القصة البصرية", False, str(e)[:240])
+    try:   # 4.17: الموشن ياخذ لون الطابع
+        td = tempfile.mkdtemp(prefix="hs-look-")
+        try:
+            wj(os.path.join(td, "studio.json"), {"hs": {"layers": [{"type": "mg", "kind": "slam", "accent": "#AAAAAA"}, {"type": "mg", "kind": "stat", "accent": "#123456"}], "cardDefault": {"accent": "#AAAAAA"}}})
+            look_apply(td, "cinema"); hs1 = hs_of(load_studio(td)); look_apply(td, "off"); hs2 = hs_of(load_studio(td))
+        finally: shutil.rmtree(td, ignore_errors=True)
+        ex = open(os.path.join(HERE, "ext.js"), encoding="utf-8").read(); ap = open(os.path.join(HERE, "app.js"), encoding="utf-8").read()
+        chk("4.17: الموشن (رقم، عنوان، قائمة، مراحل، اقتباس، دائرة، مقارنة، شعار) والتعليقات والتوهج تاخذ لون الطابع، ولون الحساب لو ما فيه طابع",
+            "accent" not in hs1["layers"][0] and hs1["layers"][1]["accent"] == "#123456" and hs1["cardDefault"]["accent"] == "#F4C55A" and "look" not in hs2
+            and "const lookAcc=()=>(HSX.look&&HSX.cardDefault&&HSX.cardDefault.accent)" in ex and ex.count("acc=L.accent||lookAcc()") >= 8 and "col=L.color||lookAcc()" in ex
+            and "function lookAccOf(h)" in ap and "{type:'mg',kind:arg,track:1,...JSON.parse(JSON.stringify(MGDEF[arg]||{}))});" in ap)
+    except Exception as e: chk("4.17: الموشن ياخذ لون الطابع", False, str(e)[:240])
+    try:   # 4.17: ألوان كلود بالاستوديو والمكتبة
+        sh_ = open(os.path.join(HERE, "studio.html"), encoding="utf-8").read(); hb_ = open(os.path.join(HERE, "hub.html"), encoding="utf-8").read(); ap_ = open(os.path.join(HERE, "app.js"), encoding="utf-8").read()
+        lastroot = lambda s: s[s.rindex(":root{"):].split("}")[0]
+        chk("4.17: الاستوديو والمكتبة بألوان كلود (غامق دافي، كريمي، برتقالي كلود) بدون أزرق ولا تدرجات بالأزرار",
+            all("--bg:#1f1e1d" in lastroot(x) and "--y:#d97757" in lastroot(x) and "4.17: ألوان كلود" in x for x in (sh_, hb_))
+            and not any(b in x for b in ("#4C8DFF", "#4c8dff", "76,141,255", "#6aa2ff") for x in (sh_, hb_)) and "x.fillStyle='#8fa36f'" in ap_)
+    except Exception as e: chk("4.17: ألوان كلود", False, str(e)[:240])
+    try:   # 4.18: وضعين بصفحة وحدة
+        td = tempfile.mkdtemp(prefix="hs-mode-")
+        try:
+            wj(os.path.join(td, "studio.json"), {}); m0 = studio_mode(td); m1 = studio_mode_set(td, "claude", only_if_unset=True); m2 = studio_mode_set(td, "manual", only_if_unset=True)
+            m3 = studio_mode(td); studio_mode_set(td, "manual"); m4 = studio_mode(td); bad18 = studio_mode_set(td, "وهمي")
+        finally: shutil.rmtree(td, ignore_errors=True)
+        sh_ = open(os.path.join(HERE, "studio.html"), encoding="utf-8").read(); ap_ = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); i18_ = open(os.path.join(HERE, "i18n.js"), encoding="utf-8").read(); me_ = open(os.path.abspath(__file__), encoding="utf-8").read()
+        chk("4.18: وضعين بصفحة وحدة (Claude يمنتج · مونتاج يدوي) بزر فوق، والاختيار من المكتبة، و«اسأل Claude» يعدّل على اللي حددته",
+            m0 is None and m1 == "claude" and m2 == "claude" and m3 == "claude" and m4 == "manual" and bad18 is None
+            and 'id="modeSw"' in sh_ and 'id="bAsk"' in sh_ and "body[data-mode=claude]:not(.m) #bin{display:none}" in sh_ and "body[data-mode=manual]:not(.asking)" in sh_
+            and "function setMode(m)" in ap_ and "function askCtxHtml()" in ap_ and "refreshCheck(); applyMode();" in ap_ and "askMark(); markTabs();" in ap_
+            and all(k + ":" in i18_ for k in ("modeClaude", "modeManual", "askBtn", "askOnCap", "toManualBtn")) and '"mode": studio_mode(work)' in me_
+            and 'hs_of(st)["mode"] = "manual" if mode == "manual" else "claude"' in me_ and "## 6ن)" in open(os.path.join(HERE, "SKILL.md"), encoding="utf-8").read())
+    except Exception as e: chk("4.18: وضعين بصفحة وحدة", False, str(e)[:240])
+    try:   # 4.19: أصوات من حسابه (بدون ما نلمس إعداداته الحقيقية)
+        global sound_cfg_path
+        td = tempfile.mkdtemp(prefix="hs-snd-"); real_ = sound_cfg_path; sound_cfg_path = lambda: os.path.join(td, "sound.json")
+        try:
+            p0 = sound_providers(); P1 = sound_set(["ElevenLabs", "my-tts"], None); n1 = sound_name("elevenlabs"); sound_set([]); p2 = sound_providers()
+        finally: sound_cfg_path = real_; shutil.rmtree(td, ignore_errors=True)
+        ap_ = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); i18_ = open(os.path.join(HERE, "i18n.js"), encoding="utf-8").read(); me_ = open(os.path.abspath(__file__), encoding="utf-8").read()
+        chk("4.19: أصوات من حسابه: Claude يسجّل الخدمات المربوطة، وصفحة الأسئلة تسأل منين الأصوات، واللي يتولّد ينحفظ بأصواتي مع مصدره",
+            p0 == [] and [p["id"] for p in P1] == ["elevenlabs", "my-tts"] and P1[0]["can"] == ["sfx", "music", "voice"] and n1 == "ElevenLabs" and p2 == []
+            and "function sndSrcHtml()" in ap_ and "+sndSrcHtml()+btog('fx.bg'" in ap_ and all(k + ":" in i18_ for k in ("bqSrc", "bqSrcLib", "bqSrcCost", "bqSrcHint", "bqSrcNone"))
+            and '"sound": sound_providers()' in me_ and 'm["gen"] = re.sub' in me_ and "--gen" in me_ and "## 6س)" in open(os.path.join(HERE, "SKILL.md"), encoding="utf-8").read())
+    except Exception as e: chk("4.19: أصوات من حسابه", False, str(e)[:240])
+    try:   # 4.20: الهوك تتحكم فيه · ربط النصوص باللقطة · الأقسام تكبر وتصغر · تعديلاتك ما تنحسب «Claude عدّل»
+        td = tempfile.mkdtemp(prefix="hs-pin-")
+        try:
+            wj(os.path.join(td, "studio.json"), {"hs": {"layers": [{"id": "L1", "type": "text", "s": 5, "e": 7}, {"id": "L2", "type": "text", "s": 5, "e": 7, "pin": False}, {"id": "L3", "type": "text", "s": 1, "e": 2}]}})
+            retime_project(td, lambda t, mode=None: (t - 2 if t >= 3 else (None if t > 1.5 else t)) if mode is None else (t - 2 if t >= 3 else (1.5 if mode == "prev" else 1.5) if t > 1.5 else t), 10, 8)
+            L_ = {x["id"]: x for x in hs_of(load_studio(td))["layers"]}
+        finally: shutil.rmtree(td, ignore_errors=True)
+        ap_ = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); ex_ = open(os.path.join(HERE, "ext.js"), encoding="utf-8").read(); sh_ = open(os.path.join(HERE, "studio.html"), encoding="utf-8").read(); i18_ = open(os.path.join(HERE, "i18n.js"), encoding="utf-8").read(); me_ = open(os.path.abspath(__file__), encoding="utf-8").read()
+        chk("4.20: الهوك بالتايم لاين ولوحته وسحبه، وربط النصوص باللقطة بزر ومفتاح، والأقسام تكبر وتصغر، وحفظك ما ينحسب «Claude عدّل»",
+            L_["L1"]["s"] == 3 and L_["L2"]["s"] == 5 and "L3" in L_
+            and "function hookInspector()" in ap_ and "hookClip(on,box)" in ap_ and "x:h.x==null?0.5:h.x" in ex_ and 'id="bPin"' in sh_ and "function layerPinned(L)" in ap_ and "(layerPinned(L)?'':' free')" in ap_
+            and "mk('#bin','hs.binw'" in ap_ and "body.cw:not(.m) #mid" in sh_ and "if(pt0<=LOCALW) return;" in ap_ and "AU._rt=setTimeout(" in ap_ and "function cutBusy()" in ap_ and "if(cutBusy()){ toast(t('cutBusy')); return; }" in ap_ and 'base.JOB["kind"] == "remove":   # 4.20' in me_ and all(k + ":" in i18_ for k in ("hookTitle", "toolPin", "pinLayer", "colGrip"))
+            and "## 6ع)" in open(os.path.join(HERE, "SKILL.md"), encoding="utf-8").read())
+    except Exception as e: chk("4.20: الهوك والنصوص المربوطة والأقسام", False, str(e)[:240])
+    try:   # 4.22: حارس الصوت + الاختصارات وكليك يمين وصفحة «الاستوديو وقف»
+        td = tempfile.mkdtemp(prefix="hs-guard-")
+        try:
+            subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "sine=f=220:d=4", "-af", "volume=0.1", "-y", os.path.join(td, "v.wav")], check=True)
+            subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "sine=f=1000:d=4", "-ac", "2", "-y", os.path.join(td, "sfx.wav")], check=True)
+            wj(os.path.join(td, "caps.json"), {"total": 4, "cards": [{"s": 0, "e": 4, "w": [{"t": "x", "s": 0.0, "e": 3.9}]}]})
+            g1, b1 = voice_guard(td, {"voice": 1, "bg": 0.28}, lambda *_: None, os.path.join(td, "v.wav")); g2, _ = voice_guard(td, {"voice": 1, "guard": False}, lambda *_: None, os.path.join(td, "v.wav"))
+        finally: shutil.rmtree(td, ignore_errors=True)
+        ap_ = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); sh_ = open(os.path.join(HERE, "studio.html"), encoding="utf-8").read()
+        chk("4.22: حارس الصوت (المؤثرات تحت صوتك والموسيقى أوطى)، تعلّق على المسافة يسرّع، S يقص عند المؤشر، كليك يمين، والضغط ينقل المعاينة، وصفحة «الاستوديو وقف»",
+            0.03 < g1 < 0.2 and b1 == 0.28 and g2 == 1.0 and "function spaceDown(e)" in ap_ and "e.code==='KeyS'){ e.preventDefault(); cutHere(); }" in ap_ and "function ctxItems()" in ap_
+            and "['layer','cap','sfx','hook','broll'].includes(D.kind)) seek(D.x0)" in ap_ and 'id="ctx"' in sh_ and 'id="bCutHere"' in sh_ and "function sfxGroups(L)" in ap_ and "IC_PAUSE" in ap_
+            and "الاستوديو وقف" in stopped_html("x") and "stopped_html()" in open(os.path.abspath(__file__), encoding="utf-8").read() and ".pfg input{width:100%;min-width:0" in sh_)
+    except Exception as e: chk("4.22: حارس الصوت والاختصارات", False, str(e)[:240])
+    try:   # 4.23: القص الفوري
+        td = tempfile.mkdtemp(prefix="hs-media-")
+        try:
+            K0 = [[0.0, 3.49], [4.67, 11.57], [11.88, 17.4]]; wj(os.path.join(td, "cut.json"), {"keep": K0}); a0 = media_map(td)
+            media_pin(td); wj(os.path.join(td, "cut.json"), {"keep": [[0.0, 3.5], [4.666667, 8.0], [10.0, 11.566667], [11.866667, 17.4]]}); ok1, vm1 = media_map(td)
+            wj(os.path.join(td, "cut.json"), {"keep": [[0.0, 3.5], [3.6, 11.57]]}); ok2, _ = media_map(td)
+        finally: shutil.rmtree(td, ignore_errors=True)
+        ap_ = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); rf_ = open(os.path.join(find_engine(None) or os.path.join(HERE, "engine"), "scripts", "04_render_frames.js"), encoding="utf-8").read(); cz_ = open(os.path.join(find_engine(None) or os.path.join(HERE, "engine"), "scripts", "03_cut_zoom.py"), encoding="utf-8").read()
+        chk("4.23: القص فوري: الكابشن والطبقات تتغيّر على طول، والمعاينة تتخطّى المقصوص من الفيديو الحالي، والتراجع فوري، والفيديو ينبني وقت التصدير",
+            a0 == (True, None) and ok1 and vm1 and abs(vm1[-1][1] - 13.9333) < 0.01 and any(abs(s[0] - 6.8333) < 0.01 and abs(s[2] - 8.82) < 0.01 for s in vm1) and ok2 is False
+            and "function vmInv(o)" in ap_ and "Math.round(vm(x)*FPS)+1" in ap_ and "if(r&&r.instant)" in ap_ and "const VMAP=" in rf_ and '".hs","media.json"' in cz_ and "ensure_media(work, S, log)   # 4.23" in open(os.path.abspath(__file__), encoding="utf-8").read())
+    except Exception as e: chk("4.23: القص الفوري", False, str(e)[:240])
+    try:   # 4.23: نقل لقطة + قص الطرف بالسحب مباشرة
+        td = tempfile.mkdtemp(prefix="hs-move-")
+        try:
+            wj(os.path.join(td, "cut.json"), {"keep": [[0.0, 4.0], [10.0, 14.0], [20.0, 24.0]]}); wj(os.path.join(td, "studio.json"), {"hs": {"layers": [{"id": "L1", "type": "text", "s": 5.0, "e": 6.0}, {"id": "L2", "type": "text", "s": 1.0, "e": 2.0, "pin": False}]}})
+            wj(os.path.join(td, "caps.json"), {"total": 12, "cards": [{"s": 0.8, "e": 1.6, "w": [{"t": "أ", "s": 1.0, "e": 1.5}]}, {"s": 4.8, "e": 5.6, "w": [{"t": "ب", "s": 5.0, "e": 5.5}]}, {"s": 8.8, "e": 9.6, "w": [{"t": "ج", "s": 9.0, "e": 9.5}]}]})
+            r9 = move_shot(td, 4, 8, 0); K = rj(os.path.join(td, "cut.json"))["keep"]; C = [c["w"][0]["t"] for c in rj(os.path.join(td, "caps.json"))["cards"]]; L = {x["id"]: x for x in hs_of(load_studio(td))["layers"]}; okm, vmm = media_map(td)
+        finally: shutil.rmtree(td, ignore_errors=True)
+        ap_ = open(os.path.join(HERE, "app.js"), encoding="utf-8").read()
+        chk("4.23: تنقل اللقطة بالسحب (الكابشن والنصوص تمشي معها والمعاينة فورية)، وتقص طرف اللقطة بالسحب مباشرة وتشوف كم بتقص",
+            K == [[10.0, 14.0], [0.0, 4.0], [20.0, 24.0]] and C == ["ب", "أ", "ج"] and abs(L["L1"]["s"] - 1.0) < 1e-3 and L["L2"]["s"] == 1.0 and okm and vmm and vmm[0][2] == 4.0 and r9["to"] == 0.0
+            and "function moveShot(s,e,to)" in ap_ and "function edgeNear(x,tg)" in ap_ and "D.kind==='cbmaybe'" in ap_ and "async function reloadLite()" in ap_ and "if(!confirmIt) return doRemove(body,what);" in ap_)
+    except Exception as e: chk("4.23: نقل اللقطة وقص الطرف", False, str(e)[:240])
+    try:   # 4.24: 15 تعليق جديد على الصور
+        N24 = ("arrow", "scribble", "underline", "highlight", "cross", "check", "lens", "spotlight", "blur", "bubble", "frame", "scan", "burst", "stars", "price")
+        ex_ = open(os.path.join(HERE, "ext.js"), encoding="utf-8").read(); ap_ = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); i18_ = open(os.path.join(HERE, "i18n.js"), encoding="utf-8").read()
+        chk("4.24: 15 تعليق جديد على الصور (سهم، دائرة بالقلم، خط تحت، تظليل، شطب، صح، عدسة تكبير، إضاءة، إخفاء، فقاعة، قفل هدف، مسح، انفجار، نجوم، سعر)",
+            all(k in ANNO_KINDS for k in N24) and len(ANNO_KINDS) == 25 and "function annoPro(" in ex_ and "else annoPro(L,lt,k,col,fs,pts,lab,D);" in ex_ and all(("k==='%s'" % k) in ex_ for k in N24)
+            and all(("'%s'" % k) in ap_.split("const ANK=")[1].split("]")[0] for k in N24) and all(("ak_%s:" % k) in i18_ and ("akHint_%s:" % k) in i18_ for k in N24) and all(("%s:{" % k) in ap_.split("const ANDEF=")[1].split("};")[0] for k in N24))
+    except Exception as e: chk("4.24: 15 تعليق جديد", False, str(e)[:240])
+    try:   # 4.25: تحسين الجودة + القص بمشروع ما فيه cut.json
+        td = tempfile.mkdtemp(prefix="hs-q-")
+        try:
+            subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc2=s=540x960:d=2:r=30", "-f", "lavfi", "-i", "sine=f=300:d=2", "-shortest", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-y", os.path.join(td, "cutz.mp4")], check=True)
+            wj(os.path.join(td, "caps.json"), {"total": 2, "cards": [{"s": 0, "e": 2, "w": [{"t": "x", "s": 0.1, "e": 0.5}, {"t": "y", "s": 1.4, "e": 1.8}]}]}); wj(os.path.join(td, "studio.json"), {})
+            vfr_extract(td, lambda *a: None, "light"); nq = len(os.listdir(os.path.join(td, "vfr"))); wq = vid_size(os.path.join(td, "cutz.mp4"))
+            import struct; jb = open(os.path.join(td, "vfr", "00001.jpg"), "rb").read(); i_ = jb.find(b"\xff\xc0"); jh, jw = struct.unpack(">HH", jb[i_ + 5:i_ + 9]) if i_ > 0 else (0, 0)
+            ci = cut_init(td); r_ = remove_ranges(td, None, lambda *a: None, ranges=[[0.8, 1.2]], rebuild=False); okc, vmc = media_map(td)
+            _concat_cutz(td, rj(os.path.join(td, "cut.json"))["keep"], lambda *a: None); dc = probe_dur(os.path.join(td, "cutz.mp4")); okc2, vmc2 = media_map(td)
+        finally: shutil.rmtree(td, ignore_errors=True)
+        fl, fs_ = enh_filter("light", 1080, 1920), enh_filter("strong", 720, 1280)
+        chk("4.25: تحسين الجودة (خفيف وقوي، ويرفع لـ1080) والتصدير بجودة أعلى، والقص يشتغل بمشروع ما فيه cut.json",
+            nq == 60 and (jw, jh) == (1080, 1920) and enh_filter("off") == "" and "scale=1080:1920" not in fl and fs_.startswith("scale=1080:1920") and ("cas=" in fl or "unsharp=" in fl)
+            and ci is True and r_["total"] < 2 and okc and vmc and abs(dc - r_["total"]) < 0.12 and okc2 and vmc2 is None
+            and '"-crf", "18"' in open(os.path.abspath(__file__), encoding="utf-8").read() and "function qualitySec(h)" in open(os.path.join(HERE, "app.js"), encoding="utf-8").read())
+    except Exception as e: chk("4.25: تحسين الجودة والقص بدون cut.json", False, str(e)[:240])
+    try:   # 4.26: بودكاست (النص أول من الترجمة، ضعف المرشّحات، «هات غيرها») + الدبلجة بالسكتات
+        td = tempfile.mkdtemp(prefix="hs-pod-")
+        try:
+            vt = os.path.join(td, "a.vtt"); open(vt, "w", encoding="utf-8").write("WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nhello <00:00:01.500><c> big</c><00:00:02.000><c> world.</c>\n\n00:00:05.000 --> 00:00:07.000\nsecond line here\n")
+            SV = vtt_segments(vt)
+            subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "sine=f=300:d=2", "-y", os.path.join(td, "s0.mp3")], check=True); subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "sine=f=500:d=4", "-y", os.path.join(td, "s1.mp3")], check=True)
+            wj(os.path.join(td, "caps.json"), {"total": 10, "cards": [{"s": 0.9, "e": 3.1, "w": [{"t": "hello", "s": 1.0, "e": 1.4}, {"t": "world", "s": 2.0, "e": 3.0}]}, {"s": 4.9, "e": 7.1, "w": [{"t": "second", "s": 5.0, "e": 7.0}]}]}); wj(os.path.join(td, "studio.json"), {})
+            D0 = dub_script(td, "ar"); ni = dub_import(td, [{"i": 0, "tr": "مرحبا"}, {"i": 1, "tr": "ثاني"}]); dub_add(td, 0, os.path.join(td, "s0.mp3")); dub_add(td, 1, os.path.join(td, "s1.mp3")); fo, miss = dub_build(td, lambda *a: None)
+            dd = ffdur(fo); mp = hs_of(load_studio(td))["en"]["map"]
+            pw = os.path.join(td, "ep"); pod_want(pw, {"mode": "clips", "tr": "ar", "dub": "es", "host": 0}); wp = clips_cfg(pw)["want"]
+        finally: shutil.rmtree(td, ignore_errors=True)
+        hb_ = open(os.path.join(HERE, "hub.html"), encoding="utf-8").read(); ap_ = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); me_ = open(os.path.abspath(__file__), encoding="utf-8").read()
+        chk("4.26: بودكاست beta (النص من ترجمة يوتيوب بدون تحميل، ضعف المرشّحات بنصها، «هات غيرها»، تنزيل اللي تختاره بس، مقدّم ثابت) والدبلجة بسكتات المقطع",
+            len(SV) == 2 and [w["word"] for w in SV[0]["words"]] == ["hello", "big", "world."] and abs(SV[0]["words"][1]["start"] - 1.5) < 0.02 and len(SV[1]["words"]) == 3
+            and len(D0["segs"]) == 2 and D0["segs"][0]["pause"] > 1.5 and ni == 2 and mp.get("hello world") == "مرحبا" and miss == 0 and abs(dd - 10) < 0.2
+            and wp.get("tr") == "ar" and wp.get("dub") == "es" and wp.get("host") is False and "--download-sections" in me_ and "count=int(n or 5) * 2" in me_ and "fresh=True" in me_
+            and "data-ntr" in hb_ and "#epMore" in hb_.replace("'epMore'", "#epMore") and "youtube-nocookie.com/embed" in hb_ and "function dubSec()" in ap_ and "## 6ص)" in open(os.path.join(HERE, "SKILL.md"), encoding="utf-8").read())
+    except Exception as e: chk("4.26: بودكاست والدبلجة", False, str(e)[:240])
+    try:   # 4.26: حارس: ولا متغيّر داخل السيرفر يغطّي D (مجلد الكاش) أو P أو S، كان يخلّي الفريمات والصور المصغّرة ما تطلع
+        me_ = open(os.path.abspath(__file__), encoding="utf-8").read(); hb_ = open(os.path.join(HERE, "hub.html"), encoding="utf-8").read()
+        bad_ = [l.strip()[:60] for l in me_.split(chr(10)) if re.match(r"^ {16,}(D|P|S|base|work) = ", l)]
+        chk("4.26: السيرفر ما يغطّي متغيّراته (الفريمات تطلع)، ونافذة المشروع ما ترجّعك فوق، وقسم «بودكاست» بالمكتبة",
+            not bad_ and "الاختيار ما يرجّعك فوق" in hb_ and "#hostName{background:var(--s1)" in hb_ and "'all','wait','work','ready','pod'" in hb_ and '"pod": bool((hs.get("pod") or {}).get("on"))' in me_, "; ".join(bad_))
+    except Exception as e: chk("4.26: حارس متغيّرات السيرفر", False, str(e)[:240])
+    try:   # 4.21: خروج الكابشن (cap.exit)، والافتراضي يطلع نفس القديم
+        ex_ = open(os.path.join(HERE, "ext.js"), encoding="utf-8").read(); ap_ = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); i18_ = open(os.path.join(HERE, "i18n.js"), encoding="utf-8").read()
+        exl = re.search(r"const EXITS=\[([^\]]*)\]", ap_); exl = re.findall(r"'([^']+)'", exl.group(1)) if exl else []
+        chk("4.21: خروج الكابشن (عادي، تلاشي، يطير، ينزل، ينكمش، ينفجر، غباش، ينسحب، مسح، كلمة كلمة، قطع) بآخر كل جملة أو دفعة، والعادي نفس القديم",
+            exl[:1] == ["auto"] and len(exl) == 11 and "CAP.exit==='zoom'?'punch'" in ex_ and "CAP.exitDur" in ex_ and all(("ex_" + k + ":") in i18_ for k in exl) and "exitLbl:" in i18_ and "exitHint:" in i18_
+            and "if(EX_==='auto'&&rt<0.13){ const k=rt/0.13; a=k; dy=-(1-k)*10; }" in ex_ and "(CAP.exit||'auto'), EXD=" in ex_
+            and all(("EX_==='" + k + "'") in ex_ for k in exl if k not in ("auto", "fade", "none")) and "X.filter='blur('" in ex_ and "segE=Math.min(c.e,nx[0].items[0].s)" in ex_
+            and 'data-k="cap.exit"' in ap_ and "exit" in CAP_STYLE_KEYS and "`cap.exit`" in open(os.path.join(HERE, "SKILL.md"), encoding="utf-8").read())
+    except Exception as e: chk("4.21: خروج الكابشن", False, str(e)[:240])
     chk("الرسم الحر بالمحرّك والاستوديو", "function drawLayer" in txt.get("ext.js", "") and "function drawStart" in txt.get("app.js", ""))
     try:   # 4.6: كتم الكلمات
         m0, p0 = bleep_filters(bleep_of({})); ct = {"cards": [{"s": 0, "e": 2, "w": [{"t": "شركة", "s": 0.1, "e": 0.4}, {"t": "والشركه", "s": 0.5, "e": 0.9}, {"t": "شركات", "s": 1.0, "e": 1.3}]}]}
@@ -3091,7 +3555,7 @@ def cmd_set(work, args):
         cur[parts[-1]] = val
     wj(sp, st); print(json.dumps({k: v for k, v in hs.items() if k in ("cap", "en", "mix", "hooks", "check")}, ensure_ascii=False)[:900])
 MG_KINDS = ("stat", "slam", "check", "steps", "callout", "quote", "ring", "compare", "sting", "logo")
-ANNO_KINDS = ("ring", "spots", "route", "path", "wave", "tap", "boxes", "tags", "screen", "spinner")
+ANNO_KINDS = ("ring", "spots", "route", "path", "wave", "tap", "boxes", "tags", "screen", "spinner", "arrow", "scribble", "underline", "highlight", "cross", "check", "lens", "spotlight", "blur", "bubble", "frame", "scan", "burst", "stars", "price")
 def cmd_layer(work, args):
     sp = J(work, "studio.json"); st = load_studio(work); hs = hs_of(st); Ls = hs.setdefault("layers", []); sub = args[0] if args else "list"
     if sub == "list":
@@ -3200,6 +3664,7 @@ def port_free(port):
     finally: s.close()
 def cmd_open(work, port, engine, browser=True):
     os.makedirs(J(work, ".hs"), exist_ok=True); eng = find_engine(engine) or sys.exit("ما لقيت مجلد engine بجنب hs.py — نزّل السكل كامل من جديد")
+    if not ready(work): studio_mode_set(work, "claude", only_if_unset=True)   # 4.18: Claude بادي يمنتج ← الاستوديو يفتح على وضعه
     remember_engine(eng); use = None
     for p in range(port, port + 20):
         if port_alive(p, work): use = p; break
@@ -3349,7 +3814,7 @@ def serve(work, port, engine):
     def sv_audio_file():
         """4.12: نفس الصوت بعد صوت الاستوديو (أو اللي عالجته من برا)، عشان تسمع اللي بيطلع بالتصدير."""
         mix = hs_of(load_studio(work)).get("mix") or {}
-        src = (sv_ext_file(work) if sv_mode(mix) == "ext" else None) or studio_voice(work, log=lambda m: None)[0]
+        src = J(work, "dub.wav") if (mix.get("dub") and os.path.isfile(J(work, "dub.wav"))) else ((sv_ext_file(work) if sv_mode(mix) == "ext" else None) or studio_voice(work, log=lambda m: None)[0])
         if not src: return None
         f = os.path.join(D, "au-sv-%s.m4a" % hashlib.md5((src + str(os.path.getmtime(src))).encode()).hexdigest()[:10])
         with AUL:
@@ -3537,10 +4002,18 @@ def serve(work, port, engine):
             if p in ("/hs/qr.js", "/hs/app.js", "/hs/i18n.js"): return self._file(os.path.join(HERE, os.path.basename(p)), "application/javascript; charset=utf-8")
             if p == "/hs/pulse":
                 housekeeping(); since = int((q.get("since") or ["0"])[0])
-                return self._json(200, {"sig": signature(work), "ready": ready(work), "brief": brief_state(work), "genPending": sum(1 for r in gen_list(work) if r["status"] != "done"), "stages": stages(work), "act": activity(work, since), "preview": latest_preview(), "vis": {"busy": VIS["busy"], "what": VIS["what"]}, "aux": aux_sig(),
+                return self._json(200, {"sig": signature(work), "ready": ready(work), "mode": studio_mode(work), "brief": brief_state(work), "genPending": sum(1 for r in gen_list(work) if r["status"] != "done"), "stages": stages(work), "act": activity(work, since), "preview": latest_preview(), "vis": {"busy": VIS["busy"], "what": VIS["what"]}, "aux": aux_sig(),
                                         "job": {"running": base.JOB["running"], "kind": base.JOB["kind"], "outs": base.JOB.get("outs"), "err": base.JOB["err"]}, "agent": {"running": AG["running"], "elapsed": int(time.time() - AG["started"]) if AG["running"] else 0}})
+            if p == "/hs/dub_state":   # 4.26
+                Dd = dub_get(work) or {}; segs = Dd.get("segs") or []; txt = open(J(work, "dub-script.txt"), encoding="utf-8").read() if os.path.isfile(J(work, "dub-script.txt")) else ""   # Dd مو D: D مجلد الكاش حق السيرفر
+                return self._json(200, {"ok": True, "has": bool(Dd), "lang": Dd.get("lang"), "name": DUB_LANGS.get(Dd.get("lang") or "", ""), "n": len(segs), "tr": sum(1 for x in segs if x.get("tr")), "aud": sum(1 for x in segs if x.get("file")), "track": bool(Dd.get("track")),
+                                        "on": dub_on(work), "want": hs_of(load_studio(work)).get("dubWant") or "", "script": txt})
+            if p == "/hs/quality_preview":   # 4.25: قبل وبعد
+                try: f_ = quality_preview(work, float((q.get("t") or ["0"])[0]), (q.get("level") or ["light"])[0])
+                except Exception as e: return self._json(500, {"ok": False, "msg": str(e)[:200]})
+                b_ = open(f_, "rb").read(); self.send_response(200); self.send_header("Content-Type", "image/jpeg"); self.send_header("Content-Length", str(len(b_))); self.send_header("Cache-Control", "no-store"); self.end_headers(); self.wfile.write(b_); return
             if p == "/hs/info":
-                return self._json(200, {"version": VERSION, "vsig": vsig(work), "token": TOKEN, "lan": "http://%s:%d/?k=%s" % (LAN, port, TOKEN), "lanM": "http://%s:%d/m?k=%s" % (LAN, port, TOKEN), "review": "http://%s:%d/review?r=%s" % (LAN, port, RTOKEN),
+                return self._json(200, {"version": VERSION, "vmap": media_map(work)[1], "vsig": vsig(work), "token": TOKEN, "lan": "http://%s:%d/?k=%s" % (LAN, port, TOKEN), "lanM": "http://%s:%d/m?k=%s" % (LAN, port, TOKEN), "review": "http://%s:%d/review?r=%s" % (LAN, port, RTOKEN),
                                         "work": work, "name": os.path.basename(work.rstrip("/\\")), "thumbsDone": BG["thumbsDone"], "versions": versions(), "exports": exports(), "exportMt": export_mt(), "hub": hub_url(), "title": (hs_of(load_studio(work)).get("title") or (hs_of(load_studio(work)).get("pod") or {}).get("title") or (hs_of(load_studio(work)).get("dahih") or {}).get("title") or ""),
                                         "brands": sorted(os.path.splitext(f)[0] for f in os.listdir(brand_dir())), "local": self._local(), "claude": bool(find_claude() or shutil.which("opencode")), "agent": "claude" if find_claude() else ("opencode" if shutil.which("opencode") else ""), "notify": bool(notify_cfg().get("on")), "tokenAsk": token_ask(), "gen": gen_view(gen_list(work)), "safe": safe_of((load_studio(work).get("hs") or {}).get("platforms"), *frame_of(load_studio(work).get("hs") or {})), "platforms": {k: {"safe": v["safe"], "frames": v["frames"], "best": v["best"], "max": v["max"]} for k, v in PLATFORMS.items()},
                                         "assets": sorted(f for f in os.listdir(P("assets")) if os.path.splitext(f)[1].lower() in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg")) if os.path.isdir(P("assets")) else [], "seams": keep_seams(work), "looks": looks_all(), "beats": rj(P("beats.json")), "music": os.path.basename(music_file(work) or ""), "sv": sv_info(work),
@@ -3559,7 +4032,7 @@ def serve(work, port, engine):
                 caps = rj(P("caps.json"), {"cards": []}) or {"cards": []}; ck = check(work) if caps.get("cards") else {"fillers": [], "dupes": []}
                 return self._json(200, {"ask": rj(brief_paths(work)[0], {}), "answers": rj(brief_paths(work)[1]), "last": rj(os.path.join(HOME_CFG, "last-brief.json")), "state": brief_state(work),
                                         "cards": [card_key(c) for c in caps["cards"]], "fillers": len(ck["fillers"]), "dupes": [[d["a"], d["b"]] for d in ck["dupes"]],
-                                        "brands": sorted(os.path.splitext(f)[0] for f in os.listdir(brand_dir())), "name": os.path.basename(work.rstrip("/\\")), "platforms": {k: {"frames": v["frames"]} for k, v in PLATFORMS.items()}, "reqs": brief_reqs(work)})
+                                        "brands": sorted(os.path.splitext(f)[0] for f in os.listdir(brand_dir())), "name": os.path.basename(work.rstrip("/\\")), "platforms": {k: {"frames": v["frames"]} for k, v in PLATFORMS.items()}, "reqs": brief_reqs(work), "sound": sound_providers()})
             if p == "/hs/media_search":
                 try: return self._json(200, {"ok": True, "items": (video_search if (q.get("kind") or [""])[0] == "video" else media_search)(work, (q.get("q") or [""])[0], 12)})
                 except Exception as e: return self._json(200, {"ok": False, "msg": "البحث فشل (تأكد من النت): " + str(e)[:160], "items": []})
@@ -3643,6 +4116,8 @@ def serve(work, port, engine):
                 return self._json(200, {"ok": ok, "rebuild": rb, "why": why, "undo": u, "redo": r})
             if p.startswith("/api/save"):   # 4.10: قاموسك يتعلّم من تصحيحاتك للكابشن
                 n_ = int(self.headers.get("Content-Length") or 0); raw_ = self.rfile.read(n_)
+                if base.JOB["running"] and base.JOB["kind"] == "remove":   # 4.20: القص يعاد بناؤه: حفظ النسخة القديمة اللي بالصفحة يخرّبه
+                    return self._json(409, {"ok": False, "busy": True, "msg": "القص لسه يتركّب، انتظره يخلص"})
                 try:
                     d_ = json.loads(raw_ or b"{}")
                     if d_.get("caps"): gloss_learn(rj(P("caps.json"), None), d_["caps"])
@@ -3671,6 +4146,16 @@ def serve(work, port, engine):
                     try: os.remove(tmp)
                     except OSError: pass
                     return self._json(200, {"ok": True, **res, "gen": gen_view(gen_list(work))})
+                if p == "/hs/dub_track":   # 4.26: ملف دبلجة كامل يرفعه هو
+                    name = os.path.basename(urllib.parse.unquote(self.headers.get("X-Name") or "dub.mp3"))
+                    if not name.lower().endswith(AUD_EXT): return self._json(400, {"ok": False, "msg": "ارفع ملف صوت (mp3 · wav · m4a …)"})
+                    tmp = J(work, ".hs", "up-" + re.sub(r"[^\w.\-]+", "_", name)); os.makedirs(J(work, ".hs"), exist_ok=True); open(tmp, "wb").write(raw)
+                    try: dub_track(work, tmp); dub_build(work, base.log); st_ = load_studio(work); hs_of(st_).setdefault("mix", {})["dub"] = True; wj(J(work, "studio.json"), st_)
+                    except Exception as e: return self._json(400, {"ok": False, "msg": str(e)[:200]})
+                    finally:
+                        try: os.remove(tmp)
+                        except OSError: pass
+                    return self._json(200, {"ok": True})
                 if p == "/hs/mysfx":
                     name = os.path.basename(urllib.parse.unquote(self.headers.get("X-Name") or "sound.mp3"))
                     if not name.lower().endswith(AUD_EXT): return self._json(400, {"ok": False, "msg": "ارفع ملف صوت (mp3 · wav · m4a …)"})
@@ -3811,9 +4296,35 @@ def serve(work, port, engine):
                 if p == "/hs/takes_apply":
                     def go(): tk_apply(work, S, base.log); base.JOB["reload"] = True
                     ok = base.job("remove", go); return self._json(200 if ok else 409, {"ok": ok, "msg": "" if ok else "فيه عملية شغالة"})
-                if p == "/hs/remove":
-                    def go(): remove_ranges(work, S, base.log, ranges=data.get("ranges") or [], cards=data.get("cards") or [], words=data.get("words") or []); base.JOB["reload"] = True
-                    ok = base.job("remove", go); return self._json(200 if ok else 409, {"ok": ok, "msg": "" if ok else "فيه عملية شغالة"})
+                if p == "/hs/dub":   # 4.26: تشغيل وإطفاء الدبلجة
+                    st_ = load_studio(work); mx = hs_of(st_).setdefault("mix", {})
+                    if data.get("on"):
+                        try: dub_build(work, base.log)
+                        except Exception as e: return self._json(400, {"ok": False, "msg": str(e)[:200]})
+                    mx["dub"] = bool(data.get("on")); wj(J(work, "studio.json"), st_); return self._json(200, {"ok": True, "on": mx["dub"]})
+                if p == "/hs/quality":   # 4.25: تحسين الجودة (يطلّع الفريمات من جديد بالتحسين)
+                    lv = data.get("level") if data.get("level") in ENH_LEVELS else "off"
+                    st_ = load_studio(work); hs_of(st_)["enhance"] = {"level": lv}; wj(J(work, "studio.json"), st_)
+                    def go(): vfr_extract(work, base.log, lv); base.JOB["reload"] = True
+                    ok = base.job("quality", go); return self._json(200 if ok else 409, {"ok": ok, "msg": "" if ok else "فيه عملية شغالة"})
+                if p == "/hs/move_shot":   # 4.23: نقل لقطة لمكان ثاني (فوري)
+                    if base.JOB["running"]: return self._json(409, {"ok": False, "msg": "فيه عملية شغالة"})
+                    try: r_ = move_shot(work, data.get("s"), data.get("e"), data.get("to"))
+                    except ValueError as e: return self._json(400, {"ok": False, "msg": str(e)})
+                    except Exception as e: base.log("❌ نقل اللقطة: %s" % e); return self._json(500, {"ok": False, "msg": "ما قدرت أنقل اللقطة: " + str(e)[:160]})
+                    if not media_map(work)[0]:
+                        def go(): rebuild_video(work, S, base.log); base.JOB["reload"] = True
+                        base.job("remove", go); return self._json(200, {"ok": True, "rebuild": True})
+                    return self._json(200, {"ok": True, "instant": True, "to": r_["to"]})
+                if p == "/hs/remove":   # 4.23: القص فوري (الكابشن والطبقات والتايم لاين)، والمعاينة تتخطّى المقصوص من الفيديو الحالي
+                    if base.JOB["running"]: return self._json(409, {"ok": False, "msg": "فيه عملية شغالة"})
+                    try: r_ = remove_ranges(work, S, base.log, ranges=data.get("ranges") or [], cards=data.get("cards") or [], words=data.get("words") or [], rebuild=False)
+                    except ValueError as e: return self._json(400, {"ok": False, "msg": str(e)})
+                    except Exception as e: base.log("❌ القص: %s" % e); return self._json(500, {"ok": False, "msg": "ما قدرت أقص: " + str(e)[:160]})
+                    if not media_map(work)[0]:
+                        def go(): rebuild_video(work, S, base.log); base.JOB["reload"] = True
+                        base.job("remove", go); return self._json(200, {"ok": True, "rebuild": True})
+                    return self._json(200, {"ok": True, "instant": True, "gone": r_["gone"], "total": r_["total"]})
                 if p.startswith("/api/render") or p == "/hs/export":
                     kind = data.get("kind", "final"); hooks = bool(data.get("hooks")); frm = data.get("frame")
                     def go(): outs = export(work, S, base.log, kind=kind, hooks=hooks, frame=frm); base.JOB["done"] = outs[0]; base.JOB["outs"] = outs
@@ -3904,7 +4415,8 @@ def serve(work, port, engine):
                     return self._json(400, {"ok": False})
                 if p == "/hs/ver_save": return self._json(200, {"ok": True, "id": snapshot(work, data.get("name")), "versions": versions()})
                 if p == "/hs/ver_restore":
-                    need = ver_restore(data["id"])
+                    if base.JOB["running"]: return self._json(409, {"ok": False, "busy": True, "msg": "فيه عملية شغّالة، انتظرها تخلص"})   # 4.20: لا ترجّع نص النسخة والفيديو ما يقدر يتركّب
+                    media_pin(work); need = ver_restore(data["id"]) and not media_map(work)[0]   # 4.23
                     if need:
                         def go(): rebuild_video(work, S, base.log); base.JOB["reload"] = True
                         base.job("remove", go)
@@ -4289,17 +4801,23 @@ def clip_bounds(A, a_, b_, src_dur=None, back=6.0, ahead=8.0):
     return round(a_, 3), round(b_, 3)
 def clip_make(d, a_, b_, title="", credit="", name=None, style=None):
     cfg = clips_cfg(d)
-    if not cfg.get("src"): raise RuntimeError("شغّل أول: hs clips scan <الفيديو> " + d)
+    if not cfg.get("src") and not cfg.get("remote"): raise RuntimeError("شغّل أول: hs clips scan <الفيديو> " + d)
     if b_ <= a_ + 3: raise RuntimeError("المقطع قصير جداً")
     n = len(cfg.get("clips") or []) + 1; name = name or "clip-%d" % n
     w = J(d, re.sub(r"[^\w\-]+", "-", name).strip("-") or "clip-%d" % n)
     while os.path.exists(J(w, "src.mov")): n += 1; w = J(d, "clip-%d" % n)
     os.makedirs(w, exist_ok=True)
     A = rj(J(d, "long.json"), {}) or {}
-    a_, b_ = clip_bounds(A, a_, b_, probe_dur(cfg["src"]))   # 4.9: البداية والنهاية على حدود جملة، ما ينقطع وهو يتكلم
-    fo = max(0.0, b_ - a_ - 0.25)
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "%.3f" % a_, "-to", "%.3f" % b_, "-i", cfg["src"], "-c:v", "libx264", "-preset", "veryfast", "-crf", "17",
+    remote = cfg.get("remote") if not (cfg.get("src") and os.path.isfile(cfg["src"])) else None
+    a_, b_ = clip_bounds(A, a_, b_, float(cfg.get("dur") or 0) if remote else probe_dur(cfg["src"]))   # 4.9: البداية والنهاية على حدود جملة، ما ينقطع وهو يتكلم
+    fo = max(0.0, b_ - a_ - 0.25); src_, off_ = cfg.get("src"), a_
+    if remote:   # 4.26: ينزل الجزء هذا بس (مع ثانية زيادة من كل طرف) بدل الحلقة كاملة
+        pa = max(0.0, a_ - 1.0); src_ = yt_section(remote, pa, b_ + 1.0, J(w, ".part.mp4")); off_ = a_ - pa
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "%.3f" % off_, "-t", "%.3f" % (b_ - a_), "-i", src_, "-c:v", "libx264", "-preset", "veryfast", "-crf", "17",
                     "-af", "afade=t=in:st=0:d=0.06,afade=t=out:st=%.3f:d=0.25" % fo, "-c:a", "aac", "-b:a", "192k", J(w, "src.mov")], check=True)
+    if remote:
+        try: os.remove(J(w, ".part.mp4"))
+        except OSError: pass
     segs = []; fix = []
     for s in A.get("segments") or []:
         ws = [x for x in (s.get("words") or []) if x["start"] >= a_ - 0.05 and x["end"] <= b_ + 0.05]
@@ -4316,7 +4834,13 @@ def clip_make(d, a_, b_, title="", credit="", name=None, style=None):
     st = load_studio(w); hs = hs_of(st); style = style or ("pod" if lang != "ar" else "plain")
     if title: hs["title"] = title
     if style == "pod":
-        hs["pod"] = {"on": True, "title": title, "credit": credit, "lang": lang, "orig": lang != "ar", "src": os.path.basename(cfg["src"]), "from": round(a_, 2), "to": round(b_, 2)}
+        want_ = cfg.get("want") or {}; trl = want_.get("tr") or ("ar" if lang != "ar" else "en")
+        hs["pod"] = {"on": True, "title": title, "credit": credit, "lang": lang, "orig": lang != trl, "tr": trl, "src": os.path.basename(cfg.get("src") or "") or cfg.get("remote") or "", "from": round(a_, 2), "to": round(b_, 2)}
+        if want_.get("dub"): hs["dubWant"] = want_["dub"]   # 4.26: طلب دبلجة: Claude يكمّلها (hs dub)
+        H = host_cfg()
+        if want_.get("host", True) and H.get("on"):   # 4.26: شخصية المقدّم الثابتة بزاوية المقطع
+            hs.setdefault("layers", []).append({"id": "LH1", "type": "char", "char": H.get("char") or "robo", "color": H.get("color") or "#D97757", "x": 0.84, "y": 0.8, "size": 0.16, "s": 0, "e": round(b_ - a_, 2), "track": 3, "auto": "host"})
+            if H.get("name"): hs["layers"].append({"id": "LH2", "type": "text", "text": H["name"], "x": 0.84, "y": 0.885, "size": 34, "weight": 800, "color": "#FFFFFF", "bg": "box", "bgColor": "#141413", "s": 0, "e": round(b_ - a_, 2), "track": 3, "anim": "fade", "auto": "host"})
         hs["cap"] = {**(hs.get("cap") or {}), **POD_CAP}; hs["en"] = {**(hs.get("en") or {}), "on": True}
     hs["clip"] = {"from": round(a_, 2), "to": round(b_, 2), "ep": os.path.basename(d)}
     wj(J(w, "studio.json"), st)
@@ -4348,7 +4872,8 @@ def audio_rms(wav, step=0.5):
                 out.append((sum(x * x for x in a[::8]) / max(1, len(a[::8]))) ** 0.5)
             return out
     except Exception: return []
-def clips_suggest(d, n=None, ln=None, note=None):
+def clips_suggest(d, n=None, ln=None, note=None, count=None, fresh=False):
+    """count: كم مرشّح بالضبط (البودكاست: ضعف اللي طلبه). fresh: «هات غيرها» = مرشّحات جديدة ما تتداخل مع اللي شافها."""
     cfg = clips_cfg(d); A = rj(J(d, "long.json"), {}) or {}; segs = [s for s in A.get("segments") or [] if str(s.get("text", "")).strip()]
     if not segs: return []
     want = cfg.get("want") or {}
@@ -4409,20 +4934,22 @@ def clips_suggest(d, n=None, ln=None, note=None):
             sc, why = score(i, j)
             if not best or sc > best[0]: best = (sc, why, j)
         if best: C.append((best[0], i, best[2], best[1]))
-    C.sort(key=lambda x: -x[0]); pick = []
+    C.sort(key=lambda x: -x[0]); pick = []; seen = [tuple(x) for x in cfg.get("seen") or []] + [(c["from"], c["to"]) for c in cfg.get("cands") or [] if c.get("by") == "auto" and not c.get("made")]
     for sc, i, j, why in C:
         a, b = segs[i]["start"], segs[j]["end"]
         if any(min(b, p["to"]) - max(a, p["from"]) > 2 for p in pick): continue
-        pick.append({"from": round(max(0, a - 0.15), 2), "to": round(b + 0.25, 2), "raw": sc, "why": list(dict.fromkeys(why))[:4], "hook": segs[i]["text"].strip()[:140]})
-        if len(pick) >= max(n + 4, int(n * 1.6)): break
+        if fresh and any(min(b, s_[1]) - max(a, s_[0]) > 3 for s_ in seen): continue
+        pick.append({"from": round(max(0, a - 0.15), 2), "to": round(b + 0.25, 2), "raw": sc, "why": list(dict.fromkeys(why))[:4], "hook": segs[i]["text"].strip()[:140], "text": " ".join(segs[k]["text"].strip() for k in range(i, j + 1))[:1600]})
+        if len(pick) >= (count or max(n + 4, int(n * 1.6))): break
     if pick:
         lo, hi = min(p["raw"] for p in pick), max(p["raw"] for p in pick)
         for p in pick: p["score"] = int(round(48 + 46 * ((p.pop("raw") - lo) / ((hi - lo) or 1)) ** 0.8))
-    keep = [c for c in cfg.get("cands") or [] if c.get("by") != "auto" or c.get("made")]
+    keep = [c for c in cfg.get("cands") or [] if c.get("by") != "auto" or c.get("made") or c.get("keep")]
     ids = [int(re.sub(r"\D", "", c["id"]) or 0) for c in cfg.get("cands") or []]; k = max(ids or [0])
     for p in pick:
         if any(min(p["to"], c["to"]) - max(p["from"], c["from"]) > 3 for c in keep): continue
         k += 1; keep.append({"id": "c%d" % k, "by": "auto", "title": "", **p})
+    if fresh: cfg["seen"] = [list(s_) for s_ in seen][-200:]
     keep.sort(key=lambda c: -c.get("score", 0)); cfg["cands"] = keep; wj(J(d, "clips.json"), cfg); return keep
 def cmd_cand(rest):
     rest = list(rest)
@@ -4471,6 +4998,7 @@ def clips_build(d, picks, edit="none", log=print):
         for x in cfg.get("cands") or []:
             if x["id"] == c.get("id"): x["made"] = os.path.basename(w)
         wj(J(d, "clips.json"), cfg)
+    for w in out: studio_mode_set(w, "claude" if edit == "claude" else "manual")   # 4.18
     if edit == "me":
         for w in out:
             try: prep(w, log=log)
@@ -4522,8 +5050,7 @@ def prep(work, model=None, lang=None, keep_silence=False, log=print):
         st("frames")
         vf = J(work, "vfr")
         if not os.path.isdir(vf) or not os.listdir(vf):
-            os.makedirs(vf, exist_ok=True)
-            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", J(work, "cutz.mp4"), "-vf", "fps=30", "-q:v", "3", os.path.join(vf, "%05d.jpg")], check=True)
+            vfr_extract(work, lambda *a: None)
         if not os.path.isfile(J(work, "compose.html")): shutil.copy(os.path.join(S, "compose.REFERENCE.html"), J(work, "compose.html"))
         st("ready", done=True); projects_remember(work); return True
     except Exception as e:
@@ -4561,18 +5088,26 @@ def whisper_device():
     _WD.update(t=time.time(), v=v); return v
 # ── 4.5.1: صفحة رمز الدخول من الجوال (6 خانات، لصق، إرسال تلقائي، رسالة واضحة لو غلط أو انقفل) ──
 LOGIN_CSS = """*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;height:100%}
-body{background:#0a0c11;color:#f1f4fa;font-family:"IBM Plex Sans Arabic",system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px 16px calc(24px + env(safe-area-inset-bottom))}
-.c{width:100%;max-width:380px;text-align:center}.logo{width:44px;height:44px;margin:0 auto 18px;color:#f1f4fa}.logo svg{display:block;width:100%;height:100%}
-h1{font-size:24px;margin:0 0 8px;font-weight:700}p{color:#8b93a7;font-size:14.5px;line-height:1.8;margin:0 0 22px}
+body{background:#1f1e1d;color:#faf9f5;font-family:"IBM Plex Sans Arabic",system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px 16px calc(24px + env(safe-area-inset-bottom))}
+.c{width:100%;max-width:380px;text-align:center}.logo{width:44px;height:44px;margin:0 auto 18px;color:#faf9f5}.logo svg{display:block;width:100%;height:100%}
+h1{font-size:24px;margin:0 0 8px;font-weight:700}p{color:#9c9a92;font-size:14.5px;line-height:1.8;margin:0 0 22px}
 .d{display:flex;gap:8px;justify-content:center;direction:ltr;margin-bottom:18px}
-.d input{width:46px;height:58px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#fff;font-size:26px;font-weight:600;text-align:center;outline:none;caret-color:#6aa2ff;font-family:inherit}
-.d input:focus{border-color:#6aa2ff;background:rgba(76,141,255,.08)}.err .d input{border-color:rgba(239,106,90,.7)}
-button{width:100%;height:52px;border:0;border-radius:14px;background:#3f7ff0;color:#fff;font-size:17px;font-weight:600;font-family:inherit;cursor:pointer}button:disabled{opacity:.45}
-.m{min-height:22px;font-size:13.5px;margin:-6px 0 14px;color:#ef6a5a}.h{margin-top:22px;padding:14px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);font-size:13px;color:#8b93a7;line-height:1.9;text-align:start}
-.h b{color:#f1f4fa;font-weight:600}.lk{color:#f2b33d}"""
+.d input{width:46px;height:58px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#fff;font-size:26px;font-weight:600;text-align:center;outline:none;caret-color:#d97757;font-family:inherit}
+.d input:focus{border-color:#d97757;background:rgba(217,119,87,.08)}.err .d input{border-color:rgba(239,106,90,.7)}
+button{width:100%;height:52px;border:0;border-radius:14px;background:#d97757;color:#fff;font-size:17px;font-weight:600;font-family:inherit;cursor:pointer}button:disabled{opacity:.45}
+.m{min-height:22px;font-size:13.5px;margin:-6px 0 14px;color:#ef6a5a}.h{margin-top:22px;padding:14px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);font-size:13px;color:#9c9a92;line-height:1.9;text-align:start}
+.h b{color:#faf9f5;font-weight:600}a.btn,button.btn{display:flex;align-items:center;justify-content:center;width:100%;height:52px;border-radius:14px;font-size:16px;font-weight:600;font-family:inherit;text-decoration:none;margin-top:10px}a.btn.sec{background:transparent;color:#faf9f5;border:1px solid rgba(222,220,209,.18)}.st{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:#9c9a92;margin-top:18px}.st i{width:8px;height:8px;border-radius:50%;background:#d97757;animation:pl 1.4s ease-in-out infinite}@keyframes pl{50%{opacity:.25}}.lk{color:#d97757}"""
+def stopped_html(name=""):   # 4.21: صفحة «المشروع وقف» بتصميم المكتبة، وترجع لحالها أول ما يرجع
+    logo = "<div class=logo><svg viewBox='0 0 260 260' aria-hidden=true><rect width=150.5 height=46.8 fill=currentColor /><rect x=62.5 y=106.6 width=197.5 height=46.8 fill=currentColor /><rect y=213.2 width=103.7 height=46.8 fill=currentColor /></svg></div>"
+    return ("<!doctype html><html lang=ar dir=rtl><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1,viewport-fit=cover'><meta name=theme-color content='#1f1e1d'>"
+            "<title>المشروع وقف · Hojas Studio</title><link href='https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap' rel=stylesheet><style>" + LOGIN_CSS + "</style></head><body>"
+            "<div class=c>" + logo + "<h1>الاستوديو وقف</h1><p>تشغيل المشروع" + (" «" + html.escape(name) + "»" if name else "") + " انقفل (يصير لو قفلت الاستوديو أو انطفى الجهاز أو تحدّثت النسخة). شغلك كله محفوظ وما ضاع منه شي.</p>"
+            "<button class=btn onclick='location.reload()'>حاول من جديد</button><a class='btn sec' href='/library'>ارجع للمكتبة</a>"
+            "<div class=st><i></i>أحاول أوصله لحالي، وأول ما يرجع أفتحه لك</div></div>"
+            "<script>setInterval(()=>{ fetch(location.href,{method:'HEAD',cache:'no-store'}).then(r=>{ if(r.ok) location.reload(); }).catch(()=>{}); },3000);</script></body></html>")
 def login_html(action, where, n=6, err="", locked=False):
     msg = "انقفل الدخول من الجوال مؤقتاً بعد محاولات كثيرة غلط. جرّب بعد ربع ساعة، أو افتح من الكمبيوتر." if locked else err
-    return ("<!doctype html><html lang=ar dir=rtl><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1,viewport-fit=cover'><meta name=theme-color content='#0a0c11'>"
+    return ("<!doctype html><html lang=ar dir=rtl><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1,viewport-fit=cover'><meta name=theme-color content='#1f1e1d'>"
             "<title>رمز الدخول · Hojas Studio</title><link href='https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap' rel=stylesheet><style>" + LOGIN_CSS.replace("%", "%%") + "</style></head><body>"
             "<form class='c%s' method=get action='%s' id=f><div class=logo><svg viewBox='0 0 260 260' aria-hidden=true><rect width=150.5 height=46.8 fill=currentColor /><rect x=62.5 y=106.6 width=197.5 height=46.8 fill=currentColor /><rect y=213.2 width=103.7 height=46.8 fill=currentColor /></svg></div><h1>اكتب رمز الدخول</h1>"
             "<p>الرمز من %d أرقام، تلقاه %s.</p><div class=d id=d>%s</div><input type=hidden name=k id=k>"
@@ -5162,6 +5697,101 @@ def ytdlp_cmd():
     except Exception: pass
     exe = shutil.which("yt-dlp")
     return [exe] if exe else None
+# ── 4.26: بودكاست (beta): النص أول بدون تحميل الفيديو، وبعد ما تختار ينزل بس الأجزاء اللي اخترتها ──
+_YTJS = {}
+def yt_base():
+    y = ytdlp_cmd()
+    if not y: raise RuntimeError("NEED_YTDLP")
+    if "js" not in _YTJS:
+        try: _YTJS["js"] = bool(shutil.which("node")) and "--js-runtimes" in subprocess.run(y + ["--help"], capture_output=True, text=True, errors="replace", timeout=60).stdout
+        except Exception: _YTJS["js"] = False
+    out = y + (["--js-runtimes", "node"] if _YTJS["js"] else []); ck = hub_cfg().get("cookies")
+    return out + (["--cookies-from-browser", ck] if ck else [])
+def _vtt_t(s):
+    p = s.strip().replace(",", ".").split(":"); p = [0] * (3 - len(p)) + p; return int(p[0]) * 3600 + int(p[1]) * 60 + float(p[2])
+def vtt_segments(path):
+    """VTT ← جمل بكلماتها. ترجمة يوتيوب التلقائية فيها وقت كل كلمة؛ اليدوية نوزّع الكلمات على وقت السطر."""
+    txt = open(path, encoding="utf-8", errors="replace").read().replace("\r", ""); blocks = [b for b in txt.split("\n\n") if "-->" in b]
+    timed = "<c>" in txt; words = []; prev = ""
+    for b in blocks:
+        ls = b.split("\n"); i = next(k for k, l in enumerate(ls) if "-->" in l); m = re.match(r"\s*([\d:.,]+)\s*-->\s*([\d:.,]+)", ls[i])
+        if not m: continue
+        cs, ce = _vtt_t(m.group(1)), _vtt_t(m.group(2)); body = [l for l in ls[i + 1:] if l.strip()]
+        if timed:
+            for l in body:
+                plain = re.sub(r"<[^>]+>", "", l).strip()
+                if "<c>" not in l and not re.search(r"<\d\d:", l):
+                    if not plain or plain == prev: continue   # السطر المكرر من الجملة اللي قبل (ترجمة يوتيوب التلقائية تعيده)
+                    w = plain.split(); prev = plain
+                    for k, ww in enumerate(w): words.append([cs + (ce - cs) * k / max(1, len(w)), ww])
+                    continue
+                prev = plain; t0 = cs
+                for tok in re.split(r"(<\d\d:\d\d:\d\d[.,]\d+>)", l):
+                    mm = re.match(r"<([\d:.,]+)>", tok)
+                    if mm: t0 = _vtt_t(mm.group(1)); continue
+                    w = re.sub(r"<[^>]+>", "", tok).strip()
+                    for k, ww in enumerate(w.split()): words.append([t0 + k * 0.01, ww])
+        else:
+            w = re.sub(r"<[^>]+>", "", " ".join(body)).split()
+            for k, ww in enumerate(w): words.append([cs + (ce - cs) * k / max(1, len(w)), ww])
+    words.sort(key=lambda x: x[0]); W = []
+    for k, (t, w) in enumerate(words):
+        if W and W[-1]["word"] == w and abs(W[-1]["start"] - t) < 0.05: continue
+        W.append({"word": w, "start": round(t, 3)})
+    for k, w in enumerate(W): w["end"] = round(min(W[k + 1]["start"] if k + 1 < len(W) else w["start"] + 0.5, w["start"] + 1.2), 3)
+    segs, cur = [], []
+    for w in W:
+        if cur and (w["start"] - cur[-1]["end"] > 0.7 or w["start"] - cur[0]["start"] > 10 or re.search(r"[.!?؟]$", cur[-1]["word"])): segs.append(cur); cur = []
+        cur.append(w)
+    if cur: segs.append(cur)
+    return [{"start": s[0]["start"], "end": s[-1]["end"], "text": " ".join(x["word"] for x in s), "words": s} for s in segs if s]
+def clips_text(url, d, lang=None, log=print):
+    """النص والمعلومات بدون تحميل: يرجّع cfg أو None لو ما فيه ترجمة (فيرجع للتحميل الكامل والتفريغ)."""
+    os.makedirs(J(d, ".hs"), exist_ok=True); y = yt_base()
+    r = subprocess.run(y + ["--no-playlist", "--skip-download", "--dump-json", url], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180)
+    try: info = json.loads((r.stdout or "").strip().split("\n")[-1])
+    except Exception: raise RuntimeError("ما قدرت أقرأ الرابط: " + (r.stderr or "")[-200:])
+    subs, auto = info.get("subtitles") or {}, info.get("automatic_captions") or {}
+    l0 = (lang or info.get("language") or "").split("-")[0]
+    cand = [("s", k) for k in subs if k.split("-")[0] == l0 and k != "live_chat"] + [("a", k) for k in auto if k == l0 + "-orig"] + [("a", k) for k in auto if k == l0]
+    if not cand and not l0: cand = [("a", k) for k in auto if k.endswith("-orig")] + [("s", k) for k in subs if k != "live_chat"]
+    if not cand: return None
+    kind, key = cand[0]
+    for f in glob.glob(J(d, "long.*.vtt")): os.remove(f)
+    subprocess.run(y + ["--no-playlist", "--skip-download", "--write-subs" if kind == "s" else "--write-auto-subs", "--sub-langs", key, "--sub-format", "vtt", "-o", J(d, "long.%(ext)s"), url], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180)
+    vt = (glob.glob(J(d, "long.*.vtt")) or [None])[0]
+    if not vt: return None
+    segs = vtt_segments(vt)
+    if len(segs) < 3: return None
+    lg = key.split("-")[0] or "en"; wj(J(d, "long.json"), {"text": " ".join(s["text"] for s in segs), "segments": segs, "language": lg, "from": "subs:" + key})
+    dur = float(info.get("duration") or segs[-1]["end"]); cfg = clips_cfg(d)
+    cfg.update({"src": "", "remote": info.get("webpage_url") or url, "vid": info.get("id"), "dur": round(dur, 2), "w": info.get("width") or 0, "h": info.get("height") or 0, "lang": lg,
+                "title": info.get("title") or cfg.get("title") or "", "credit": info.get("uploader") or info.get("channel") or ""}); cfg.setdefault("clips", []); cfg.setdefault("cands", []); wj(J(d, "clips.json"), cfg)
+    L = ["# %s · %s · اللغة: %s" % (cfg["title"], tfmt(dur), lg), ""] + ["[%s] %s" % (tfmt(s["start"]), s["text"].strip()) for s in segs]
+    open(J(d, "transcript.txt"), "w", encoding="utf-8").write("\n".join(L))
+    th = info.get("thumbnail")
+    if th:
+        try: open(J(d, ".hs", "th.jpg"), "wb").write(urllib.request.urlopen(urllib.request.Request(th, headers={"User-Agent": "Mozilla/5.0"}), timeout=30).read())
+        except Exception: pass
+    return cfg
+def yt_section(url, a, b, out, log=print):
+    """ينزّل جزء واحد من الفيديو بس (من a لين b)."""
+    y = yt_base(); base = os.path.splitext(out)[0] + ".dl"
+    for f in glob.glob(base + ".*"): os.remove(f)
+    r = subprocess.run(y + ["--no-playlist", "--no-part", "--download-sections", "*%.2f-%.2f" % (a, b), "--force-keyframes-at-cuts", "-f", "bv*[height<=1920]+ba/b", "--merge-output-format", "mp4", "-o", base + ".%(ext)s", url],
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
+    got = (glob.glob(base + ".mp4") or glob.glob(base + ".*") or [None])[0]
+    if not got: raise RuntimeError("ما قدرت أنزّل الجزء: " + (r.stdout + r.stderr)[-200:])
+    os.replace(got, out); return out
+# ── 4.26: شخصية المقدّم الثابتة (نفسها لكل عملائك) ──
+def pod_want(w, data):
+    """اختيارات البودكاست من المكتبة (لغة الترجمة، الدبلجة، المقدّم) تنحفظ قبل ما يبدأ الشغل."""
+    if (data or {}).get("mode") != "clips": return
+    tr = str(data.get("tr") or "").strip()[:5]; dub = str(data.get("dub") or "").strip()[:5]; host = str(data.get("host", "1")) not in ("0", "false", "False", "")
+    cfg = clips_cfg(w); W_ = cfg.get("want") or {}; W_.update({"tr": tr if tr in DUB_LANGS else "", "dub": dub if dub in DUB_LANGS else "", "host": host, "pod": True}); cfg["want"] = W_; os.makedirs(w, exist_ok=True); wj(J(w, "clips.json"), cfg)
+def host_cfg(): return {"on": True, "name": "", "char": "robo", "color": "#D97757", **(rj(os.path.join(HOME_CFG, "host.json"), {}) or {})}
+def host_set(**kw):
+    h = host_cfg(); h.update({k: v for k, v in kw.items() if v is not None}); os.makedirs(HOME_CFG, exist_ok=True); wj(os.path.join(HOME_CFG, "host.json"), h); return h
 def grab_url(url, d, base, prog=None):
     y = ytdlp_cmd()
     if not y: raise RuntimeError("NEED_YTDLP")
@@ -5195,6 +5825,14 @@ def job_run(d, src, mode="auto", pick="claude", n=5, ln=None, note="", lang=None
     os.makedirs(d, exist_ok=True); job_set(d, stage="grab", pct=0, mode=mode, pick=pick, note=note, err=None, done=False, t0=int(time.time()), src=src, n=n, len=ln)
     try:
         info = {}
+        if mode == "clips" and re.match(r"https?://", src):   # 4.26: البودكاست: النص أول بدون تحميل
+            job_set(d, stage="text", pct=None); tc = None
+            try: tc = clips_text(src, d, lang)
+            except Exception as e: job_set(d, note2=str(e)[:160])
+            if tc:
+                cfg = clips_cfg(d); W_ = cfg.get("want") or {}; W_.update({"n": int(n or 5), "len": ln or W_.get("len") or "25-75", "note": note or ""}); cfg["want"] = W_; wj(J(d, "clips.json"), cfg)
+                projects_remember(d); job_set(d, stage="suggest"); clips_suggest(d, int(n or 5), ln, note, count=int(n or 5) * 2)
+                job_set(d, stage="pick", done=True, textFirst=True); return d
         if re.match(r"https?://", src):
             f, info = grab_url(src, d, "download", prog=lambda p: job_set(d, pct=round(p, 1)))
         else:
@@ -5211,10 +5849,10 @@ def job_run(d, src, mode="auto", pick="claude", n=5, ln=None, note="", lang=None
         if mode == "clips":
             ext = os.path.splitext(f)[1].lower() or ".mp4"; lf = J(d, "long" + ext)
             if os.path.abspath(f) != os.path.abspath(lf): (shutil.move if os.path.dirname(os.path.abspath(f)) == os.path.abspath(d) else shutil.copy2)(f, lf)
-            cfg = clips_cfg(d); cfg.update({"title": info.get("title") or cfg.get("title") or "", "credit": info.get("by") or "", "want": {"n": int(n or 5), "len": ln or "25-75", "note": note or ""}}); wj(J(d, "clips.json"), cfg)
+            cfg = clips_cfg(d); cfg.update({"title": info.get("title") or cfg.get("title") or "", "credit": info.get("by") or "", "want": {**(cfg.get("want") or {}), "n": int(n or 5), "len": ln or "25-75", "note": note or ""}}); wj(J(d, "clips.json"), cfg)
             projects_remember(d); job_set(d, stage="transcribe", eta=int(max(60, dur * 1.2)), pct=None)
             clips_scan(lf, d, hub_cfg().get("prepModel") or "medium", lang)
-            job_set(d, stage="suggest"); clips_suggest(d, n, ln, note)
+            job_set(d, stage="suggest"); clips_suggest(d, n, ln, note, count=int(n or 5) * 2 if pick == "me" else None)
             C = clips_cfg(d).get("cands") or []
             if pick == "claude":
                 task = ("حلقة طويلة جاهزة بمجلد %s (التفريغ: transcript.txt، والمرشّحات: hs clips cand %s list).\n"
@@ -5237,7 +5875,8 @@ def job_run(d, src, mode="auto", pick="claude", n=5, ln=None, note="", lang=None
         sm = J(d, "src.mov")
         if os.path.abspath(f) != os.path.abspath(sm): (shutil.move if os.path.dirname(os.path.abspath(f)) == os.path.abspath(d) else shutil.copy2)(f, sm)
         st = load_studio(d)
-        if info.get("title"): hs_of(st)["title"] = info["title"][:80]; wj(J(d, "studio.json"), st)
+        if info.get("title"): hs_of(st)["title"] = info["title"][:80]
+        hs_of(st)["mode"] = "manual" if mode == "manual" else "claude"; wj(J(d, "studio.json"), st)   # 4.18: اختيارك بالمكتبة يحدد وضع الاستوديو
         projects_remember(d)
         if mode == "manual":
             job_set(d, stage="prep"); prep(d, lang=lang); job_set(d, stage="done", done=True)
@@ -5246,6 +5885,7 @@ def job_run(d, src, mode="auto", pick="claude", n=5, ln=None, note="", lang=None
             if note: task += "\nملاحظته: " + note
             def fallback(w=None):   # Claude مو موجود أو وقف (حد، دخول، نت): نجهّزه تمنتجه بنفسك بدل ما يعلق
                 if ready(d): job_set(d, stage="done", done=True); return
+                studio_mode_set(d, "manual")   # Claude ما قدر يكمّل ← يفتح لك المونتاج اليدوي
                 job_set(d, stage="prep", note2=(w or {}).get("msg"), done=False)
                 try: prep(d, lang=lang); job_set(d, stage="done", done=True)
                 except Exception as e: job_set(d, stage="error", err=str(e)[:500], done=True)
@@ -5659,7 +6299,7 @@ def proj_card(work, live=False):
     return {"work": work, "id": hashlib.md5(os.path.normcase(work).encode()).hexdigest()[:10], "name": os.path.basename(work.rstrip("/\\")), "title": title, "dur": round(dur, 1), "note": jb.get("claudeErr"), "why": jb.get("why"),
             "state": state, "sub": sub, "lanes": lanes, "thumb": th, "final": os.path.relpath(exps[-1], work).replace("\\", "/") if exps else None, "last": ltext[:160] if (agent or cl_on) else "", "lastT": lt, "lastKind": lkind, "stopped": cl_stop, "steps": len(acts), "mt": int(max(smt, os.path.getmtime(work))), "notes": openn, "ask": ask, "port": port, "agent": agent, "job": job,
             "prep": ({"stage": pst.get("stage"), "i": pst.get("i", 0), "n": pst.get("n", 5), "t0": pst.get("t0"), "eta": pst.get("eta"), "err": pst.get("err")} if pst and not pst.get("done") else None),
-            "manual": (jb.get("mode") == "manual") or bool(pst), "src": (rj(J(work, "source.json"), {}) or {}).get("url"), "clip": hs.get("clip")}
+            "manual": (jb.get("mode") == "manual") or bool(pst), "src": (rj(J(work, "source.json"), {}) or {}).get("url"), "clip": hs.get("clip"), "pod": bool((hs.get("pod") or {}).get("on"))}
 def battery():
     try:
         if os.name == "nt":
@@ -5953,7 +6593,7 @@ def hub_serve(root, port):
                     try: c.close()
                     except Exception: pass
                     POOL.c.pop(port, None)
-                    if attempt: return self._send(502, "<meta charset=utf-8><body dir=rtl style='font-family:system-ui;background:#111;color:#eee;padding:30px'>المشروع وقف. <a style='color:#F5C443' href='/library'>ارجع للمكتبة</a>", "text/html; charset=utf-8")
+                    if attempt: return self._send(502, stopped_html(), "text/html; charset=utf-8")
             self.send_response(r.status); ln = r.getheader("Content-Length")
             for k, v in r.getheaders():
                 if k.lower() in ("connection", "keep-alive", "transfer-encoding", "content-length"): continue
@@ -5977,7 +6617,7 @@ def hub_serve(root, port):
             if (q.get("k") or [""])[0] == TOKEN and not self._local() and ("hs_k=" + TOKEN) not in (self.headers.get("Cookie") or ""):
                 self.send_response(302); self.send_header("Set-Cookie", "hs_k=%s; Path=/; Max-Age=2592000; SameSite=Lax" % TOKEN); self.send_header("Location", p or "/library"); self.send_header("Content-Length", "0"); self.end_headers(); return
             if p in ("/tele", "/tele/"):   # 4.5.2: الملقّن قريباً (tele.html موجود للتطوير وما ينفتح للحين)
-                b = login_html("/library", "", 6).split("<body>")[0] + "<body><div class=c><div class=logo><svg viewBox='0 0 260 260' aria-hidden=true><rect width=150.5 height=46.8 fill=currentColor /><rect x=62.5 y=106.6 width=197.5 height=46.8 fill=currentColor /><rect y=213.2 width=103.7 height=46.8 fill=currentColor /></svg></div><h1>الملقّن قريباً</h1><p>جاي بالتحديث الجاي.</p><a href=/library style='color:#6aa2ff'>ارجع للمكتبة</a></div></body></html>"
+                b = login_html("/library", "", 6).split("<body>")[0] + "<body><div class=c><div class=logo><svg viewBox='0 0 260 260' aria-hidden=true><rect width=150.5 height=46.8 fill=currentColor /><rect x=62.5 y=106.6 width=197.5 height=46.8 fill=currentColor /><rect y=213.2 width=103.7 height=46.8 fill=currentColor /></svg></div><h1>الملقّن قريباً</h1><p>جاي بالتحديث الجاي.</p><a href=/library class=lk>ارجع للمكتبة</a></div></body></html>"
                 return self._send(200, b.replace("%%", "%"), "text/html; charset=utf-8")
             if p in ("/library", "/library/"):
                 b = open(os.path.join(HERE, "hub.html"), "rb").read(); return self._send(200, b, "text/html; charset=utf-8", {"Set-Cookie": "hs_hub=1; Path=/; SameSite=Lax"})
@@ -6066,7 +6706,7 @@ def hub_serve(root, port):
                 m = re.search(r"https?://\S+", url)
                 if not m: return self._json(400, {"ok": False, "msg": "الصق رابط يبدأ بـ https://"})
                 if not ytdlp_cmd(): return self._json(200, {"ok": False, "need": "ytdlp", "msg": "أداة السحب yt-dlp مو مثبّتة"})
-                w = new_dir(data.get("name"), "long-" if data.get("mode") == "clips" else "clip-"); grab_bg(m.group(0), w, data)
+                w = new_dir(data.get("name"), "long-" if data.get("mode") == "clips" else "clip-"); pod_want(w, data); grab_bg(m.group(0), w, data)
                 return self._json(200, {"ok": True, "work": w})
             if a == "tokens":   # 4.5: اسألني قبل أي شي يستهلك من حدّي في Claude
                 c = hub_cfg(); c["tokenAsk"] = bool(data.get("ask", True)); wj(hub_cfg_path(), c); return self._json(200, {"ok": True, "tokenAsk": token_ask()})
@@ -6147,7 +6787,8 @@ def hub_serve(root, port):
                     cw = J(w, c["name"]); made.append({**c, "pid": hashlib.md5(os.path.normcase(cw).encode()).hexdigest()[:10], "card": proj_card(cw) if is_project(cw) else None})
                 return self._json(200, {"ok": True, "card": ep_card(w), "cands": cfg.get("cands") or [], "clips": made, "want": cfg.get("want") or {}, "lang": cfg.get("lang"),
                                         "segs": [[round(x["start"], 2), round(x["end"], 2), x["text"].strip()] for x in A.get("segments") or []],
-                                        "preview": ".hs/preview.mp4" if os.path.exists(J(w, ".hs", "preview.mp4")) else None, "ranking": bool(job_get(w).get("ranking")), "claude": have_claude()})
+                                        "preview": ".hs/preview.mp4" if os.path.exists(J(w, ".hs", "preview.mp4")) else None, "ranking": bool(job_get(w).get("ranking")), "claude": have_claude(),
+                                        "remote": cfg.get("remote") if not (cfg.get("src") and os.path.isfile(cfg.get("src") or "")) else None, "vid": cfg.get("vid"), "host": host_cfg()})
             if a == "ep_build":
                 w = card_by(data.get("id", ""))
                 if not w or not is_ep(w): return self._json(404, {"ok": False})
@@ -6159,6 +6800,16 @@ def hub_serve(root, port):
                 def fin(): rc = pr.wait(); job_set(w, stage=("claude" if edit == "claude" else "pick") if rc == 0 else "error", err=None if rc == 0 else "القص وقف: شوف .hs/job.log")
                 threading.Thread(target=fin, daemon=True).start()
                 return self._json(200, {"ok": True})
+            if a == "ep_more":   # 4.26: «هات غيرها»: نفس العدد مرشّحات جديدة ما تتداخل مع اللي شفتها
+                w = card_by(data.get("id", ""))
+                if not w or not is_ep(w): return self._json(404, {"ok": False, "msg": "ما لقيت الحلقة"})
+                cfg = clips_cfg(w); nn = int((cfg.get("want") or {}).get("n") or 5); ks = set(data.get("keep") or [])
+                for c in cfg.get("cands") or []: c["keep"] = c.get("id") in ks or bool(c.get("keep"))   # اللي حددتها تبقى
+                wj(J(w, "clips.json"), cfg); C = clips_suggest(w, nn, None, None, count=nn * 2, fresh=True)
+                return self._json(200, {"ok": True, "cands": C, "added": sum(1 for c in C if c.get("by") == "auto" and not c.get("made"))})
+            if a == "host":   # 4.26: شخصية المقدّم الثابتة
+                if self.command == "POST": return self._json(200, {"ok": True, "host": host_set(name=str(data.get("name"))[:30] if data.get("name") is not None else None, char=data.get("char") if data.get("char") in ("robo", "sprout", "star", "cube") else None, color=data.get("color") if re.match(r"^#[0-9A-Fa-f]{6}$", str(data.get("color") or "")) else None, on=bool(data.get("on")) if "on" in data else None)})
+                return self._json(200, {"ok": True, "host": host_cfg()})
             if a == "ep_suggest":
                 w = card_by(data.get("id", ""))
                 if not w or not is_ep(w): return self._json(404, {"ok": False})
@@ -6292,6 +6943,7 @@ def hub_serve(root, port):
                         if not ch: break
                         f.write(ch); left -= len(ch)
                 note = (q.get("note") or [""])[0][:1500]; mode = (q.get("mode") or ["clips" if kind == "long" else "manual"])[0]
+                pod_want(w, {"mode": mode, "tr": (q.get("tr") or [""])[0], "dub": (q.get("dub") or [""])[0], "host": (q.get("host") or ["1"])[0]})
                 grab_bg(dst, w, {"mode": mode, "pick": (q.get("pick") or ["me"])[0], "n": (q.get("n") or ["5"])[0], "len": (q.get("len") or [""])[0], "note": note})
                 return self._json(200, {"ok": True, "work": w, "started": True, "msg": ""})
             return self._json(404, {"ok": False})
@@ -6339,6 +6991,7 @@ def main():
     if cmd == "tools": print(tools_text()); return
     if cmd == "notify": return cmd_notify(a[1:])
     if cmd == "style": return cmd_style(a[1:])
+    if cmd == "sound": return cmd_sound(a[1:])
     if cmd == "update": return cmd_update()
     if cmd == "fonts": return cmd_fonts(a[1:])
     if cmd == "gloss": return cmd_gloss(a[1:])
@@ -6349,7 +7002,7 @@ def main():
     if cmd == "claude": return cmd_claude(a[1:])
     if cmd == "release": return cmd_release(a[1:])
     if cmd == "autoupdate": return cmd_autoupdate(a[1:])
-    if cmd == "hub": return cmd_hub(a[1:])
+    if cmd == "hub": return cmd_hub(a[1:] + (["--port", str(port)] if "--port" in sys.argv else []))   # 4.26: --port كان ينأكل قبل ما يوصل للمكتبة
     if cmd == "selftest": sys.exit(0 if cmd_selftest(os.path.abspath(a[1]) if len(a) > 1 else None, engine) else 1)
     if len(a) < 2: sys.exit("لازم مجلد الشغل: python hs.py %s <work>" % cmd)
     work = os.path.abspath(a[1])
@@ -6429,6 +7082,31 @@ def main():
     elif cmd == "auto": cmd_auto(work, rest)
     elif cmd == "caps": cmd_caps(work, rest)
     elif cmd == "look": cmd_look(work, rest)
+    elif cmd == "mode": cmd_mode(work, rest)
+    elif cmd == "dub":   # 4.26
+        sub = rest[0] if rest else "status"
+        if sub == "script":
+            D = dub_script(work, rest[1] if len(rest) > 1 else "ar"); print("كتبت %d جملة بـ dub.json و dub-script.txt. ترجم كل وحدة بنفس طولها تقريباً (words) ثم: hs dub <work> import <ملف.json>  بشكل [{\"i\":0,\"tr\":\"…\"}]" % len(D["segs"]))
+        elif sub == "import": print("انضافت %d ترجمة (وصارت سطر الترجمة بالكابشن)" % dub_import(work, rj(os.path.abspath(rest[1]), [])))
+        elif sub == "add": print("انضاف: " + dub_add(work, rest[1], os.path.abspath(rest[2])))
+        elif sub == "track": print("انضاف ملف الدبلجة الكامل: " + dub_track(work, os.path.abspath(rest[1])))
+        elif sub in ("build", "on"):
+            f, miss = dub_build(work); st_ = load_studio(work); hs_of(st_).setdefault("mix", {})["dub"] = True; wj(J(work, "studio.json"), st_); print("الدبلجة تركّبت (%s) وصارت بدل الصوت الأصلي%s" % (f, ("، وناقص صوت %d جملة" % miss) if miss else ""))
+        elif sub == "off": st_ = load_studio(work); hs_of(st_).setdefault("mix", {})["dub"] = False; wj(J(work, "studio.json"), st_); print("رجع الصوت الأصلي")
+        else:
+            D = dub_get(work)
+            if not D: print("ما فيه دبلجة. ابدأ: hs dub <work> script ar|en|es|…"); return
+            segs = D.get("segs") or []; print("الدبلجة: %s · %d جملة · مترجم %d · فيه صوت %d%s · %s" % (DUB_LANGS.get(D.get("lang"), D.get("lang")), len(segs), sum(1 for x in segs if x.get("tr")), sum(1 for x in segs if x.get("file")), " · ملف كامل" if D.get("track") else "", "شغّالة" if dub_on(work) else "مطفية"))
+    elif cmd == "quality":   # 4.25
+        if not rest or rest[0] == "status": print("التحسين: " + {"off": "مطفي", "light": "خفيف", "strong": "قوي"}[enh_level(work)]); return
+        if rest[0] == "preview": print(quality_preview(work, float(rest[1]) if len(rest) > 1 else 3.0, rest[2] if len(rest) > 2 else "light")); return
+        if rest[0] not in ENH_LEVELS: sys.exit("quality <work> off | light | strong | preview <ثانية> [light|strong]")
+        st_ = load_studio(work); hs_of(st_)["enhance"] = {"level": rest[0]}; wj(J(work, "studio.json"), st_); vfr_extract(work, print, rest[0]); print("تم. الفريمات صارت بالتحسين (%s)، والتصدير بياخذها" % rest[0])
+    elif cmd == "media":   # 4.23: الفيديو مبني من أي قص، و fresh يبنيه على آخر قص
+        ok_, vm_ = media_map(work)
+        if rest[:1] == ["fresh"]:
+            eng_ = find_engine(engine) or sys.exit("ما لقيت مجلد engine"); print("بنيته من جديد" if ensure_media(work, os.path.join(eng_, "scripts"), print) else "الفيديو أصلاً على آخر قص")
+        else: print("الفيديو على آخر قص" if vm_ is None and ok_ else ("القص فوري (%d قطعة)، والفيديو ينبني وقت التصدير. للبناء الحين: hs media <work> fresh" % len(vm_) if ok_ else "فيه جزء رجّعته مو موجود بالفيديو الحالي: hs media <work> fresh"))
     elif cmd == "logo": cmd_logo(work, rest)
     elif cmd == "takes": cmd_takes(work, rest)
     elif cmd == "plan": cmd_plan(work, rest)

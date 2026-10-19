@@ -67,8 +67,16 @@ const CHROME=findChrome();
     return W.every(w=>document.fonts.check(w+' 60px '+f));
   },FF);
   if(!fontOK) console.log('⚠️ الخط '+FF+' ما اكتمل تحميله — الرسم بيكمل بخط بديل');
+  /* 4.23: القص الفوري: الفيديو مبني من قص أقدم (.hs/media.json)، فنحسب كل وقت بمكانه بالفيديو الحالي */
+  const VMAP=(()=>{ try{ const seg=k=>(k||[]).map(x=>[+x[0],+x[1]]); const K=seg(JSON.parse(fs.readFileSync(W+'cut.json','utf8')).keep), M=fs.existsSync(W+'.hs/media.json')?seg(JSON.parse(fs.readFileSync(W+'.hs/media.json','utf8')).keep):K;
+    if(!K.length||(K.length===M.length&&K.every((x,i)=>Math.abs(x[0]-M[i][0])<1e-3&&Math.abs(x[1]-M[i][1])<1e-3))) return null;
+    const mo=[]; let acc=0; for(const [a,b] of M){ mo.push(acc); acc+=b-a; } const out=[]; let n=0;
+    for(const [a,b] of K){ let x=a; while(x<b-1e-4){ const j=M.findIndex(([ma,mb])=>ma-0.06<=x&&x<mb-1e-4); if(j<0) return null; const [ma,mb]=M[j], y=b-mb<=0.06?b:mb; out.push([n,n+(y-x),mo[j]+Math.min(Math.max(0,x-ma),mb-ma)]); n+=y-x; x=y; } }
+    return out; }catch(e){ return null; } })();
+  const vmT=t=>{ if(!VMAP) return t; for(const [s,e,o] of VMAP){ if(t<e) return o+Math.max(0,t-s); } const L=VMAP[VMAP.length-1]; return L[2]+(t-L[0]); };
+  if(VMAP) console.log('القص الفوري: المعاينة من الفيديو الحالي ('+VMAP.length+' قطعة)');
   const grab=async(t,file,q)=>{
-    const i=Math.min(NVF,Math.max(1,Math.round(t*FPS)+1));
+    const i=Math.min(NVF,Math.max(1,Math.round(vmT(t)*FPS)+1));
     const id=String(i).padStart(5,'0');
     await p.evaluate(s=>window.setFrame(s),fileURL(W+'vfr/'+id+'.jpg'));
     if(BEHIND){                                   // صورة الشخص المقصوص لهالفريم (إن وُجدت)

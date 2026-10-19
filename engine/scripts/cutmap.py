@@ -43,6 +43,7 @@ def fps_of(work, cut=None):
     f = (cut or {}).get("fps")
     if f: return Fraction(f).limit_denominator(1001)
     src = os.path.join(work, "src.mov")
+    if not os.path.isfile(src) and os.path.isfile(os.path.join(work, "src-cutz.mp4")): src = os.path.join(work, "src-cutz.mp4")   # 4.25
     try:
         r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=r_frame_rate", "-of", "csv=p=0", src], capture_output=True, text=True).stdout.strip().split("\n")[0]
         F = Fraction(r) if r and r != "0/0" else Fraction(30)
@@ -58,6 +59,7 @@ def env(work):
     """شدة الصوت بالأصل كل 10 جزء من الثانية (dB). من a.wav لو موجود، وإلا من src.mov."""
     if work in _ENV: return _ENV[work]
     src = os.path.join(work, "a.wav") if os.path.isfile(os.path.join(work, "a.wav")) else os.path.join(work, "src.mov")
+    if not os.path.isfile(src) and os.path.isfile(os.path.join(work, "src-cutz.mp4")): src = os.path.join(work, "src-cutz.mp4")   # 4.25
     db = []
     try:
         raw = subprocess.run(["ffmpeg", "-v", "error", "-i", src, "-vn", "-ac", "1", "-ar", "16000", "-af", "highpass=f=90", "-f", "s16le", "-"], capture_output=True).stdout

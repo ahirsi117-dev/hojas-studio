@@ -121,4 +121,7 @@ _rc=subprocess.call(["ffmpeg","-v","error","-nostats","-i",SRC,"-filter_complex"
 if _rc==0:
     _d=subprocess.run(["ffprobe","-v","error","-show_entries","format=duration","-of","csv=p=0",_OUT],capture_output=True,text=True).stdout.strip()
     print(f"✅ cutz.mp4 — {float(_d or 0):.2f} ث · {len(k)} مقطع")
+    try:   # 4.23: الفيديو انبنى من هالقص (الاستوديو يعرض القص الفوري منه بدون ما يعيد بناءه)
+        os.makedirs(os.path.join(W,".hs"),exist_ok=True); json.dump({"keep":k},open(os.path.join(W,".hs","media.json"),"w"))
+    except Exception: pass
 sys.exit(_rc)
