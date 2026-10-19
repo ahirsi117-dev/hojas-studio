@@ -752,6 +752,12 @@ body.fast #rateBadge{display:block}
   body:not(.m) #top .sm:has(>svg)>span,body:not(.m) #top .sm>kbd{display:none}
   body:not(.m) #top{gap:6px}
 }
+
+/* 4.32: أزرار الأقسام */
+.secbar{display:flex;flex-wrap:nowrap;gap:6px;padding:2px 0 10px;margin-bottom:4px;border-bottom:1px solid var(--bd);overflow-x:auto;scrollbar-width:thin;overscroll-behavior:contain}
+.secbar button{flex:none;white-space:nowrap}
+.secbar button{font-size:12px;padding:5px 11px;border-radius:999px;border:1px solid var(--bd);background:transparent;color:var(--mut);box-shadow:none;height:auto;line-height:1.4}
+.secbar button.on{background:var(--s3);color:var(--tx);border-color:transparent}
 </style>
 </head>
 <body>

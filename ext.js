@@ -1026,7 +1026,7 @@
     if(!window._GRN){ const g=mkCv(256,256), gx=g.getContext('2d'), im=gx.createImageData(256,256); for(let i=0;i<im.data.length;i+=4){ const v=Math.random()*255|0; im.data[i]=im.data[i+1]=im.data[i+2]=v; im.data[i+3]=255; } gx.putImageData(im,0,0); window._GRN=g; }
     const ax=_CN.a.getContext('2d'), bx=_CN.b.getContext('2d'); ax.setTransform(1,0,0,1,0,0); ax.globalCompositeOperation='copy'; ax.filter='none'; _di.call(ax,cv,0,0);
     bx.setTransform(1,0,0,1,0,0); bx.globalCompositeOperation='copy'; bx.filter='brightness(0.72) contrast(2.8) blur(3px)'; _di.call(bx,cv,0,0,bw,bh); bx.filter='none';
-    X.save(); X.setTransform(1,0,0,1,0,0); X.globalAlpha=1; X.shadowColor='transparent'; X.globalCompositeOperation='copy'; X.filter='contrast('+(1+0.16*a).toFixed(3)+') saturate('+(1-0.22*a).toFixed(3)+') brightness('+(1-0.035*a).toFixed(3)+')'; _di.call(X,_CN.a,0,0); X.filter='none';
+    X.save(); (X.__st?X.__st.call(X,1,0,0,1,0,0):X.setTransform(1,0,0,1,0,0)); X.globalAlpha=1; X.shadowColor='transparent'; X.globalCompositeOperation='copy'; X.filter='contrast('+(1+0.16*a).toFixed(3)+') saturate('+(1-0.22*a).toFixed(3)+') brightness('+(1-0.035*a).toFixed(3)+')'; _di.call(X,_CN.a,0,0); X.filter='none';
     X.globalCompositeOperation='screen'; X.fillStyle='rgb('+Math.round(2*a)+','+Math.round(7*a)+','+Math.round(9*a)+')'; X.fillRect(0,0,W,H);
     X.globalCompositeOperation='soft-light'; X.globalAlpha=Math.min(0.5,0.22*a); X.fillStyle='#FF9A3C'; X.fillRect(0,0,W,H); X.globalAlpha=1;
     X.globalCompositeOperation='multiply'; X.fillStyle='rgb(255,'+Math.round(255-14*a)+','+Math.round(255-44*a)+')'; X.fillRect(0,0,W,H);
@@ -1544,7 +1544,7 @@
   /* 4.14: «احذف الصورة بس»: الفيديو بهالجزء يتغطى بالأسود (بعد ما ينرسم، فيغطي أي شكل للفيديو: كامل أو بكرت)، والطبقات والكابشن فوقه */
   const _dvB=window.drawVideo;
   if(typeof _dvB==='function') window.drawVideo=function(t){ const r=_dvB.apply(this,arguments); const ba=t<VEND?blankA(t):0;
-    if(ba>0){ X.save(); X.setTransform(1,0,0,1,0,0); X.globalAlpha=ba; X.fillStyle='#000000'; X.fillRect(0,0,X.canvas.width,X.canvas.height); X.restore(); } return r; };
+    if(ba>0){ X.save(); X.setTransform(1,0,0,1,0,0); X.globalAlpha=ba; X.fillStyle='#000000'; X.fillRect(0,0,1080,1920); X.restore(); } return r; };
   window.draw=function(t){ TNOW=t; if(_barFn) window.bar=function(){}; try{ _draw(t); } finally { if(_barFn) window.bar=_barFn; }
     for(const [n,f] of [['split',x=>{ if(!splits(x)) return; if(CAP.on) capSmall(x,{size:Math.min(CAP.size,60),lines:1,width:Math.min(CAP.width||760,920),bg:CAP.bg==='bar'?'box':CAP.bg}); else if(!HSX.nocap){ try{ _cap(x); }catch(e){} } }],['viz',x=>{ if(vizs(x)) capSmall(x,{y:69.6,size:Math.min(CAP.size,72),lines:1,width:Math.min(CAP.width||760,900)}); }],['collage',x=>{ if(collages(x)){ if(CAP.on) capSmall(x,{}); else if(!HSX.nocap){ try{ _cap(x); }catch(e){} } } }],['kinetic',kinetics],['layers',x=>layers(x,false)],['cover',covers],['hook',hook],['fx',x=>{ if(dkOn()&&(HSX.dahih.layout||'window')!=='full'){ const R=dkStage(); X.beginPath(); X.rect(R.x,R.y,R.w,R.h); X.clip(); } fx(x); }],['mg',mgs],['bar',x=>{ if(_barFn&&!(HSX.layers||[]).some(L=>L.type==='mg'&&L.kind==='sting'&&!L.off&&x>=L.s&&x<L.e&&L.bg!=='none')) _barFn(x); }],['look',lookOverlay]]){ X.save(); try{ f(t); }catch(e){ if(!window['__hsE'+n]){ window['__hsE'+n]=1; console.error('hs '+n+': '+e.message); } } X.restore(); X.setTransform(1,0,0,1,0,0); X.globalAlpha=1; X.filter='none'; X.globalCompositeOperation='source-over'; } };
   /* ═══════════ 4.28: مؤثرات من مقطعين أرسلهم راكان ═══════════
@@ -1695,7 +1695,7 @@
   window.hsWarp=t=>{ try{ const w=warpAt(t); return w?w.t2:t; }catch(e){ return t; } };
   function drawRW(x,y){ X.fillStyle='#FFFFFF'; for(const o of [0,40]){ X.beginPath(); X.moveTo(x+o,y); X.lineTo(x+o+40,y-26); X.lineTo(x+o+40,y+26); X.closePath(); X.fill(); } }
   function vhsOver(t,L){ const cv=X.canvas, sx=cv.width/1080, sy=cv.height/1920, f=Math.floor(t*30);
-    X.save(); X.setTransform(sx,0,0,sy,0,0); X.globalCompositeOperation='screen'; X.globalAlpha=0.3; X.drawImage(cv,0,0,cv.width,cv.height,-10,0,1080,1920); X.globalCompositeOperation='source-over'; X.globalAlpha=1;
+    X.save(); X.setTransform(1,0,0,1,0,0); X.globalCompositeOperation='screen'; X.globalAlpha=0.3; X.drawImage(cv,0,0,cv.width,cv.height,-10,0,1080,1920); X.globalCompositeOperation='source-over'; X.globalAlpha=1;
     for(let j=0;j<9;j++){ if(H28(j,f)<0.5) continue; const yy=H28(j,f+1)*1920, hh=6+H28(j,f+2)*44, dx=(H28(j,f+3)-0.5)*90; X.drawImage(cv,0,yy*sy,cv.width,hh*sy,dx,yy,1080,hh); }
     X.fillStyle='rgba(0,0,0,0.18)'; for(let y=0;y<1920;y+=6) X.fillRect(0,y,1080,2);
     X.fillStyle='rgba(255,255,255,0.12)'; X.fillRect(0,1920*((t*0.8)%1),1080,70);
@@ -1704,7 +1704,7 @@
   let _baC=null;
   function baFrame(t,w){ const cv=X.canvas, sx=cv.width/1080, sy=cv.height/1920, L=w.L, lt=t-L.s, ki=spr(PR(lt,0,0.6),0.8), ko=PR(t,L.e-0.35,0.35), acc=L.accent||lookAcc(), fam=mgFam(L), fr=FR.cur||(typeof VF!=='undefined'?VF:null);
     if(!_baC) _baC=document.createElement('canvas'); _baC.width=cv.width; _baC.height=cv.height; _baC.getContext('2d').drawImage(cv,0,0);
-    X.save(); X.setTransform(sx,0,0,sy,0,0); X.globalAlpha=1; X.filter='none'; X.fillStyle='#111113'; X.fillRect(0,0,1080,1920); X.strokeStyle='rgba(255,255,255,0.035)'; X.lineWidth=2;
+    X.save(); X.setTransform(1,0,0,1,0,0); X.globalAlpha=1; X.filter='none'; X.fillStyle='#111113'; X.fillRect(0,0,1080,1920); X.strokeStyle='rgba(255,255,255,0.035)'; X.lineWidth=2;
     for(let x=0;x<=1080;x+=60){ X.beginPath(); X.moveTo(x,0); X.lineTo(x,1920); X.stroke(); } for(let y=0;y<=1920;y+=60){ X.beginPath(); X.moveTo(0,y); X.lineTo(1080,y); X.stroke(); }
     const cw=450, ch=800, gp=44, y=(L.y==null?0.12:+L.y)*1920+(1-ki)*140;
     [[540-gp/2-cw,'a'],[540+gp/2,'b']].forEach(([x,k])=>{ X.save(); X.globalAlpha=Math.min(1,ki*1.6)*(1-ko); mgSh(30,0.5); X.fillStyle='#000'; rr(x,y,cw,ch,40); X.fill(); mgNo();

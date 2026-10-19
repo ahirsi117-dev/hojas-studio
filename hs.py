@@ -80,7 +80,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.31"
+VERSION = "4.32"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json", "takes.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -3491,6 +3491,13 @@ def cmd_selftest(work=None, engine=None):
             "'.hojas-studio','node_modules','puppeteer-core'" in rf_ and callable(deps_keep) and "grid-template-columns:minmax(0,1fr)" in st_ and "function vxfPanel" in ap_ and "HSX.vxf" in ex_
             and pod_speaker("مركزية العلاقة مع الله | ياسر الحزيمي") == "ياسر الحزيمي" and cap_clean("&gt;&gt;") == "" and cap_clean("&gt;&gt;الليل") == "الليل")
     except Exception as e: chk("4.31", False, str(e)[:240])
+    try:   # 4.32
+        S_ = [{"start": 0, "end": 3, "text": "قال لي واحد عن"}, {"start": 3.2, "end": 6, "text": "الخياط اللي ما يعرف"}, {"start": 7, "end": 11, "text": "وبعدين صار يحسب"}, {"start": 13, "end": 16, "text": "سؤال ثاني تماما"}]
+        T_ = thoughts(S_); ap_ = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); ex_ = open(os.path.join(HERE, "ext.js"), encoding="utf-8").read()
+        chk("4.32: المقطع فكرة كاملة (ما ينقص بنص الكلام)، الفلتر بالتشغيل، العناصر بأقسام، «Claude يمنتج» ما يعلق",
+            T_ == [(0, 2), (3, 3)] and "X.__st?X.__st.call(X,1,0,0,1,0,0)" in ex_ and "function secTabs" in ap_ and "ELGROUPS" in ap_ and title_clean("&gt;&gt; سو") == "سو"
+            and 'if edit in ("me", "claude"):' in open(os.path.abspath(__file__), encoding="utf-8").read())
+    except Exception as e: chk("4.32", False, str(e)[:240])
     try:   # 4.26: حارس: ولا متغيّر داخل السيرفر يغطّي D (مجلد الكاش) أو P أو S، كان يخلّي الفريمات والصور المصغّرة ما تطلع
         me_ = open(os.path.abspath(__file__), encoding="utf-8").read(); hb_ = open(os.path.join(HERE, "hub.html"), encoding="utf-8").read()
         bad_ = [l.strip()[:60] for l in me_.split(chr(10)) if re.match(r"^ {16,}(D|P|S|base|work) = ", l)]
@@ -4935,6 +4942,9 @@ def cmd_dahih(work, args):
 POD_CAP = {"on": True, "font": "Cairo", "weight": 800, "size": 56, "color": "#FFFFFF", "active": "#F5A524", "bg": "none", "shadow": True, "stroke": 0,
            "hl": "color", "enter": "fade", "chunk": 0, "lines": 2, "width": 760, "x": 50, "y": 74, "actScale": 1}
 POD_NAME = {"type": "text", "x": 0.74, "y": 0.088, "size": 44, "weight": 800, "font": "Cairo", "color": "#FFFFFF", "bg": "box", "bgColor": "#1E1915", "bgOpacity": 0.88, "track": 3, "anim": "fade", "auto": "name"}
+def title_clean(s):
+    """عنوان أو نص مرشّح من ترجمة يوتيوب: بدون &gt;&gt; ولا [موسيقى]."""
+    s = html.unescape(str(s or "")); s = re.sub(r"\[[^\]]*\]", " ", s.replace(">>", " ")); return re.sub(r"\s+", " ", s).strip()
 def cap_clean(w):
     """4.31: كلمة نظيفة من ترجمة يوتيوب: بدون &gt;&gt; ولا [موسيقى]."""
     w = html.unescape(str(w or "")).lstrip(">").strip()
@@ -4950,7 +4960,25 @@ def pod_repair(work):
             ws = [{**w, "t": cap_clean(w.get("t"))} for w in c.get("w") or []]; ws = [w for w in ws if w["t"]]
             if ws: cards.append({**c, "w": ws})
         caps["cards"] = cards; wj(cp, caps); ch = True
+    for fn in ("a.json", "fixes.json"):
+        fp = J(work, fn); dj = rj(fp, None)
+        if dj and ("&gt;" in json.dumps(dj, ensure_ascii=False) or "[موسيقى]" in json.dumps(dj, ensure_ascii=False)):
+            if fn == "a.json":
+                for sg in dj.get("segments") or []:
+                    sg["words"] = [{**x, "word": cap_clean(x.get("word"))} for x in sg.get("words") or [] if cap_clean(x.get("word"))]; sg["text"] = " ".join(x["word"] for x in sg["words"])
+                dj["segments"] = [sg for sg in dj.get("segments") or [] if sg.get("words")]; dj["text"] = " ".join(sg["text"] for sg in dj["segments"])
+            else:
+                dj["fix"] = [[cap_clean(x) for x in f if cap_clean(x)] for f in dj.get("fix") or []]; dj["fix"] = [f for f in dj["fix"] if f]
+            wj(fp, dj); ch = True
     st = load_studio(work); h = hs_of(st); P_ = h.get("pod") or {}
+    for k_, o_ in (("title", h), ("title", P_)):
+        if o_.get(k_) and title_clean(o_[k_]) != o_[k_]: o_[k_] = title_clean(o_[k_]); ch = True; wj(J(work, "studio.json"), st)
+    epc = os.path.join(os.path.dirname(os.path.abspath(work)), "clips.json"); ec = rj(epc, None)
+    if ec and "&gt;" in json.dumps(ec, ensure_ascii=False):
+        for x in (ec.get("clips") or []) + (ec.get("cands") or []):
+            for k_ in ("title", "hook", "text"):
+                if x.get(k_): x[k_] = title_clean(x[k_])
+        wj(epc, ec); ch = True
     if P_.get("on"):
         cfg = rj(os.path.join(os.path.dirname(os.path.abspath(work)), "clips.json"), {}) or {}; good = pod_speaker(cfg.get("title") or "")
         for L in h.get("layers") or []:
@@ -5051,6 +5079,11 @@ def clip_bounds(A, a_, b_, src_dur=None, back=6.0, ahead=8.0):
                 ws = [w for w in s.get("words") or [] if w["end"] <= b_ + 0.05]
                 if ws: b_ = ws[-1]["end"] + 0.25
             break
+    try:   # 4.32: يكمل لين آخر الفكرة، ويبدأ من أولها
+        for t0, t1 in thoughts(segs):
+            if segs[t0]["start"] - 0.2 <= a_ <= segs[t1]["end"] and a_ - segs[t0]["start"] <= 15: a_ = max(0.0, min(a_, segs[t0]["start"] - 0.12))
+            if segs[t0]["start"] <= b_ - 0.3 and b_ <= segs[t1]["end"] + 0.05 and segs[t1]["end"] - b_ <= 45: b_ = max(b_, segs[t1]["end"] + 0.3)
+    except Exception: pass
     if src_dur: b_ = min(b_, src_dur)
     return round(a_, 3), round(b_, 3)
 def clip_make(d, a_, b_, title="", credit="", name=None, style=None):
@@ -5118,6 +5151,24 @@ def _bare(w):
         if w.startswith(p) and len(w) - len(p) >= 2: return w[len(p):]
     return w
 def _tok(s): return [w for w in re.sub(r"[^\w\s]", " ", str(s).lower()).split() if w]
+# 4.32: الكلام أفكار كاملة. المقطع يبدأ من أول الفكرة ويخلص بآخرها، ولو طولها أكثر من اللي طلبه عادي، ولو طويلة مرة ما تنقص بنصها: تنترك
+WEAK_END = set("في على من عن الى إلى اللي الي التي الذي عشان علشان لأن لان لانه لأنه إن ان انه أنه إنه و ف بس لكن يعني مع هو هي كان كانت يكون ما لا لو اذا إذا ثم حتى عند بين زي مثل اكثر أكثر of the to and because that a an with for is are was so but if when than".split())
+CONT_START = WEAK_START | set("ولكن ولا وبعدين وكذا وهذا وهذي وأنا وانا وهو وهي وهم واللي وإذا واذا ولو وحتى وكان وكانت ويعني وبس فلما فإذا فاذا فهو فهي فأنا فانا فاللي فيعني فكان لأن لان لانه لأنه عشان علشان يعني ثم حتى مثلا مثلاً because and but so then which".split())
+def thoughts(segs, gap=1.2, fine=False):
+    """[(أول جملة، آخر جملة)] لكل فكرة: الجملة تكمل اللي بعدها لو ما خلصت (تنتهي بـ«في» أو «لأن»…) أو اللي بعدها تبدأ بـ«و/بس/يعني/لأن»…، أو انقطعت بدون سكتة.
+    وتنقطع الفكرة عند سكتة طويلة أو لما يتغيّر المتكلم."""
+    out, s0 = [], 0; pause = 0.8 if fine is False else 0.55
+    punct = sum(1 for x in segs if re.search(r"[.!?؟…]\s*$", str(x.get("text") or "").strip())) > len(segs) * 0.2   # ترجمة يوتيوب التلقائية بدون ترقيم: نعتمد على السكتات
+    for k in range(len(segs) - 1):
+        a, b = segs[k], segs[k + 1]; ta, tb = _tok(a.get("text")), _tok(b.get("text")); g = float(b["start"]) - float(a["end"])
+        txa = str(a.get("text") or "").strip(); endp = bool(re.search(r"[.!?؟…]\s*$", txa)); q = bool(re.search(r"[?؟]\s*$", txa))
+        link = (ta and ta[-1] in WEAK_END) or (tb and tb[0] in CONT_START)
+        if b.get("spk") and not q: cont = False
+        elif punct: cont = g <= gap and (link or not endp or (q and g < 0.9))   # سؤال وجوابه فكرة وحدة
+        else: cont = g < pause or (g <= 3.0 and bool(ta and ta[-1] in WEAK_END)) or (g <= gap and link)   # «… على» / «… اللي» ما تخلص فيها جملة
+        if not cont: out.append((s0, k)); s0 = k + 1
+    if segs: out.append((s0, len(segs) - 1))
+    return out
 def audio_rms(wav, step=0.5):
     try:
         import wave
@@ -5176,23 +5227,32 @@ def clips_suggest(d, n=None, ln=None, note=None, count=None, fresh=False):
         if topic:
             hit = sum(1 for w in set(topic) if any(w in x or x in w for x in tk if len(x) > 2))
             if hit: sc += 1.5 * hit / len(set(topic)); why.append("قريبة من طلبك")
-        sc -= abs(dur - mid) / max(10, mx - mn) * 0.8
+        if dur <= mx: sc -= abs(dur - mid) / max(10, mx - mn) * 0.8
         if LP:   # 4.5: من أرقام مقاطعك المنشورة
             hw0 = hook_score(first)[1]; b0 = sum(LP.get(k, 0) for k, nm in (("q", "سؤال"), ("num", "رقم"), ("hookw", "كلمة تشد")) if nm in hw0)
             if LP.get("len") and LP["len"][0] <= dur <= LP["len"][1]: b0 += 0.5
             if b0 > 0.2: why.append("يشبه مقاطعك اللي ضربت")
             sc += b0
         return sc, why
-    C = []
-    for i in range(len(segs)):
-        best = None
-        for j in range(i, len(segs)):
-            dur = segs[j]["end"] - segs[i]["start"]
-            if dur > mx: break
-            if dur < mn: continue
-            sc, why = score(i, j)
-            if not best or sc > best[0]: best = (sc, why, j)
-        if best: C.append((best[0], i, best[2], best[1]))
+    C = []; cap = min(max(mx * 2.0, mx + 30.0), 120.0)
+    for fine in (False, True):   # لو الأفكار كلها أطول من اللي يصير، نجرّب سكتات أقصر (برضو ما ينقطع بنص جملة)
+        TH = thoughts(segs, fine=fine); TS = {a for a, b in TH}; TE = {b for a, b in TH}
+        if C and len(C) >= (count or n): break
+        C = []
+        for i in range(len(segs)):   # 4.32: يبدأ من أول فكرة ويخلص بآخر فكرة، وما ينقطع بنصها
+          if i not in TS: continue
+          best = None
+          for j in range(i, len(segs)):
+              if j not in TE or ((_tok(segs[j]["text"]) or [""])[-1] in WEAK_END): continue   # ما يخلص على «على» أو «اللي»
+              dur = segs[j]["end"] - segs[i]["start"]
+              if dur > cap: break
+              if dur < mn * 0.8: continue
+              sc, why = score(i, j)
+              if dur > mx: sc -= (dur - mx) / max(10.0, mx) * 0.6   # أطول من طلبه: مقبول عشان الفكرة تكمل، بس الأقصر أحسن
+              why = why + ["الفكرة كاملة"]
+              if not best or sc > best[0]: best = (sc, why, j)
+              if dur > mx: break   # أول فكرة تكمّل الطول تكفي، ما نزيد فوقها
+          if best: C.append((best[0], i, best[2], best[1]))
     C.sort(key=lambda x: -x[0]); pick = []; seen = [tuple(x) for x in cfg.get("seen") or []] + [(c["from"], c["to"]) for c in cfg.get("cands") or [] if c.get("by") == "auto" and not c.get("made")]
     for sc, i, j, why in C:
         a, b = segs[i]["start"], segs[j]["end"]
@@ -5252,13 +5312,13 @@ def clips_build(d, picks, edit="none", log=print):
         title = (p.get("title") if isinstance(p, dict) else None) or c.get("title") or re.sub(r"\s+", " ", c.get("hook") or "").strip()[:60]
         if isinstance(p, dict): c = {**c, **{k: p[k] for k in ("from", "to") if k in p}}
         log("أقص %s ← %s ..." % (tfmt(c["from"]), tfmt(c["to"])))
-        w = clip_make(d, float(c["from"]), float(c["to"]), title, cfg.get("credit", ""), None, None); out.append(w)
+        w = clip_make(d, float(c["from"]), float(c["to"]), title_clean(title), cfg.get("credit", ""), None, None); out.append(w)
         cfg = clips_cfg(d)
         for x in cfg.get("cands") or []:
             if x["id"] == c.get("id"): x["made"] = os.path.basename(w)
         wj(J(d, "clips.json"), cfg)
     for w in out: studio_mode_set(w, "claude" if edit == "claude" else "manual")   # 4.18
-    if edit == "me":
+    if edit in ("me", "claude"):   # 4.32: حتى مع «Claude يمنتج» تتجهّز أول، فلو Claude ما اشتغل (تسجيل دخول منتهي) المقاطع جاهزة تفتحها
         for w in out:
             try: prep(w, log=log)
             except Exception as e: log("التجهيز وقف بـ %s: %s" % (os.path.basename(w), e))
@@ -6013,7 +6073,7 @@ def vtt_segments(path):
         if cur and (w.get("brk") or w["start"] - cur[-1]["end"] > 0.7 or w["start"] - cur[0]["start"] > 10 or re.search(r"[.!?؟]$", cur[-1]["word"])): segs.append(cur); cur = []
         cur.append(w)
     if cur: segs.append(cur)
-    return [{"start": s[0]["start"], "end": s[-1]["end"], "text": " ".join(x["word"] for x in s), "words": s} for s in segs if s]
+    return [{"start": s[0]["start"], "end": s[-1]["end"], "text": " ".join(x["word"] for x in s), "words": s, **({"spk": True} if s[0].get("brk") else {})} for s in segs if s]
 def clips_text(url, d, lang=None, log=print):
     """النص والمعلومات بدون تحميل: يرجّع cfg أو None لو ما فيه ترجمة (فيرجع للتحميل الكامل والتفريغ)."""
     os.makedirs(J(d, ".hs"), exist_ok=True); y = yt_base()
@@ -7116,7 +7176,7 @@ def hub_serve(root, port):
                 w = card_by(data.get("id", ""))
                 if not w or not is_ep(w): return self._json(404, {"ok": False})
                 note = (clips_cfg(w).get("want") or {}).get("note") or ""
-                task = ("حلقة طويلة بمجلد %s والمستخدم بيختار اللقطات بنفسه. لا تقص ولا تمنتج شي.\nاقرأ transcript.txt والمرشّحات (hs clips cand %s list) وقيّم كل وحدة كم يتوقع تضرب (0-100) مع سبب قصير وعنوان (cand set)، وعدّل البداية والنهاية عشان تبدأ بهوك وتنتهي بفكرة كاملة، وأضف أقوى لحظات فاتت (cand add)." % (w, w)) + (("\nطلب المستخدم: " + note) if note else "")
+                task = ("حلقة طويلة بمجلد %s والمستخدم بيختار اللقطات بنفسه. لا تقص ولا تمنتج شي.\nاقرأ transcript.txt والمرشّحات (hs clips cand %s list) وقيّم كل وحدة كم يتوقع تضرب (0-100) مع سبب قصير وعنوان (cand set)، وعدّل البداية والنهاية عشان تبدأ بهوك وتنتهي بفكرة كاملة، وأضف أقوى لحظات فاتت (cand add).\nأهم قاعدة: المعنى كامل. اقرأ النص قبل كل مرشّح وبعده بـ transcript.txt: لو يبدأ بنص قصة أو يرد على شي انقال قبل (مثل جواب لغز بدون اللغز، أو «هذا» و«اياه» بدون ما ينعرف وش هي)، رجّع بدايته لأول القصة؛ ولو الكلام ما خلص، طوّل نهايته لين تخلص الفكرة، حتى لو صار أطول من اللي طلبه. ولو الفكرة كاملة أطول من ضعف اللي طلبه، احذفه (cand rm) ولا تقصه بنصه." % (w, w)) + (("\nطلب المستخدم: " + note) if note else "")
                 ok, msg = claude_spawn(w, task, "تقييم اللقطات"); job_set(w, ranking=ok); return self._json(200, {"ok": ok, "msg": msg})
             if a == "retry":
                 w = card_by(data.get("id", ""))
