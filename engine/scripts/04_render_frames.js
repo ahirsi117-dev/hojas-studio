@@ -12,7 +12,8 @@ const HASCOVER=fs.existsSync(W+'cover');   // خلفية باهتة: cover/NNNNN
 const OUT_D=CFG.outro, FPS=30;
 function resolvePuppeteer(){
   for(const p of [process.env.PUPPETEER_PATH,'puppeteer-core','puppeteer',
-      path.join(process.cwd(),'node_modules/puppeteer-core')]) {
+      path.join(process.cwd(),'node_modules/puppeteer-core'),
+      path.join(require('os').homedir(),'.hojas-studio','node_modules','puppeteer-core')]) {   /* 4.31: برّا البلقن، ما يروح مع التحديث */
     if(!p) continue; try{ return require(p); }catch(e){}
   }
   throw new Error('ما لقيت puppeteer-core — ثبّته: npm i puppeteer-core');

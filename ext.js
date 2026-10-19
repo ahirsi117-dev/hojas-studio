@@ -3,7 +3,7 @@
    تقرأ studio.json ← hs  وتتحكم بالكابشن كامل (خط · وزن · حجم · ألوان · مكان · عرض السطر) + سطر الترجمة.
    لو hs.cap.on مو true  ← المحرّك الأصلي يرسم كابشنه كما هو (صفر أثر). */
 (function(){
-  if(window.__hsExt) return; window.__hsExt='4.21';
+  if(window.__hsExt) return; window.__hsExt='4.29';
   const GF={ /* خطوط قوقل والأوزان المتوفرة فعلاً لكل خط */
     'Cairo':[400,500,600,700,800,900],'Tajawal':[400,500,700,800,900],'IBM Plex Sans Arabic':[400,500,600,700],
     'Alexandria':[400,500,600,700,800,900],'El Messiri':[400,500,600,700],'Noto Sans Arabic':[400,500,600,700,800,900],
@@ -434,10 +434,33 @@
     if(L.frame==='glass'){ const pd=Math.max(w,h)*0.17; glass(-w/2-pd,-h/2-pd,w+pd*2,h+pd*2,(Math.max(w,h)+pd*2)*0.24); }
     if(L.frame==='ring'){ const r=Math.max(w,h)*0.74; X.lineWidth=Math.max(6,r*0.07); X.strokeStyle='rgba(255,255,255,0.26)'; X.beginPath(); X.arc(0,0,r,0,6.2832); X.stroke(); X.strokeStyle=L.ringColor||'#FFFFFF'; X.lineCap='round'; X.beginPath(); const a0=L.ringFull?0:t*5.2; X.arc(0,0,r,a0,a0+(L.ringFull?6.2832:2.3)); X.stroke(); }
     if(L.round||L.frame==='glass'){ rr(-w/2,-h/2,w,h,L.round||Math.max(w,h)*0.2); X.clip(); } X.drawImage(im,-w/2,-h/2,w,h); X.restore(); }
+  /* ═══ 4.29: حركة بالمفاتيح (keyframes) ═══
+     L.kf=[{t,dx,dy,s,r,o,e}] t بالثواني من بداية الطبقة · dx/dy إزاحة بالبكسل (1080×1920) · s حجم · r دوران بالدرجات · o شفافية
+     e طريقة الانتقال للمفتاح اللي بعده: smooth ناعم · linear ثابت · back ارتداد · hold قفزة. قبل أول مفتاح يثبت عليه، وبعد آخر مفتاح يثبت عليه.
+     بدون kf ما يتغيّر أي شي بالرسم (نفس القديم بالضبط). */
+  /*KF{*/
+  const KF_TYPES=['text','image','char','lt','mark','draw'];
+  const kfOk=L=>!!L&&KF_TYPES.includes(L.type)&&!(L.type==='image'&&L.fit==='cover');
+  const KF_E={ smooth:k=>k<0.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2, linear:k=>k, back:k=>{ const c1=1.70158, c3=c1+1; return 1+c3*Math.pow(k-1,3)+c1*Math.pow(k-1,2); }, hold:k=>k>=1?1:0 };
+  function kfVal(K,u){ const n=K.length, D={dx:0,dy:0,s:1,r:0,o:1}, g=(k,f)=>k[f]==null||!isFinite(+k[f])?D[f]:+k[f], one=k=>({dx:g(k,'dx'),dy:g(k,'dy'),s:g(k,'s'),r:g(k,'r'),o:g(k,'o')});
+    if(u<=+K[0].t) return one(K[0]); if(u>=+K[n-1].t) return one(K[n-1]);
+    let i=0; while(i<n-2&&u>=+K[i+1].t) i++; const a=K[i], b=K[i+1], span=Math.max(1e-6,+b.t-+a.t), k=(KF_E[a.e]||KF_E.smooth)(Math.max(0,Math.min(1,(u-+a.t)/span)));
+    const A=one(a), B=one(b), o={}; for(const f in A) o[f]=A[f]+(B[f]-A[f])*k; o.o=Math.max(0,Math.min(1,o.o)); o.s=Math.max(0.02,o.s); return o; }
+  function kfAt(L,t){ const K=L&&L.kf; if(!Array.isArray(K)||!K.length||!kfOk(L)) return null; return kfVal(K.slice().sort((a,b)=>a.t-b.t),t-L.s); }
+  function kfPivot(L){ const T=L.type, x=L.x, y=L.y;
+    if(T==='char') return [(x==null?0.2:x)*1080,(y==null?0.62:y)*1920];
+    if(T==='image') return [(x==null?0.5:x)*1080,(y==null?(L.fit==='card'?0.28:(L.frame==='browser'||L.frame==='post')?0.36:0.35):y)*1920];
+    if(T==='lt') return [((L.side||'right')==='right'?0.72:0.28)*1080,(y==null?0.7:y)*1920];
+    if(T==='mark') return [(x==null?0.5:x)*1080,(y==null?0.4:y)*1920];
+    if(T==='draw') return [(x==null?0.5:x)*1080,(y==null?0.5:y)*1920];
+    return [(x==null?0.5:x)*1080,(y==null?0.3:y)*1920]; }
+  /*}KF*/
+  window.__hsKfAt=kfAt; window.__hsKfPivot=kfPivot; window.__hsKfTypes=KF_TYPES;
   const isUnder=L=>((L.type==='image'&&(L.fit==='cover'||L.fit==='card'))||L.type==='anno')&&L.under!==false;
   /* 4.12: الترتيب نفس التايم لاين: السطر الأعلى ينرسم آخر فيطلع فوق، وبنفس السطر الأحدث فوق */
   function layers(t,under,only){ const Ls=(HSX.layers||[]).filter(L=>(!only||(only==='img')===(L.type==='image'))&&L.type!=='fx'&&L.type!=='split'&&L.type!=='viz'&&L.type!=='cover'&&L.type!=='bg'&&L.type!=='behind'&&L.type!=='pip'&&L.type!=='collage'&&L.type!=='kinetic'&&L.type!=='desk'&&L.type!=='mg'&&!L.off&&t>=L.s&&t<L.e&&isUnder(L)===!!under&&(L.overKin||!kinAt(t))).sort((a,b)=>(a.track||0)-(b.track||0));
-    for(const L of Ls){ const K=enterK(L,t); X.save(); try{
+    for(const L of Ls){ let K=enterK(L,t); X.save(); try{
+        const Q=L.kf?kfAt(L,t):null; if(Q){ const P=kfPivot(L); X.translate(P[0]+Q.dx,P[1]+Q.dy); if(Q.r) X.rotate(Q.r*Math.PI/180); if(Q.s!==1) X.scale(Q.s,Q.s); X.translate(-P[0],-P[1]); if(Q.o!==1) K={...K,a:K.a*Q.o}; }   // 4.29: حركة بالمفاتيح
         if(L.type==='text') textBlock(L,t,K); else if(L.type==='char') charLayer(L,t,K); else if(L.type==='image') imageLayer(L,t,K); else if(L.type==='anno') annoLayer(L,t,K);
         else if(L.type==='mark') markLayer(L,t,K); else if(L.type==='draw') drawLayer(L,t,K); else if(L.type==='cursor') cursorLayer(L,t); else if(L.type==='lt') ltLayer(L,t,K);
       }catch(e){ if(!window.__hsLE){window.__hsLE=1;console.error('hs layer '+L.id+': '+e.message);} } X.restore(); } }
@@ -1310,7 +1333,11 @@
   for(const fn of ['cutoutActive','headoutActive']){ const f0=window[fn]; if(typeof f0==='function') window[fn]=function(t){ return dkOn()?false:f0(t); }; }
   for(const fn of ['vrect','vtarget']){ const f0=window[fn]; if(typeof f0==='function') window[fn]=function(t){ return dkOn()&&t<VEND?R_FULL:f0(t); }; }
   { const f0=window.videoShift; if(typeof f0==='function') window.videoShift=function(t){ return dkOn()?null:f0(t); }; }
-  { const f0=window.bar; if(typeof f0==='function') window.bar=function(t){ if(dkOn()||(HSX.pod&&HSX.pod.on&&!HSX.pod.bar)) return; return f0(t); }; }
+  { const f0=window.bar; if(typeof f0==='function') window.bar=function(t){ const B=HSX.bar||{}; if(dkOn()||B.on===false) return; if(B.on!==true&&HSX.pod&&HSX.pod.on&&!HSX.pod.bar) return;
+      if(B.color==null&&B.y==null&&B.h==null&&!B.full) return f0(t);
+      /* 4.29: شريط التقدّم بإعداداته (hs.bar): اللون والمكان والسماكة وعرضه */
+      const a=t>VEND-0.3?1-cl((t-(VEND-0.3))/0.3,0,1):1; if(a<=0||t>=VEND) return; const y=(B.y==null?77.7:+B.y)*19.2, h=Math.max(2,+B.h||7), mx=B.full?0:60, w=1080-mx*2;
+      X.save(); X.globalAlpha=a; X.fillStyle='rgba(255,255,255,0.18)'; rr(mx,y,w,h,B.full?0:h/2); X.fill(); X.fillStyle=B.color||lookAcc(); rr(mx,y,Math.max(h,w*cl(t/VEND,0,1)),h,B.full?0:h/2); X.fill(); X.restore(); }; }
 
 
   const _draw=window.draw;
@@ -1689,6 +1716,10 @@
       const cy0=y+ch+150, lh=70; X.fillStyle='rgba(30,30,32,0.92)'; rr(540-bw/2-36,cy0-40,bw+72,lines.length*lh+20,26); X.fill(); X.fillStyle='#FFFFFF'; X.textAlign='center'; X.textBaseline='middle'; X.direction='rtl'; lines.forEach((l,i)=>X.fillText(l,540,cy0+i*lh+(lh-40)/2+4)); X.restore(); }
     X.globalAlpha=Math.min(1,ki*1.6)*(1-ko); X.fillStyle=acc; X.beginPath(); X.arc(540,y+ch/2,28,0,6.2832); X.fill(); X.strokeStyle='#FFFFFF'; X.lineWidth=5; X.lineCap='round'; X.beginPath(); X.moveTo(546,y+ch/2-10); X.lineTo(534,y+ch/2); X.lineTo(546,y+ch/2+10); X.stroke();
     X.restore(); }
+  /* 4.31: الفيديو نفسه يتحرك ويكبر ويصغر (hs.vxf) من المعاينة، فوري بدون إعادة قص */
+  const _dvX=window.drawVideo;
+  if(typeof _dvX==='function') window.drawVideo=function(t){ const V=HSX.vxf; if(!V||t>=VEND||(!+V.x&&!+V.y&&(+V.s||1)===1)) return _dvX.apply(this,arguments);
+    const s=Math.max(0.2,Math.min(4,+V.s||1)); X.save(); X.fillStyle='#000'; X.fillRect(0,0,1080,1920); X.translate(540+(+V.x||0),960+(+V.y||0)); X.scale(s,s); X.translate(-540,-960); try{ return _dvX.apply(this,arguments); } finally { X.restore(); } };
   const _dw28=window.draw;
   window.draw=function(t){ let w=null; try{ w=warpAt(t); }catch(e){} if(!w) return _dw28(t);
     _dw28(w.t2); try{ if(w.kind==='rewind') vhsOver(t,w.L); else baFrame(t,w); }catch(e){ if(!window.__hsWE){ window.__hsWE=1; console.error('hs warp: '+e.message); } } };

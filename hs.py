@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Hojas Studio 4.21 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
+"""Hojas Studio 4.29 — استوديو مونتاج بمحرّكه (مجلد engine بجنب هذا الملف، بدون أي مكتبة خارجية).
 
   python hs.py open   <work> [--engine <مجلد المحرّك>] [--port 8800] [--no-browser]
         يشغّل الخادم بالخلفية ويفتح المتصفح. شغّله أول ما تبدأ المونتاج، حتى قبل ما يجهز أي ملف.
@@ -28,6 +28,7 @@
   python hs.py tr     <work> export | import <file.json>
   python hs.py set    <work> cap.font=Tajawal cap.size=70 en.on=true mix.voice=1.2 …
   python hs.py layer  <work> list | add type=text text="…" s=1 e=4 … | set <id> k=v … | rm <id>
+  python hs.py kf     <work> <id> list | add <ث> [dx= dy= s= r= o= e=smooth|linear|back|hold] | rm <ث|all> | preset across|grow|rise|spin|pulse|sway   حركة بالمفاتيح
   python hs.py hook   <work> set "صيغة 1" "صيغة 2" … | active <رقم> | off
   python hs.py check  <work>                         فحص الاحتفاظ + الحشو + الجمل المعادة
   python hs.py remove <work> [--cards 3 7] [--ranges 4.2-5.1 …] [--fillers] [--force]    يقص من الفيديو والصوت (يرفض الكلام المهم وآخر المقطع بدون --force)
@@ -79,7 +80,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.28"
+VERSION = "4.31"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json", "takes.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -3472,6 +3473,24 @@ def cmd_selftest(work=None, engine=None):
             all(k + ":mg" in ex_.replace(" ", "") or k + ":()=>" in ex_ for k in K_) and "window.hsWarp" in ex_ and "hsWarp" in rf_ and "w.hsWarp" in ap_ and "b.mode==='phone'" in ex_
             and all("mg_" + k + ":" in i18_ for k in K_) and all("'" + k + "'" in ap_ for k in K_) and "['phone',t('brPhone')]" in ap_ and "overflow:hidden}" in hb_ and "function kashida" in ex_ and "## 6ق)" in open(os.path.join(HERE, "SKILL.md"), encoding="utf-8").read())
     except Exception as e: chk("4.28: المؤثرات الجديدة", False, str(e)[:240])
+    try:   # 4.30
+        td = tempfile.mkdtemp(prefix="hs-n29-")
+        try:
+            wj(os.path.join(td, "caps.json"), {"total": 6, "cards": [{"s": 0, "e": 2, "w": [{"t": "كلمة", "s": 0, "e": 1}, {"t": "مو", "s": 1, "e": 1.5, "lo": True}]}, {"s": 2, "e": 2.4, "w": [{"t": "هذا كلام طويل جداً ما يلحق ينقرا", "s": 2, "e": 2.4}]}]}); wj(os.path.join(td, "studio.json"), {"hs": {"layers": []}})
+            n1 = notes_auto(td); n2 = notes_auto(td); NN = rj(os.path.join(td, "notes.json"), [])
+        finally: shutil.rmtree(td, ignore_errors=True)
+        ap_ = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); ex_ = open(os.path.join(HERE, "ext.js"), encoding="utf-8").read(); st_ = open(os.path.join(HERE, "studio.html"), encoding="utf-8").read()
+        chk("4.30: ملاحظات «لازم تعدّلها» (ما تتكرر)، شريط التقدّم بإعداداته، الكابشن يتقصّر بحرية، قوالب الاسم تبان، ملء الشاشة بمقاسه",
+            n1 == 2 and n2 == 0 and all(x["kind"] == "fix" and x["status"] == "ask" for x in NN) and "data-fixgo" in ap_ and "function barSec" in ap_ and "B.full?0:60" in ex_
+            and "if(D.kind==='cap') en=Math.max" not in ap_ and "#wrap:fullscreen #frame" in st_ and "tile tplt" in ap_)
+    except Exception as e: chk("4.30", False, str(e)[:240])
+    try:   # 4.31
+        ap_ = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); ex_ = open(os.path.join(HERE, "ext.js"), encoding="utf-8").read(); st_ = open(os.path.join(HERE, "studio.html"), encoding="utf-8").read()
+        rf_ = open(os.path.join(find_engine(None) or "", "scripts", "04_render_frames.js"), encoding="utf-8").read()
+        chk("4.31: التصدير يلقى مكتبة كروم برّا البلقن، الاستوديو بالشاشات الأصغر، الفيديو يتحرك بيدك، كابشن البودكاست بدون &gt;&gt; واسم المتكلم الصح",
+            "'.hojas-studio','node_modules','puppeteer-core'" in rf_ and callable(deps_keep) and "grid-template-columns:minmax(0,1fr)" in st_ and "function vxfPanel" in ap_ and "HSX.vxf" in ex_
+            and pod_speaker("مركزية العلاقة مع الله | ياسر الحزيمي") == "ياسر الحزيمي" and cap_clean("&gt;&gt;") == "" and cap_clean("&gt;&gt;الليل") == "الليل")
+    except Exception as e: chk("4.31", False, str(e)[:240])
     try:   # 4.26: حارس: ولا متغيّر داخل السيرفر يغطّي D (مجلد الكاش) أو P أو S، كان يخلّي الفريمات والصور المصغّرة ما تطلع
         me_ = open(os.path.abspath(__file__), encoding="utf-8").read(); hb_ = open(os.path.join(HERE, "hub.html"), encoding="utf-8").read()
         bad_ = [l.strip()[:60] for l in me_.split(chr(10)) if re.match(r"^ {16,}(D|P|S|base|work) = ", l)]
@@ -3487,6 +3506,28 @@ def cmd_selftest(work=None, engine=None):
             and all(("EX_==='" + k + "'") in ex_ for k in exl if k not in ("auto", "fade", "none")) and "X.filter='blur('" in ex_ and "segE=Math.min(c.e,nx[0].items[0].s)" in ex_
             and 'data-k="cap.exit"' in ap_ and "exit" in CAP_STYLE_KEYS and "`cap.exit`" in open(os.path.join(HERE, "SKILL.md"), encoding="utf-8").read())
     except Exception as e: chk("4.21: خروج الكابشن", False, str(e)[:240])
+    try:   # 4.29: حركة بالمفاتيح: نفس الحساب بالمحرّك (ext.js) والطرفية، وبدون مفاتيح الرسم ما يتغيّر
+        ex_ = open(os.path.join(HERE, "ext.js"), encoding="utf-8").read(); ap_ = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); i18_ = open(os.path.join(HERE, "i18n.js"), encoding="utf-8").read()
+        sh_ = open(os.path.join(HERE, "studio.html"), encoding="utf-8").read(); sk_ = open(os.path.join(HERE, "SKILL.md"), encoding="utf-8").read()
+        K0 = [{"t": 0, "dx": 0, "s": 1, "e": "linear"}, {"t": 1, "dx": 100, "dy": -50, "s": 1.5, "r": 30, "e": "back"}, {"t": 2, "dx": -40, "o": 0.2, "e": "hold"}, {"t": 3, "dx": 300, "s": 0.5}]
+        U = [-1, 0, 0.25, 0.5, 1, 1.3, 1.9, 2, 2.5, 2.999, 3, 9]
+        jsv = None; m_ = re.search(r"/\*KF\{\*/(.*?)/\*\}KF\*/", ex_, re.S)
+        if m_ and shutil.which("node"):
+            r_ = subprocess.run(["node", "-e", m_.group(1) + "\nconst K=" + json.dumps(K0) + ";console.log(JSON.stringify(" + json.dumps(U) + ".map(u=>kfVal(K,u))));const L={type:'text',s:2,e:6,kf:K};console.log(JSON.stringify([kfAt(L,3.25),kfAt({type:'image',fit:'cover',s:0,e:3,kf:K},1),kfAt({type:'text',s:0,e:3},1),kfPivot({type:'char'})]))"], capture_output=True, text=True, timeout=30)
+            if r_.returncode == 0: jsv = [json.loads(l) for l in r_.stdout.strip().split("\n")]
+        pyv = [kf_val(K0, u) for u in U]
+        same = jsv is not None and all(abs(a_[f] - b_[f]) < 1e-6 for a_, b_ in zip(jsv[0], pyv) for f in KF_DEF)
+        L_ = {"id": "L1", "type": "text", "s": 2.0, "e": 6.0}; kf_set(L_, 2.0, {}); kf_set(L_, 4.0, {"dx": -200, "s": 1.3, "e": "back"}); kf_set(L_, 4.004, {"dy": 90}); n1 = len(L_["kf"]); dy1 = L_["kf"][1]["dy"]
+        kf_preset(L_, "pulse"); n2 = len(L_["kf"]); bad_ok = False
+        try: kf_set(L_, 3, {"zz": 1})
+        except ValueError: bad_ok = True
+        chk("4.29: حركة بالمفاتيح (مكان، حجم، دوران، شفافية، و4 انتقالات) بالمحرّك والاستوديو والطرفية، وبدون مفاتيح نفس الرسم القديم",
+            same and jsv[1][0] and abs(jsv[1][0]["dx"] - kf_val(K0, 1.25)["dx"]) < 1e-6 and jsv[1][1] is None and jsv[1][2] is None and jsv[1][3] == [216, 1190.4]
+            and pyv[0]["dx"] == 0 and pyv[-1]["dx"] == 300 and abs(pyv[2]["dx"] - 25) < 1e-9 and pyv[8]["dx"] == -40 and pyv[6]["s"] < 1.0   # ثابت · ارتداد يعدّي هدفه · قفزة
+            and n1 == 2 and dy1 == 90 and n2 == 9 and bad_ok and not kf_ok({"type": "image", "fit": "cover"}) and kf_ok({"type": "lt"})
+            and "const Q=L.kf?kfAt(L,t):null;" in ex_ and "function kfSec(L)" in ap_ and "kfDots(L)" in ap_ and "data-kfa" in ap_ and "n.kf=L.kf.map" in ap_ and "D.kf0" in ap_ and ".clip .kfd{" in sh_
+            and all(("%s:" % k) in i18_ for k in ("kfTitle", "kfAdd", "kfHint", "kfHint2", "kfe_hold", "kfp_sway", "kfPresetDone")) and "hs kf" in sk_, "js=%s" % ("بدون node" if jsv is None else "مختلف" if not same else "ok"))
+    except Exception as e: chk("4.29: حركة بالمفاتيح", False, str(e)[:240])
     chk("الرسم الحر بالمحرّك والاستوديو", "function drawLayer" in txt.get("ext.js", "") and "function drawStart" in txt.get("app.js", ""))
     try:   # 4.6: كتم الكلمات
         m0, p0 = bleep_filters(bleep_of({})); ct = {"cards": [{"s": 0, "e": 2, "w": [{"t": "شركة", "s": 0.1, "e": 0.4}, {"t": "والشركه", "s": 0.5, "e": 0.9}, {"t": "شركات", "s": 1.0, "e": 1.3}]}]}
@@ -3534,6 +3575,31 @@ def cmd_text(work, args):
     print("تم: الجملة %d ← %s" % (i + 1, " ".join(a_ for a_ in args[1:] if a_ != "--no-learn")))
 def next_note_id(notes):
     return max([int(re.sub(r"\D", "", str(x.get("id"))) or 0) for x in notes] or [0]) + 1
+def notes_auto(work):
+    """4.29: ملاحظات «لازم تعدّلها» من Claude: كلمة ما وضحت بالصوت، كابشن أسرع من إنه ينقرا، نص صغير أو يمر بسرعة. ما تتكرر."""
+    path = J(work, "notes.json"); notes = rj(path, []) or []; caps = rj(J(work, "caps.json"), {"cards": []}) or {"cards": []}; have = {n.get("auto") for n in notes if n.get("auto")}; add = []
+    def put(key, tt, txt, card=None, word=None):
+        if key in have: return
+        have.add(key); add.append({"t": round(float(tt), 2), "card": card, "word": word, "text": txt, "auto": key})
+    for i, c in enumerate(caps.get("cards") or []):
+        ws = c.get("w") or []; lo = [j for j, w in enumerate(ws) if w.get("lo")]
+        if lo:
+            j = lo[0]; ctx = " ".join(w["t"] for w in ws)
+            put("lo:%s:%s" % (i, ws[j]["t"]), ws[j]["s"], "ما وضحت لي %s بالصوت: «%s» بجملة «%s». اسمعها وصحّحها لو غلط." % ("كلمة" if len(lo) == 1 else "%d كلمات" % len(lo), "، ".join(ws[k]["t"] for k in lo[:4]), ctx[:90]), i, j)
+        d = float(c.get("e", 0)) - float(c.get("s", 0)); ch = len(" ".join(w["t"] for w in ws))
+        if d > 0.05 and ch >= 12 and ch / d > 24:
+            put("fast:%s" % i, c["s"], "الكابشن هنا يمر بسرعة وصعب ينقرا (%d حرف بـ %.1f ث). طوّل وقته أو قسّمه سطرين." % (ch, d), i, None)
+    for L in hs_of(load_studio(work)).get("layers") or []:
+        if L.get("type") != "text" or L.get("off") or L.get("auto"): continue
+        tx = str(L.get("text") or "").strip(); d = float(L.get("e", 0)) - float(L.get("s", 0))
+        if not tx: continue
+        if float(L.get("size") or 96) < 34: put("small:%s" % L.get("id"), L["s"], "النص «%s» صغير وصعب ينقرا بالجوال. كبّره شوي." % tx[:40])
+        if d > 0 and len(tx) / d > 22: put("tfast:%s" % L.get("id"), L["s"], "النص «%s» يمر بسرعة (%.1f ث) وصعب يلحق ينقرا. طوّل وقته." % (tx[:40], d))
+    for a in add:
+        nid = next_note_id(notes); notes.append({"id": nid, "t": a["t"], "card": a["card"], "word": a["word"], "text": a["text"], "pin": None, "by": "claude", "kind": "fix", "who": "Claude",
+                                                "status": "ask", "auto": a["auto"], "at": time.strftime("%Y-%m-%d %H:%M")})
+    if add: wj(path, notes)
+    return len(add)
 def cmd_notes(work, args):
     path = J(work, "notes.json"); notes = rj(path, []) or []; caps = rj(J(work, "caps.json"), {"cards": []}); sub = args[0] if args else "list"
     if sub == "add":
@@ -3541,7 +3607,7 @@ def cmd_notes(work, args):
         def o(nm):
             if nm in rest: i = rest.index(nm); v = rest[i + 1]; del rest[i:i + 2]; return v
         kind = o("--kind") or "suggest"; px, py = o("--x"), o("--y")
-        if kind not in ("suggest", "question", "info"): sys.exit("--kind لازم: suggest | question | info")
+        if kind not in ("suggest", "question", "info", "fix"): sys.exit("--kind لازم: suggest | question | info | fix")
         if len(rest) < 2: sys.exit('notes <work> add <ثانية> "النص" [--kind suggest|question|info] [--x 0-1 --y 0-1]')
         tt = round(float(rest[0]), 2); txt = " ".join(rest[1:]).strip()[:1000]
         ci = next((i for i, c in enumerate(caps["cards"]) if c["s"] - 0.05 <= tt <= c["e"] + 0.05), None)
@@ -3553,6 +3619,8 @@ def cmd_notes(work, args):
         try: say(work, "تركت لك ملاحظة عند %.1f ث: %s" % (tt, txt[:120]), "info")
         except Exception: pass
         return
+    if sub == "auto":   # 4.29
+        n_ = notes_auto(work); print("انضافت %d ملاحظة «لازم تعدّلها»" % n_ if n_ else "ما لقيت شي صعب ينقرا أو ما وضح"); return
     if sub == "list":
         todo = [n for n in notes if n.get("status") not in ("done", "ask")]; wait = [n for n in notes if n.get("status") == "ask"]
         if wait: print("اقتراحاتك اللي ما رد عليها بعد (لا تنفّذها قبل رده): " + " · ".join("#%s عند %.1f ث" % (n["id"], n["t"]) for n in wait) + "\n")
@@ -3599,6 +3667,85 @@ def cmd_set(work, args):
     wj(sp, st); print(json.dumps({k: v for k, v in hs.items() if k in ("cap", "en", "mix", "hooks", "check")}, ensure_ascii=False)[:900])
 MG_KINDS = ("stat", "slam", "check", "steps", "callout", "quote", "ring", "compare", "sting", "logo")
 ANNO_KINDS = ("ring", "spots", "route", "path", "wave", "tap", "boxes", "tags", "screen", "spinner", "arrow", "scribble", "underline", "highlight", "cross", "check", "lens", "spotlight", "blur", "bubble", "frame", "scan", "burst", "stars", "price")
+# ── 4.29: حركة بالمفاتيح (keyframes): نفس حساب ext.js والاستوديو، عشان Claude يقدر يحطها من الطرفية ──
+KF_TYPES = ("text", "image", "char", "lt", "mark", "draw")
+KF_EASES = ("smooth", "linear", "back", "hold")
+KF_PRESETS = ("across", "grow", "rise", "spin", "pulse", "sway")
+KF_DEF = {"dx": 0.0, "dy": 0.0, "s": 1.0, "r": 0.0, "o": 1.0}
+def kf_ok(L): return isinstance(L, dict) and L.get("type") in KF_TYPES and not (L.get("type") == "image" and L.get("fit") == "cover")
+def kf_ease(e, k):
+    k = max(0.0, min(1.0, k))
+    if e == "linear": return k
+    if e == "hold": return 1.0 if k >= 1 else 0.0
+    if e == "back": c1 = 1.70158; c3 = c1 + 1; return 1 + c3 * (k - 1) ** 3 + c1 * (k - 1) ** 2
+    return 4 * k ** 3 if k < 0.5 else 1 - (-2 * k + 2) ** 3 / 2
+def kf_val(K, u):
+    """القيم عند ثانية u من بداية الطبقة (نفس kfVal بـ ext.js)."""
+    K = sorted(K or [], key=lambda k: float(k["t"])); one = lambda k: {f: (float(k[f]) if k.get(f) is not None else d) for f, d in KF_DEF.items()}
+    if not K: return dict(KF_DEF)
+    if u <= float(K[0]["t"]): return one(K[0])
+    if u >= float(K[-1]["t"]): return one(K[-1])
+    i = 0
+    while i < len(K) - 2 and u >= float(K[i + 1]["t"]): i += 1
+    a, b = K[i], K[i + 1]; k = kf_ease(a.get("e") or "smooth", (u - float(a["t"])) / max(1e-6, float(b["t"]) - float(a["t"])))
+    A, B = one(a), one(b); o = {f: A[f] + (B[f] - A[f]) * k for f in A}; o["o"] = max(0.0, min(1.0, o["o"])); o["s"] = max(0.02, o["s"]); return o
+def kf_pivot(L):
+    T, x, y = L.get("type"), L.get("x"), L.get("y"); X = lambda v, d: (d if v is None else float(v))
+    if T == "char": return X(x, 0.2) * 1080, X(y, 0.62) * 1920
+    if T == "image": return X(x, 0.5) * 1080, X(y, 0.28 if L.get("fit") == "card" else 0.36 if L.get("frame") in ("browser", "post") else 0.35) * 1920
+    if T == "lt": return (0.72 if (L.get("side") or "right") == "right" else 0.28) * 1080, X(y, 0.7) * 1920
+    if T == "mark": return X(x, 0.5) * 1080, X(y, 0.4) * 1920
+    if T == "draw": return X(x, 0.5) * 1080, X(y, 0.5) * 1920
+    return X(x, 0.5) * 1080, X(y, 0.3) * 1920
+def kf_preset(L, name):
+    D = max(0.3, round(float(L["e"]) - float(L["s"]), 3)); m = round(min(0.6, D / 2), 3); px, _ = kf_pivot(L)
+    K = {"across": [{"t": 0, "dx": round(1080 - px + 360), "e": "linear"}, {"t": D, "dx": round(-px - 360)}],
+         "grow": [{"t": 0, "s": 1}, {"t": D, "s": 1.25}],
+         "rise": [{"t": 0, "dy": 180, "o": 0}, {"t": m, "dy": 0, "o": 1, "e": "linear"}, {"t": D, "dy": -60}],
+         "spin": [{"t": 0, "r": -180, "s": 0.3, "e": "back"}, {"t": m, "r": 0, "s": 1}],
+         "pulse": [{"t": round(min(D, i * 0.5), 3), "s": 1.12 if i % 2 else 1} for i in range(max(2, int(D / 0.5) + 1))],
+         "sway": [{"t": round(min(D, i * 0.8), 3), "r": 6 if i % 2 else -6, "dy": -14 if i % 2 else 0} for i in range(max(2, int(D / 0.8) + 1))]}.get(name)
+    if K is None: raise ValueError("الحركة الجاهزة لازم: " + " | ".join(KF_PRESETS))
+    L["kf"] = [{**{"dx": 0, "dy": 0, "s": 1, "r": 0, "o": 1, "e": "smooth"}, **k} for k in K]; return L["kf"]
+def kf_set(L, at, kv):
+    """مفتاح عند ثانية at بالتايم لاين (مو من بداية الطبقة). لو فيه مفتاح بنفس الفريم يتعدّل."""
+    u = round(max(0.0, min(float(L["e"]) - float(L["s"]), float(at) - float(L["s"]))), 3); K = sorted(L.get("kf") or [], key=lambda k: float(k["t"]))
+    hit = next((k for k in K if abs(float(k["t"]) - u) <= 1 / 60 + 1e-6), None)
+    if not hit:
+        v = kf_val(K, u); hit = {"t": u, "dx": round(v["dx"]), "dy": round(v["dy"]), "s": round(v["s"], 3), "r": round(v["r"], 1), "o": round(v["o"], 3), "e": "smooth"}; K.append(hit)
+    for f, x in kv.items():
+        if f == "e":
+            if x not in KF_EASES: raise ValueError("e لازم: " + " | ".join(KF_EASES))
+            hit["e"] = x
+        elif f in KF_DEF: hit[f] = round(float(x), 3)
+        else: raise ValueError("المفتاح يقبل: dx dy s r o e")
+    L["kf"] = sorted(K, key=lambda k: float(k["t"])); return hit
+def cmd_kf(work, args):
+    """hs kf <work> <id> list | add <ث> [dx=… dy=… s=… r=… o=… e=smooth|linear|back|hold] | rm <ث|all> | preset across|grow|rise|spin|pulse|sway"""
+    st = load_studio(work); Ls = hs_of(st).setdefault("layers", [])
+    if not args: sys.exit(cmd_kf.__doc__)
+    L = next((x for x in Ls if x.get("id") == args[0]), None) or sys.exit("ما لقيت الطبقة " + args[0])
+    if not kf_ok(L): sys.exit("الحركة بالمفاتيح للطبقات: " + " · ".join(KF_TYPES) + " (والصورة ملء الشاشة لا)")
+    sub = args[1] if len(args) > 1 else "list"
+    try:
+        if sub == "list":
+            K = sorted(L.get("kf") or [], key=lambda k: float(k["t"]))
+            for k in K: print("%6.2f ث  dx=%-5g dy=%-5g s=%-5g r=%-5g o=%-4g %s" % (float(L["s"]) + float(k["t"]), k.get("dx", 0), k.get("dy", 0), k.get("s", 1), k.get("r", 0), k.get("o", 1), k.get("e", "smooth")))
+            if not K: print("ما فيه مفاتيح على %s." % L["id"])
+            return
+        if sub == "add" and len(args) > 2: k = kf_set(L, float(args[2]), parse_kv(args[3:])); msg = "مفتاح عند %.2f ث" % (float(L["s"]) + k["t"])
+        elif sub == "rm" and len(args) > 2:
+            if args[2] == "all": L.pop("kf", None); msg = "انمسحت المفاتيح"
+            else:
+                u = float(args[2]) - float(L["s"]); K = [k for k in (L.get("kf") or []) if abs(float(k["t"]) - u) > 1 / 60 + 1e-6]
+                if len(K) == len(L.get("kf") or []): sys.exit("ما فيه مفتاح عند هالثانية")
+                if K: L["kf"] = K
+                else: L.pop("kf", None)
+                msg = "انحذف المفتاح"
+        elif sub == "preset" and len(args) > 2: kf_preset(L, args[2]); msg = "حركة %s على مدة الطبقة (%d مفتاح)" % (args[2], len(L["kf"]))
+        else: sys.exit(cmd_kf.__doc__)
+    except ValueError as e: sys.exit(str(e))
+    wj(J(work, "studio.json"), st); print("تم %s: %s" % (L["id"], msg))
 def cmd_layer(work, args):
     sp = J(work, "studio.json"); st = load_studio(work); hs = hs_of(st); Ls = hs.setdefault("layers", []); sub = args[0] if args else "list"
     if sub == "list":
@@ -3749,6 +3896,8 @@ def serve(work, port, engine):
     eng = find_engine(engine) or sys.exit("ما لقيت مجلد engine بجنب hs.py — نزّل السكل كامل من جديد (شغّل: python hs.py doctor)")
     remember_engine(eng); fix_windows_path(); os.makedirs(work, exist_ok=True); changed = patch(work, quiet=True)
     D = J(work, ".hs"); os.makedirs(D, exist_ok=True)
+    try: pod_repair(work)   # 4.31: مقاطع بودكاست قديمة: «&gt;&gt;» بالكابشن واسم متكلم غلط
+    except Exception: pass
     sys.argv = [os.path.join(eng, "studio", "studio.py"), work, str(port)]
     spec = importlib.util.spec_from_file_location("hs_base_studio", sys.argv[0]); base = importlib.util.module_from_spec(spec); spec.loader.exec_module(base)
     _bjob = base.job
@@ -4427,7 +4576,8 @@ def serve(work, port, engine):
                             if "status" in data: x["status"] = data["status"]
                             if data.get("answer") and x.get("by") == "claude":
                                 ans = str(data["answer"])[:600]; x["answeredAt"] = time.strftime("%Y-%m-%d %H:%M")
-                                if ans == "no": x["answer"] = "لا، خلّه مثل ما هو"; x["status"] = "done"; x["reply"] = "رفض الاقتراح"
+                                if ans == "fixed": x["answer"] = "صلّحتها"; x["status"] = "done"   # 4.29: ملاحظة «لازم تعدّلها» خلصت
+                                elif ans == "no": x["answer"] = "لا، خلّه مثل ما هو"; x["status"] = "done"; x["reply"] = "رفض الاقتراح"
                                 else: x["answer"] = "موافق، سوّه" if ans == "yes" else ans; x["status"] = "open"
                     if data.get("delete"): notes = [x for x in notes if str(x["id"]) != str(data["id"])]
                     wj(P("notes.json"), notes); return self._json(200, {"ok": True, "notes": notes})
@@ -4785,10 +4935,40 @@ def cmd_dahih(work, args):
 POD_CAP = {"on": True, "font": "Cairo", "weight": 800, "size": 56, "color": "#FFFFFF", "active": "#F5A524", "bg": "none", "shadow": True, "stroke": 0,
            "hl": "color", "enter": "fade", "chunk": 0, "lines": 2, "width": 760, "x": 50, "y": 74, "actScale": 1}
 POD_NAME = {"type": "text", "x": 0.74, "y": 0.088, "size": 44, "weight": 800, "font": "Cairo", "color": "#FFFFFF", "bg": "box", "bgColor": "#1E1915", "bgOpacity": 0.88, "track": 3, "anim": "fade", "auto": "name"}
+def cap_clean(w):
+    """4.31: كلمة نظيفة من ترجمة يوتيوب: بدون &gt;&gt; ولا [موسيقى]."""
+    w = html.unescape(str(w or "")).lstrip(">").strip()
+    return "" if not w or re.fullmatch(r"\[[^\]]*\]", w) else w
+POD_NOTNAME = set("الله ربي ربنا نفسك نفسي نفسه الناس الآخرين الاخرين اهلك أهلك اهلي أهلي زوجتك زوجك اولادك أولادك الفلوس المال الوقت النجاح الحياة".split())
+def pod_repair(work):
+    """يصلّح مقطع بودكاست سوّته نسخة أقدم: يشيل &gt;&gt; و[موسيقى] من الكابشن، ويصحّح اسم المتكلم لو طلع «الله» وأمثالها. ياخذ نسخة قبل."""
+    cp = J(work, "caps.json"); caps = rj(cp, None); ch = False
+    if caps and "&gt;" in json.dumps(caps, ensure_ascii=False) or (caps and any(re.fullmatch(r"\[[^\]]*\]", str(w.get("t") or "")) for c in caps.get("cards") or [] for w in c.get("w") or [])):
+        os.makedirs(J(work, ".hs"), exist_ok=True); shutil.copy2(cp, J(work, ".hs", "caps.before-4.31.json"))
+        cards = []
+        for c in caps.get("cards") or []:
+            ws = [{**w, "t": cap_clean(w.get("t"))} for w in c.get("w") or []]; ws = [w for w in ws if w["t"]]
+            if ws: cards.append({**c, "w": ws})
+        caps["cards"] = cards; wj(cp, caps); ch = True
+    st = load_studio(work); h = hs_of(st); P_ = h.get("pod") or {}
+    if P_.get("on"):
+        cfg = rj(os.path.join(os.path.dirname(os.path.abspath(work)), "clips.json"), {}) or {}; good = pod_speaker(cfg.get("title") or "")
+        for L in h.get("layers") or []:
+            if L.get("auto") == "name" and (str(L.get("text") or "").split() or [""])[0] in POD_NOTNAME:
+                if good: L["text"] = good; P_["speaker"] = good
+                else: L["off"] = True
+                ch = True; wj(J(work, "studio.json"), st)
+    return ch
 def pod_speaker(title):
     """اسم الضيف من عنوان الحلقة: «… مع ياسر الحزيمي | بودكاست فنجان» ← ياسر الحزيمي."""
-    m = re.search(r"(?:^|\s)(?:مع|with|ft\.?|feat\.?)\s+([^|\-–—:(\[\]#،,]{3,40})", str(title or ""), re.I)
-    return re.sub(r"\s+", " ", m.group(1)).strip() if m else ""
+    t_ = str(title or ""); m = re.search(r"(?:^|\s)(?:مع|with|ft\.?|feat\.?)\s+([^|\-–—:(\[\]#،,]{3,40})", t_, re.I)
+    nm = re.sub(r"\s+", " ", m.group(1)).strip() if m else ""
+    if nm and nm.split()[0] not in POD_NOTNAME and nm not in POD_NOTNAME: return nm
+    # 4.31: «مركزية العلاقة مع الله | ياسر الحزيمي»: «الله» مو اسم، والاسم هو الجزء اللي بعد |
+    for part in re.split(r"\s*[|｜]\s*|\s+[-–—]\s+", t_)[1:]:
+        p_ = part.strip(); w_ = p_.split()
+        if 2 <= len(w_) <= 3 and not re.search(r"بودكاست|podcast|حلقة|episode|فنجان|ثمانية|#|\d", p_, re.I) and w_[0] not in POD_NOTNAME: return p_
+    return ""
 def pod_hot(segs, every=8):
     """كلمة مهمة وحدة لكل 8 كلمات تقريباً (تنلوّن ذهبي). Claude يقدر يغيّرها بعدين."""
     out = []
@@ -4894,7 +5074,8 @@ def clip_make(d, a_, b_, title="", credit="", name=None, style=None):
         except OSError: pass
     segs = []; fix = []
     for s in A.get("segments") or []:
-        ws = [x for x in (s.get("words") or []) if x["start"] >= a_ - 0.05 and x["end"] <= b_ + 0.05]
+        ws = [{**x, "word": cap_clean(x.get("word"))} for x in (s.get("words") or []) if x["start"] >= a_ - 0.05 and x["end"] <= b_ + 0.05]
+        ws = [x for x in ws if x["word"]]
         if not ws: continue
         ws = [{**x, "start": round(max(0, x["start"] - a_), 3), "end": round(max(0, x["end"] - a_), 3)} for x in ws]
         segs.append({"start": ws[0]["start"], "end": ws[-1]["end"], "text": " ".join(x["word"].strip() for x in ws), "words": ws}); fix.append([x["word"].strip() for x in ws])
@@ -5130,6 +5311,8 @@ def prep(work, model=None, lang=None, keep_silence=False, log=print):
         if not os.path.isdir(vf) or not os.listdir(vf):
             vfr_extract(work, lambda *a: None)
         if not os.path.isfile(J(work, "compose.html")): shutil.copy(os.path.join(S, "compose.REFERENCE.html"), J(work, "compose.html"))
+        try: notes_auto(work)   # 4.29: ملاحظات «لازم تعدّلها» (كلمة ما وضحت، كابشن سريع)
+        except Exception: pass
         try:   # 4.28: الطبقات اللي انحطت قبل قص السكتات (اسم المتكلم مثلاً) ما تطول عن المقطع
             tot_ = float((rj(J(work, "caps.json"), {}) or {}).get("total") or 0); st_ = load_studio(work); ch_ = False
             for L_ in hs_of(st_).get("layers") or []:
@@ -5818,14 +6001,16 @@ def vtt_segments(path):
         else:
             w = re.sub(r"<[^>]+>", "", " ".join(body)).split()
             for k, ww in enumerate(w): words.append([cs + (ce - cs) * k / max(1, len(w)), ww])
-    words.sort(key=lambda x: x[0]); W = []
+    words.sort(key=lambda x: x[0]); W = []; brk = False
     for k, (t, w) in enumerate(words):
+        w = html.unescape(w); brk = brk or w.startswith(">>"); w = w.lstrip(">").strip()   # 4.31: «>>» تغيّر المتكلم بترجمة يوتيوب، كانت تطلع «&gt;&gt;» بالكابشن
+        if not w or re.fullmatch(r"\[[^\]]*\]", w): continue
         if W and W[-1]["word"] == w and abs(W[-1]["start"] - t) < 0.05: continue
-        W.append({"word": w, "start": round(t, 3)})
+        W.append({"word": w, "start": round(t, 3), **({"brk": True} if brk else {})}); brk = False
     for k, w in enumerate(W): w["end"] = round(min(W[k + 1]["start"] if k + 1 < len(W) else w["start"] + 0.5, w["start"] + 1.2), 3)
     segs, cur = [], []
     for w in W:
-        if cur and (w["start"] - cur[-1]["end"] > 0.7 or w["start"] - cur[0]["start"] > 10 or re.search(r"[.!?؟]$", cur[-1]["word"])): segs.append(cur); cur = []
+        if cur and (w.get("brk") or w["start"] - cur[-1]["end"] > 0.7 or w["start"] - cur[0]["start"] > 10 or re.search(r"[.!?؟]$", cur[-1]["word"])): segs.append(cur); cur = []
         cur.append(w)
     if cur: segs.append(cur)
     return [{"start": s[0]["start"], "end": s[-1]["end"], "text": " ".join(x["word"] for x in s), "words": s} for s in segs if s]
@@ -6483,6 +6668,18 @@ def hub_busy(port):
         with urllib.request.urlopen("http://127.0.0.1:%d/hub/api/device" % port, timeout=8) as r: d = json.loads(r.read().decode())
         return any(x.get("job") or x.get("agent") for x in d.get("live") or [])
     except Exception: return False
+def deps_dir(): return os.path.join(HOME_CFG, "node_modules")
+def deps_ok():
+    e = find_engine(None)
+    return bool((e and os.path.isdir(os.path.join(e, "node_modules", "puppeteer-core"))) or os.path.isdir(os.path.join(deps_dir(), "puppeteer-core")))
+def deps_keep():
+    """لو التصدير يحتاج puppeteer-core والنسخة الحالية (البلقن) ما فيها: ننسخه مرة من نسخة ثانية على نفس الجهاز (مجلد التطوير أو بلقن أقدم) لـ ~/.hojas-studio. بدون إنترنت."""
+    if os.path.isdir(os.path.join(deps_dir(), "puppeteer-core")): return True
+    e = find_engine(None); cands = ([os.path.join(e, "node_modules")] if e else []) + [os.path.join(os.path.expanduser("~"), "Documents", "hojas-studio", "engine", "node_modules")] + glob.glob(os.path.join(os.path.expanduser("~"), ".claude", "plugins", "cache", "*", "hojas-studio", "*", "engine", "node_modules"))
+    for c in cands:
+        if os.path.isdir(os.path.join(c, "puppeteer-core")):
+            shutil.copytree(c, deps_dir(), dirs_exist_ok=True); return True
+    return False
 def cmd_sync(args):
     """يشتغل مع بداية كل جلسة Claude Code (من البلقن): يسجّل أحدث نسخة، ولو المكتبة شغّالة بنسخة أقدم يعيد تشغيلها من الجديدة."""
     os.makedirs(HOME_CFG, exist_ok=True)
@@ -6497,6 +6694,11 @@ def cmd_sync(args):
             if os.path.isfile(os.path.join(d, UI_FONT)):
                 os.makedirs(fd, exist_ok=True); shutil.copy2(os.path.join(d, UI_FONT), os.path.join(fd, UI_FONT)); break
     find_engine(None) and remember_engine(find_engine(None))
+    try: deps_keep()   # 4.31: مكتبة التحكم بكروم تنحفظ برّا البلقن عشان التصدير ما يوقف بعد التحديث
+    except Exception: pass
+    if changed and cur.get("version"):   # 4.31: نسخة احتياطية من قائمة المشاريع قبل ما تتغيّر النسخة
+        try: shutil.copy2(os.path.join(HOME_CFG, "projects.json"), os.path.join(HOME_CFG, "projects.json.bak-" + str(cur.get("version"))))
+        except Exception: pass
     if "--now" not in args:
         try: claude_learn()   # 4.4.1: المكتبة تعرف وين Claude حتى لو اشتغلت مع ويندوز بدون PATH
         except Exception: pass
@@ -7136,6 +7338,7 @@ def main():
     elif cmd == "text": cmd_text(work, rest)
     elif cmd == "set": cmd_set(work, rest)
     elif cmd == "layer": cmd_layer(work, rest)
+    elif cmd == "kf": cmd_kf(work, rest)   # 4.29
     elif cmd == "hook": cmd_hook(work, rest)
     elif cmd == "check": cmd_check(work)
     elif cmd == "retention":   # 4.5: فحص قبل النشر

@@ -230,6 +230,10 @@ blSound:['الصوت','Sound'], blBeep:['بيب','Beep'], blMute:['صمت','Sile
 blRange:['مقطع صوت','Audio range'], blNone:['ما فيه كلمات مكتومة.','No bleeped words yet.'], blHint:['يلقى الكلمة بكل مكان انقالت فيه (حتى مع و ب ال قبلها وبدون همزات). وتنكتم بالتصدير والترجمة SRT، وتسمعها بالمعاينة.','Finds every time the word is said (with prefixes, ignoring hamza). Applied to the export and SRT, and you hear it in preview.'],
 blWords:['اكتم كلمة','Bleep a word'], blWordHint:['اضغط الكلمة عشان تنكتم بصوت بيب وتطلع نجوم بالكابشن، واضغطها مرة ثانية عشان ترجع.','Tap a word to bleep it and star it in captions. Tap again to undo.'],
 blNotFound:['ما لقيت الكلمة بالكلام','That word isn’t in the speech'],
+/* 4.29 */
+vxfTitle:['الفيديو','The video'], vxfHint:['اسحب النقطة على المعاينة تحرّكه لأي جهة، وعجلة الماوس تكبّره وتصغّره.','Drag the dot on the preview to move it any direction; the mouse wheel zooms it.'], vxfX:['يمين ويسار','Left / right'], vxfY:['فوق وتحت','Up / down'], vxfFit:['ملء الشاشة','Fill'], vxfReset:['رجّعه','Reset'],
+aik_fix:['لازم تعدّلها','Needs your fix'], fixGo:['روح لها','Go to it'], fixDone:['صلّحتها','Fixed'],
+barTitle:['شريط التقدّم','Progress bar'], barOn:['الشريط يبان','Show the bar'], barOnSub:['الخط اللي يمشي مع المقطع','The line that fills as the clip plays'], barH:['السماكة','Thickness'], barW:['العرض','Width'], barInset:['بهامش','With margin'], barFull:['من الطرف للطرف','Edge to edge'],
 /* 4.28: مؤثرات جديدة */
 mg_stretch:['تمطيط الكلمة','Stretch word'], mg_rec:['شاشة تصوير','REC frame'], mg_notif:['إشعارات','Notifications'], mg_search:['خانة تكتب','Typing bar'], mg_apps:['برامج تنشطب','Crossed apps'],
 mg_articles:['الكلمة بمقالات','Word in articles'], mg_mosaic:['صور كثيرة','Photo mosaic'], mg_rewind:['ترجيع','Rewind'], mg_ba:['قبل وبعد','Before / after'],
@@ -293,4 +297,12 @@ askOn:['يعدّل على:','Works on:'], askOnAll:['المقطع كله','The w
 askBack:['رجوع','Back'], askSelHint:['حدد جملة أو طبقة بالتايم لاين عشان يعدّل عليها بس.','Select a sentence or layer on the timeline so Claude edits just that.'],
 toManualQ:['تبي تعدّل بيدك؟','Want to edit it yourself?'], toManualBtn:['افتح المونتاج اليدوي','Open manual edit'],
  blFound:['لقيتها {0} مرة، وانكتم {1} جديد','Found {0} times, {1} newly bleeped'],
+ kfTitle:['حركة بالمفاتيح','Keyframes'], kfCount:['المفاتيح: {0}','{0} keys'], kfOut:['حرّك المؤشر داخل الطبقة عشان تحط مفتاح.','Move the playhead inside the layer to add a key.'],
+ kfAdd:['◆ مفتاح هنا','◆ Key here'], kfOnKey:['◆ واقف على مفتاح','◆ On a key'], kfPrev:['السابق','Previous'], kfNext:['التالي','Next'], kfDel:['احذف المفتاح','Delete key'], kfClear:['امسح المفاتيح','Clear keys'],
+ kfX:['يمين ويسار','Left / right'], kfY:['فوق وتحت','Up / down'], kfEase:['الانتقال','Easing'],
+ kfe_smooth:['ناعم','Smooth'], kfe_linear:['ثابت','Linear'], kfe_back:['ارتداد','Bounce'], kfe_hold:['قفزة','Jump'],
+ kfHint:['حط مفتاح، حرّك المؤشر لثانية ثانية، وغيّر المكان أو الحجم أو الدوران، أو اسحب الطبقة على الفيديو. ينحط مفتاح ثاني لحاله، والطبقة تتحرك بينهم.','Add a key, move the playhead, then change position, size or rotation, or drag the layer on the video. A new key is added and the layer moves between them.'],
+ kfHint2:['أي تغيير هنا أو سحب على الفيديو ينحفظ بمفتاح عند المؤشر. المعينات على الطبقة بالتايم لاين هي المفاتيح، اضغط وحدة تروح لها.','Any change here, or dragging on the video, is saved as a key at the playhead. The diamonds on the layer are its keys; click one to jump to it.'],
+ kfReady:['حركات جاهزة','Presets'], kfp_across:['يعبر الشاشة','Across'], kfp_grow:['يكبر ببطء','Slow grow'], kfp_rise:['يطلع لفوق','Rise'], kfp_spin:['يلف ويوقف','Spin in'], kfp_pulse:['ينبض','Pulse'], kfp_sway:['يتمايل','Sway'],
+ kfAdded:['انحط مفتاح عند {0}','Key added at {0}'], kfCleared:['انمسحت المفاتيح، رجعت الطبقة لمكانها','Keys cleared'], kfNone:['ما فيه مفتاح بهالجهة','No key that way'], kfPresetDone:['انحطت حركة «{0}» على مدة الطبقة','“{0}” applied over the layer'],
 };

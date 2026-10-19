@@ -118,6 +118,10 @@ mark{background:rgba(224,165,58,.4);color:inherit;border-radius:3px}
 .item span{flex:1;min-width:0}
 #stage{display:flex;align-items:center;justify-content:center;min-width:0;min-height:0;position:relative;padding:12px}
 #wrap{position:relative;aspect-ratio:9/16;height:100%;max-width:100%;background:#000;border-radius:10px;overflow:hidden}
+/* 4.29: ملء الشاشة يبقي المقطع بمقاسه 9:16 بالنص بدل ما يمطّه على الشاشة */
+#wrap:fullscreen{border-radius:0!important;box-shadow:none!important}#wrap:fullscreen #frame{inset:0 auto;left:50%;width:auto;height:100%;aspect-ratio:9/16;transform:translateX(-50%)}
+#wrap:-webkit-full-screen #frame{inset:0 auto;left:50%;width:auto;height:100%;aspect-ratio:9/16;transform:translateX(-50%)}
+.tile.tplt{aspect-ratio:3/4}
 #frame{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}
 #safe{position:absolute;inset:0;pointer-events:none;display:none}
 #safe.on{display:block}
@@ -167,6 +171,7 @@ mark{background:rgba(224,165,58,.4);color:inherit;border-radius:3px}
 .clip .hl,.clip .hr{position:absolute;top:0;bottom:0;width:min(8px,22%);cursor:ew-resize}
 .clip.outro{background:#3a3a46;line-height:44px;text-align:center;font-weight:600;z-index:2;cursor:pointer}.clip.outro .hr{width:10px;background:rgba(255,255,255,.28)}.clip.outro.on .hr{background:rgba(255,255,255,.6)}
 .clip .hl{left:0}.clip .hr{right:0}
+.clip .kfd{position:absolute;top:50%;width:7px;height:7px;margin:-4px 0 0 -4px;background:var(--tx);border:1px solid rgba(0,0,0,.55);transform:rotate(45deg);border-radius:1px;cursor:pointer;z-index:2}
 .clip.on .hl,.clip.on .hr{background:rgba(255,255,255,.45)}
 .film{position:absolute;top:0;height:46px;background-size:auto 100%;background-repeat:repeat-x}
 .seam{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#fff;pointer-events:none}
@@ -733,6 +738,20 @@ body.fast #rateBadge{display:block}
 /* 4.23: كم بتقص وأنت تسحب طرف اللقطة */
 #trimBadge{position:fixed;z-index:70;display:none;padding:3px 9px;border-radius:8px;background:var(--y);color:#fff;font-size:12.5px;font-weight:700;direction:ltr;pointer-events:none}
 #tFilm .region .rl,#tFilm .region .rr{cursor:col-resize}
+
+/* ═══════════ 4.31: شاشات أصغر (لابتوب، AnyDesk): ما يطلع شي برا الشاشة، والمعاينة تاخذ مكانها ═══════════ */
+@media (min-width:761px){
+  body:not(.m) #app{grid-template-columns:minmax(0,1fr)}
+  body:not(.m) #top{min-width:0;overflow:hidden}
+  body:not(.m) #top>*{flex-shrink:0}
+  body:not(.m) #top .proj{flex:1 1 auto;min-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
+@media (min-width:761px) and (max-width:1440px){
+  body:not(.m):not(.cw):not([data-mode=claude]) #mid{grid-template-columns:clamp(220px,22vw,300px) minmax(0,1fr) clamp(280px,27vw,360px);gap:10px;padding:10px 10px 0}
+  body.cw:not(.m):not([data-mode=claude]) #mid{grid-template-columns:min(var(--binw,330px),24vw) minmax(0,1fr) min(var(--panw,400px),30vw)!important}
+  body:not(.m) #top .sm:has(>svg)>span,body:not(.m) #top .sm>kbd{display:none}
+  body:not(.m) #top{gap:6px}
+}
 </style>
 </head>
 <body>
