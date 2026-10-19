@@ -50,7 +50,7 @@ header .by{color:var(--mut);font-size:13px;direction:ltr;margin-inline-start:aut
 .sub.stop .dot{background:var(--bad)}.sub small{color:var(--mut);font-size:.92em}
 .stopbox{display:flex;flex-direction:column;gap:6px;margin:0 0 12px;padding:12px 14px;border:1px solid rgba(229,96,78,.35);border-radius:14px}.stopbox b{font-size:14px}.stopbox span{font-size:13.5px;line-height:1.7}.stopbox small{color:var(--mut);font-size:12px;line-height:1.6}
 .feat .dur{font-size:24px;color:var(--mut);font-variant-numeric:tabular-nums;direction:ltr;font-weight:500}
-.lanes{grid-column:1/-1;display:grid;gap:6px;margin-top:6px;direction:ltr}
+.lanes{grid-column:1/-1;display:grid;gap:6px;margin-top:6px;direction:ltr;overflow:hidden}   /* 4.28: شريط أطول من المقطع ما يطلع برا */
 .lane{position:relative;height:9px}
 .lane i{position:absolute;top:0;height:100%;border-radius:5px;min-width:4px}
 .seg{display:flex;background:var(--s1);border:1px solid var(--bd);border-radius:18px;padding:4px;gap:4px;margin:0 0 14px}
@@ -474,7 +474,7 @@ const DESK=()=>innerWidth>=900;
 function batHtml(b){ if(!b||!b.has) return ''; const c=b.pct<20?'var(--bad)':b.pct<50?'var(--warn)':'var(--ok)'; return '<span class="bat"><b><i style="width:'+b.pct+'%;background:'+c+'"></i></b><u></u></span>'; }
 function statusLine(){ if(LOADERR) return '<span class="dot" style="background:var(--bad)"></span><span>'+t('noConn')+'</span>'; if(!DATA&&!DEV) return '<span class="dot off"></span><span>'+t('connecting')+'</span>'; const b=(DATA&&DATA.battery)||(DEV&&DEV.battery)||{}, aw=(DATA&&DATA.awake)||(DEV&&DEV.awake);
   return '<span class="dot'+(aw?'':' warn')+'"></span><span>'+t(aw?'awakeOn':'on')+(b.has?(b.ac?' '+t('charging'):' '+t('onBat')):'')+'</span>'+batHtml(b); }
-function lanes(L){ const C={img:'var(--img)',cap:'var(--cap)',vid:'var(--vid)',sfx:'var(--sfx)'}; return '<div class="lanes">'+['cap','img','vid','sfx'].map(k=>'<div class="lane">'+(L[k]||[]).slice(0,120).map(s=>'<i style="left:'+(s[0]*100)+'%;width:'+Math.max(0.6,(s[1]-s[0])*100)+'%;background:'+C[k]+'"></i>').join('')+'</div>').join('')+'</div>'; }
+function lanes(L){ const C={img:'var(--img)',cap:'var(--cap)',vid:'var(--vid)',sfx:'var(--sfx)'}; return '<div class="lanes">'+['cap','img','vid','sfx'].map(k=>'<div class="lane">'+(L[k]||[]).slice(0,120).map(s=>[Math.max(0,Math.min(1,s[0])),Math.max(0,Math.min(1,s[1]))]).filter(s=>s[1]>s[0]).map(s=>'<i style="left:'+(s[0]*100)+'%;width:'+Math.max(0.6,(s[1]-s[0])*100)+'%;background:'+C[k]+'"></i>').join('')+'</div>').join('')+'</div>'; }
 const thumb=p=>p.thumb?'/hub/thumb/'+p.id+'?f='+encodeURIComponent(p.thumb)+'&v='+p.mt:'';
 function subHtml(p){ return '<div class="sub '+p.state+(p.stopped?' stop':'')+'"><span class="dot"></span><span>'+esc(p.sub)+(p.lastT&&(p.stopped||p.last)?' <small>· '+ago(p.lastT)+'</small>':'')+'</span></div>'; }
 function stageTxt(j){ const k='g_'+(j.stage||'grab'); let s=TX[k]?t(k):j.sub; if(j.stage==='grab'&&j.pct!=null) s+=' '+Math.round(j.pct)+'%'; else if(j.eta&&j.t0){ const left=Math.max(1,Math.round((j.t0+j.eta-Date.now()/1000)/60)); if(j.stage==='transcribe') s+=' · '+t('leftMin',left); } return s; }

@@ -76,7 +76,8 @@ const CHROME=findChrome();
   const vmT=t=>{ if(!VMAP) return t; for(const [s,e,o] of VMAP){ if(t<e) return o+Math.max(0,t-s); } const L=VMAP[VMAP.length-1]; return L[2]+(t-L[0]); };
   if(VMAP) console.log('القص الفوري: المعاينة من الفيديو الحالي ('+VMAP.length+' قطعة)');
   const grab=async(t,file,q)=>{
-    const i=Math.min(NVF,Math.max(1,Math.round(vmT(t)*FPS)+1));
+    const tw=await p.evaluate(t=>window.hsWarp?window.hsWarp(t):t,t);   // 4.28: الترجيع وقبل وبعد يرسمون من لحظة ثانية
+    const i=Math.min(NVF,Math.max(1,Math.round(vmT(tw)*FPS)+1));
     const id=String(i).padStart(5,'0');
     await p.evaluate(s=>window.setFrame(s),fileURL(W+'vfr/'+id+'.jpg'));
     if(BEHIND){                                   // صورة الشخص المقصوص لهالفريم (إن وُجدت)

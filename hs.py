@@ -79,7 +79,7 @@ except Exception: pass
 os.environ.setdefault("PYTHONUTF8", "1"); os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "4.27"
+VERSION = "4.28"
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".hojas-studio")
 SNAP_FILES = ("caps.json", "theme.json", "studio.json", "sfx.json", "cut.json", "takes.json")
 TAG = '<script src="hs-ext.js"></script>'
@@ -3401,7 +3401,7 @@ def cmd_selftest(work=None, engine=None):
         ap_ = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); rf_ = open(os.path.join(find_engine(None) or os.path.join(HERE, "engine"), "scripts", "04_render_frames.js"), encoding="utf-8").read(); cz_ = open(os.path.join(find_engine(None) or os.path.join(HERE, "engine"), "scripts", "03_cut_zoom.py"), encoding="utf-8").read()
         chk("4.23: القص فوري: الكابشن والطبقات تتغيّر على طول، والمعاينة تتخطّى المقصوص من الفيديو الحالي، والتراجع فوري، والفيديو ينبني وقت التصدير",
             a0 == (True, None) and ok1 and vm1 and abs(vm1[-1][1] - 13.9333) < 0.01 and any(abs(s[0] - 6.8333) < 0.01 and abs(s[2] - 8.82) < 0.01 for s in vm1) and ok2 is False
-            and "function vmInv(o)" in ap_ and "Math.round(vm(x)*FPS)+1" in ap_ and "if(r&&r.instant)" in ap_ and "const VMAP=" in rf_ and '".hs","media.json"' in cz_ and "ensure_media(work, S, log)   # 4.23" in open(os.path.abspath(__file__), encoding="utf-8").read())
+            and "function vmInv(o)" in ap_ and "Math.round(vm(w.hsWarp?w.hsWarp(x):x)*FPS)+1" in ap_ and "if(r&&r.instant)" in ap_ and "const VMAP=" in rf_ and '".hs","media.json"' in cz_ and "ensure_media(work, S, log)   # 4.23" in open(os.path.abspath(__file__), encoding="utf-8").read())
     except Exception as e: chk("4.23: القص الفوري", False, str(e)[:240])
     try:   # 4.23: نقل لقطة + قص الطرف بالسحب مباشرة
         td = tempfile.mkdtemp(prefix="hs-move-")
@@ -3464,6 +3464,14 @@ def cmd_selftest(work=None, engine=None):
             pod_speaker("كيف تنجح العلاقات مع ياسر الحزيمي | بودكاست فنجان") == "ياسر الحزيمي" and pod_speaker("حلقة عن المال") == "" and hot_[:1] == ["الوظائف"] and POD_CAP["active"] != POD_CAP["color"]
             and '.get("vpos")' in cz_ and "FZ=" in cz_ and "hotLine" in ex_ and "function tplApply" in ap_ and "function vposSec" in ap_ and "/hs/vpos" in ap_ and "u.focus({preventScroll:true})" in hb_ and "host:false}" in hb_)
     except Exception as e: chk("4.27: شكل البودكاست وقوالب الاسم ومكان الفيديو", False, str(e)[:240])
+    try:   # 4.28: المؤثرات الجديدة (ext.js والاستوديو والتصدير)
+        ex_ = open(os.path.join(HERE, "ext.js"), encoding="utf-8").read(); ap_ = open(os.path.join(HERE, "app.js"), encoding="utf-8").read(); hb_ = open(os.path.join(HERE, "hub.html"), encoding="utf-8").read()
+        rf_ = open(os.path.join(find_engine(None) or "", "scripts", "04_render_frames.js"), encoding="utf-8").read(); i18_ = open(os.path.join(HERE, "i18n.js"), encoding="utf-8").read()
+        K_ = ["stretch", "rec", "notif", "search", "apps", "articles", "mosaic", "rewind", "ba"]
+        chk("4.28: تسع مؤثرات (تمطيط، تصوير، إشعارات، خانة تكتب، برامج تنشطب، مقالات، صور كثيرة، ترجيع، قبل وبعد) وداخل جوال",
+            all(k + ":mg" in ex_.replace(" ", "") or k + ":()=>" in ex_ for k in K_) and "window.hsWarp" in ex_ and "hsWarp" in rf_ and "w.hsWarp" in ap_ and "b.mode==='phone'" in ex_
+            and all("mg_" + k + ":" in i18_ for k in K_) and all("'" + k + "'" in ap_ for k in K_) and "['phone',t('brPhone')]" in ap_ and "overflow:hidden}" in hb_ and "function kashida" in ex_ and "## 6ق)" in open(os.path.join(HERE, "SKILL.md"), encoding="utf-8").read())
+    except Exception as e: chk("4.28: المؤثرات الجديدة", False, str(e)[:240])
     try:   # 4.26: حارس: ولا متغيّر داخل السيرفر يغطّي D (مجلد الكاش) أو P أو S، كان يخلّي الفريمات والصور المصغّرة ما تطلع
         me_ = open(os.path.abspath(__file__), encoding="utf-8").read(); hb_ = open(os.path.join(HERE, "hub.html"), encoding="utf-8").read()
         bad_ = [l.strip()[:60] for l in me_.split(chr(10)) if re.match(r"^ {16,}(D|P|S|base|work) = ", l)]
@@ -5122,6 +5130,12 @@ def prep(work, model=None, lang=None, keep_silence=False, log=print):
         if not os.path.isdir(vf) or not os.listdir(vf):
             vfr_extract(work, lambda *a: None)
         if not os.path.isfile(J(work, "compose.html")): shutil.copy(os.path.join(S, "compose.REFERENCE.html"), J(work, "compose.html"))
+        try:   # 4.28: الطبقات اللي انحطت قبل قص السكتات (اسم المتكلم مثلاً) ما تطول عن المقطع
+            tot_ = float((rj(J(work, "caps.json"), {}) or {}).get("total") or 0); st_ = load_studio(work); ch_ = False
+            for L_ in hs_of(st_).get("layers") or []:
+                if tot_ and float(L_.get("e") or 0) > tot_ + 0.01 and float(L_.get("s") or 0) < tot_: L_["e"] = round(tot_, 3); ch_ = True
+            if ch_: wj(J(work, "studio.json"), st_)
+        except Exception: pass
         st("ready", done=True); projects_remember(work); return True
     except Exception as e:
         st(prep_state(work).get("stage") or "cut", err=str(e)[:400]); raise
